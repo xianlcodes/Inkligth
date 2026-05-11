@@ -1,0 +1,57 @@
+import apiClient from './client'
+
+export interface Literature {
+  id: string
+  user_id: string
+  title: string | null
+  authors: string | null
+  abstract: string | null
+  year: string | null
+  journal: string | null
+  doi: string | null
+  file_path: string
+  raw_text: string | null
+  translated_text: string | null
+  status: 'unread' | 'reading' | 'read'
+  created_at: string
+  updated_at: string
+}
+
+export interface LiteratureListResponse {
+  total: number
+  items: Literature[]
+}
+
+export interface LiteratureQuery {
+  skip?: number
+  limit?: number
+  title?: string
+  status?: string
+  sort_by_year?: string
+}
+
+export function uploadLiterature(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post<Literature>('/literatures', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+export function getLiteratures(params?: LiteratureQuery) {
+  return apiClient.get<LiteratureListResponse>('/literatures', { params })
+}
+
+export function getLiterature(id: string) {
+  return apiClient.get<Literature>(`/literatures/${id}`)
+}
+
+export function updateLiteratureStatus(id: string, status: string) {
+  return apiClient.patch<Literature>(`/literatures/${id}`, { status })
+}
+
+export function getLiteratureFileBlob(id: string) {
+  return apiClient.get(`/literatures/${id}/file`, { responseType: 'blob' })
+}
