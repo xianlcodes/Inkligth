@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["notes"])
 
 
-def _note_to_response(note) -> NoteResponse:
+def _note_to_response(note, literature_title: Optional[str] = None) -> NoteResponse:
     return NoteResponse(
         id=note.id,
         user_id=note.user_id,
         literature_id=note.literature_id,
-        literature_title=getattr(note.literature, 'title', None) if hasattr(note, 'literature') and note.literature else None,
+        literature_title=literature_title,
         page_number=note.page_number,
         rect_coords=note.rect_coords,
         quoted_text=note.quoted_text,
@@ -53,7 +53,7 @@ async def list_notes(
     )
     return NoteListResponse(
         total=total,
-        items=[_note_to_response(item) for item in items],
+        items=[_note_to_response(item, literature_title=item.literature.title if item.literature else None) for item in items],
     )
 
 
@@ -66,7 +66,7 @@ async def get_note(
     note = await NoteService.get_note_by_id(db, note_id, str(current_user.id))
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="笔记不存在")
-    return _note_to_response(note)
+    return _note_to_response(note, literature_title=note.literature.title if note.literature else None)
 
 
 @router.patch("/{note_id}", response_model=NoteResponse)
@@ -80,7 +80,7 @@ async def update_note(
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="笔记不存在")
     updated = await NoteService.update_note(db, note, data)
-    return _note_to_response(updated)
+    return _note_to_response(updated, literature_title=updated.literature.title if updated.literature else None)
 
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -45,6 +45,12 @@ const router = createRouter({
       meta: { title: 'AI 引擎设置', requiresAuth: true }
     },
     {
+      path: '/announcements',
+      name: 'Announcements',
+      component: () => import('@/views/announcements/AnnouncementList.vue'),
+      meta: { title: '系统公告', requiresAuth: true }
+    },
+    {
       path: '/login',
       name: 'Login',
       component: () => import('@/views/auth/Login.vue'),

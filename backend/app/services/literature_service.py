@@ -8,9 +8,15 @@ from xml.etree import ElementTree as ET
 
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 
 from app.models.literature import Literature
+from app.models.ai_analysis import AIAnalysis
+from app.models.note import Note
+from app.models.literature_chunk import LiteratureChunk
+from app.models.reading_record import ReadingRecord
+from app.models.presentation import Presentation
+from app.models.tag import literature_tags
 from app.schemas.literature import LiteratureCreate, LiteratureUpdate
 
 logger = logging.getLogger(__name__)
@@ -588,6 +594,31 @@ class LiteratureService:
         await db.commit()
         await db.refresh(db_literature)
         return db_literature
+
+    @staticmethod
+    async def delete_literature(db: AsyncSession, literature: Literature) -> None:
+        literature_id = literature.id
+        file_path = literature.file_path
+
+        await db.execute(delete(AIAnalysis).where(AIAnalysis.literature_id == literature_id))
+        await db.execute(delete(Note).where(Note.literature_id == literature_id))
+        await db.execute(delete(LiteratureChunk).where(LiteratureChunk.literature_id == literature_id))
+        await db.execute(delete(ReadingRecord).where(ReadingRecord.literature_id == literature_id))
+        await db.execute(
+            Presentation.__table__.update()
+            .where(Presentation.literature_id == literature_id)
+            .values(literature_id=None)
+        )
+        await db.execute(delete(literature_tags).where(literature_tags.c.literature_id == literature_id))
+        await db.delete(literature)
+        await db.commit()
+
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                logger.info(f"Deleted PDF file: {file_path}")
+            except OSError as e:
+                logger.warning(f"Failed to delete PDF file {file_path}: {e}")
 
     @staticmethod
     async def get_literatures_by_user(

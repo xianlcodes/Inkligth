@@ -133,6 +133,19 @@
               <el-icon><Reading /></el-icon>
               阅读
             </el-button>
+            <el-popconfirm
+              title="确定要删除该文献吗？此操作不可恢复"
+              confirm-button-text="删除"
+              cancel-button-text="取消"
+              @confirm="handleDelete(lit.id)"
+              @click.stop
+            >
+              <template #reference>
+                <el-button size="small" type="danger" text @click.stop>
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </template>
+            </el-popconfirm>
             <el-select
               v-model="lit.status"
               size="small"
@@ -180,10 +193,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Upload, Document, Reading, Search, Collection, Checked, Clock, Calendar } from '@element-plus/icons-vue'
+import { Upload, Document, Reading, Search, Collection, Checked, Clock, Calendar, Delete } from '@element-plus/icons-vue'
 import { useLiteratureStore } from '@/stores/literature'
 import { useRouter } from 'vue-router'
 import type { Literature } from '@/api/literature'
+import { deleteLiterature } from '@/api/literature'
 import { getReadingStats, type ReadingStats } from '@/api/stats'
 
 const literatureStore = useLiteratureStore()
@@ -286,6 +300,16 @@ async function handleStatusChange(id: string, status: string) {
     ElMessage.success('状态更新成功')
   } catch {
     ElMessage.error('状态更新失败')
+  }
+}
+
+async function handleDelete(id: string) {
+  try {
+    await deleteLiterature(id)
+    ElMessage.success('删除成功')
+    handleSearch()
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.detail || '删除失败')
   }
 }
 

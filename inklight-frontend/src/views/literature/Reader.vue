@@ -73,8 +73,7 @@
       title="全文翻译进度"
       width="420px"
       :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      :show-close="false"
+      @close="onProgressDialogClose"
     >
       <div class="progress-content">
         <el-progress
@@ -93,6 +92,9 @@
         </el-button>
         <el-button v-else-if="translateProgressStatus === 'exception'" @click="progressDialogVisible = false">
           关闭
+        </el-button>
+        <el-button v-else @click="onProgressDialogClose">
+          后台翻译
         </el-button>
       </template>
     </el-dialog>
@@ -310,6 +312,12 @@
             active-text="逐段模式"
             size="small"
           />
+          <el-divider direction="vertical" />
+          <el-switch
+            v-model="continuousMode"
+            active-text="连续翻译"
+            size="small"
+          />
         </div>
         <div
           ref="pdfViewerRef"
@@ -317,6 +325,8 @@
           v-loading="pdfLoading"
           @wheel="handleWheel"
           @mouseup="handleTextSelection"
+          @click="handlePdfClick"
+          @mousemove="handlePdfMouseMove"
         >
           <VuePdfEmbed
             v-if="pdfBlobUrl"
@@ -327,7 +337,7 @@
             @loading-failed="onPdfError"
           />
 
-          <!-- 浮动菜单 -->
+          <!-- 浮动菜单（文本选中） -->
           <Teleport to="body">
             <div
               v-if="floatingMenu.visible"
@@ -346,6 +356,25 @@
               <button class="floating-menu-btn translate-btn" @click="translateSelection">
                 <el-icon><Document /></el-icon>
                 翻译
+              </button>
+            </div>
+          </Teleport>
+
+          <!-- 高亮操作菜单 -->
+          <Teleport to="body">
+            <div
+              v-if="highlightMenu.visible"
+              class="floating-menu highlight-action-menu"
+              :style="{ left: highlightMenu.x + 'px', top: highlightMenu.y + 'px' }"
+              @click.stop
+            >
+              <button class="floating-menu-btn note-btn" @click="handleEditHighlightNote">
+                <el-icon><Notebook /></el-icon>
+                编辑笔记
+              </button>
+              <button class="floating-menu-btn highlight-btn" @click="handleDeleteHighlight">
+                <el-icon><Delete /></el-icon>
+                删除高亮
               </button>
             </div>
           </Teleport>
@@ -397,14 +426,14 @@
 
               <!-- 逐段翻译视图 -->
               <template v-else>
-                <div v-if="!selectedText && !translationResult" class="empty-hint">
+                <div v-if="translationHistory.length === 0 && !translating" class="empty-hint">
                   <el-empty description="在左侧 PDF 中选中文本即可翻译，或点击「全文翻译」一键翻译全文" :image-size="80" />
                 </div>
                 <div v-else class="translation-panel">
                   <div class="trans-block">
                     <div class="block-label-row">
                       <p class="block-label trans-label">译文</p>
-                      <el-button v-if="translationResult" text size="small" @click="copyTranslation">
+                      <el-button v-if="translationHistory.length > 0" text size="small" @click="copyTranslation">
                         <el-icon><CopyDocument /></el-icon>
                       </el-button>
                     </div>
@@ -412,12 +441,31 @@
                       <el-icon class="is-loading"><Loading /></el-icon>
                       翻译中...
                     </div>
-                    <p v-else class="block-text trans-text">{{ translationResult }}</p>
+                    <div v-if="translating && streamingTarget" class="block-text streaming-preview">
+                      {{ streamingTarget }}
+                    </div>
+                    <div v-if="!translating" class="trans-scroll">
+                      <div
+                        v-for="(item, idx) in translationHistory"
+                        :key="idx"
+                        class="trans-history-item"
+                      >
+                        <p class="block-text trans-text">{{ item.target }}</p>
+                        <el-divider v-if="idx < translationHistory.length - 1" />
+                      </div>
+                    </div>
                   </div>
                   <div class="source-block">
                     <p class="block-label">原文</p>
                     <div class="source-scroll">
-                      <p class="block-text source-text">{{ selectedText }}</p>
+                      <div
+                        v-for="(item, idx) in translationHistory"
+                        :key="idx"
+                        class="source-history-item"
+                      >
+                        <p class="block-text source-text">{{ item.source }}</p>
+                        <el-divider v-if="idx < translationHistory.length - 1" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -473,12 +521,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, DataAnalysis, ChatLineSquare, Plus, CircleCheck, ArrowRight } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
 import { getLiterature, getLiteratureFileBlob, type Literature } from '@/api/literature'
-import { translateText, startFullTranslate, getTaskStatus, type TranslatedParagraph } from '@/api/translate'
+import { translateText, translateTextStream, startFullTranslate, getTaskStatus, type TranslatedParagraph } from '@/api/translate'
 import { createNote, getNotes, deleteNote, type Note, type RectCoords } from '@/api/note'
 import { startAnalyze, getAnalysis, type AnalysisData } from '@/api/analysis'
 import { generateOutline, type OutlineData } from '@/api/outline'
@@ -494,9 +542,16 @@ const pdfLoading = ref(true)
 const scale = ref(1)
 const activeTab = ref('translate')
 const translating = ref(false)
+const streamingTarget = ref('')
 const parsing = ref(false)
-const translationResult = ref('')
-const selectedText = ref('')
+const continuousMode = ref(false)
+const translationHistory = ref<{ source: string; target: string }[]>([])
+
+watch(continuousMode, (newVal) => {
+  if (!newVal) {
+    translationHistory.value = []
+  }
+})
 const paragraphMode = ref(false)
 const pdfViewerRef = ref<HTMLElement | null>(null)
 
@@ -530,6 +585,18 @@ const floatingMenu = ref<{
   quotedText: '',
   pageNumber: '1',
   rectCoords: null,
+})
+
+const highlightMenu = ref<{
+  visible: boolean
+  x: number
+  y: number
+  noteId: string
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  noteId: '',
 })
 
 const notes = ref<Note[]>([])
@@ -616,6 +683,7 @@ onUnmounted(() => {
 
 function onDocumentClick() {
   floatingMenu.value.visible = false
+  highlightMenu.value.visible = false
 }
 
 function detectCurrentPage(): number {
@@ -879,11 +947,14 @@ function openNoteEditor() {
 }
 
 function translateSelection() {
-  const text = floatingMenu.value.quotedText
+  const rawText = floatingMenu.value.quotedText
   floatingMenu.value.visible = false
-  if (text) {
-    selectedText.value = text
-    doTranslate(text)
+  if (rawText) {
+    const mergedText = rawText
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+    doTranslate(mergedText, rawText)
   }
 }
 
@@ -959,6 +1030,109 @@ async function deleteNoteById(noteId: string) {
   }
 }
 
+function handlePdfClick(e: MouseEvent) {
+  setTimeout(() => {
+    const selection = window.getSelection()
+    if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
+      return
+    }
+
+    const pdfViewer = pdfViewerRef.value
+    if (!pdfViewer) return
+
+    const overlays = pdfViewer.querySelectorAll('.pdf-highlight-overlay')
+    for (const overlay of overlays) {
+      const rect = (overlay as HTMLElement).getBoundingClientRect()
+      if (
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom
+      ) {
+        const noteId = (overlay as HTMLElement).dataset.noteId
+        if (noteId) {
+          highlightMenu.value = {
+            visible: true,
+            x: e.clientX,
+            y: e.clientY - 8,
+            noteId,
+          }
+          return
+        }
+      }
+    }
+
+    highlightMenu.value.visible = false
+  }, 150)
+}
+
+function handlePdfMouseMove(e: MouseEvent) {
+  const pdfViewer = pdfViewerRef.value
+  if (!pdfViewer) return
+
+  const overlays = pdfViewer.querySelectorAll('.pdf-highlight-overlay')
+  let hovering = false
+  for (const overlay of overlays) {
+    const rect = (overlay as HTMLElement).getBoundingClientRect()
+    if (
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom
+    ) {
+      hovering = true
+      break
+    }
+  }
+
+  const viewerEl = pdfViewer as HTMLElement
+  if (hovering) {
+    viewerEl.style.cursor = 'pointer'
+  } else {
+    viewerEl.style.cursor = ''
+  }
+}
+
+async function handleDeleteHighlight() {
+  const noteId = highlightMenu.value.noteId
+  if (!noteId) return
+
+  try {
+    await ElMessageBox.confirm('确定要删除此高亮吗？关联的笔记也会一并删除。', '删除高亮', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    highlightMenu.value.visible = false
+    return
+  }
+
+  highlightMenu.value.visible = false
+
+  try {
+    await deleteNote(noteId)
+    const overlay = pdfViewerRef.value?.querySelector(`.pdf-highlight-overlay[data-note-id="${noteId}"]`)
+    if (overlay) overlay.remove()
+    highlights.value = highlights.value.filter(n => n.id !== noteId)
+    notes.value = notes.value.filter(n => n.id !== noteId)
+    ElMessage.success('高亮已删除')
+  } catch (error: any) {
+    const detail = error.response?.data?.detail || '删除高亮失败'
+    ElMessage.error(detail)
+  }
+}
+
+function handleEditHighlightNote() {
+  const noteId = highlightMenu.value.noteId
+  highlightMenu.value.visible = false
+
+  const note = notes.value.find(n => n.id === noteId)
+  if (!note) return
+
+  focusNote(note)
+}
+
 function noteTypeTag(type: string) {
   const map: Record<string, string> = {
     general: '',
@@ -1030,32 +1204,55 @@ function clearHighlights() {
   pdfViewer.querySelectorAll('.pdf-highlight-overlay').forEach(el => el.remove())
 }
 
-async function doTranslate(text: string) {
+async function doTranslate(text: string, sourceText: string) {
   activeTab.value = 'translate'
+  fullTranslationParagraphs.value = []
   translating.value = true
-  translationResult.value = ''
+  streamingTarget.value = ''
+  let accumulated = ''
   try {
-    const resp = await translateText({ text, source_lang: 'en', target_lang: 'zh' })
-    translationResult.value = resp.data.translated_text
+    await translateTextStream(
+      { text, source_lang: 'en', target_lang: 'zh' },
+      (chunk: string) => {
+        accumulated += chunk
+        streamingTarget.value = accumulated
+      },
+      () => {
+        const entry = { source: sourceText, target: accumulated }
+        if (continuousMode.value) {
+          translationHistory.value.push(entry)
+        } else {
+          translationHistory.value = [entry]
+        }
+        translating.value = false
+        streamingTarget.value = ''
+      },
+      (error: string) => {
+        ElMessage.error(error)
+        translating.value = false
+        streamingTarget.value = ''
+      },
+    )
   } catch (error: any) {
-    const detail = error.response?.data?.detail || '翻译失败，请重试'
-    translationResult.value = detail
+    const detail = error?.message || '翻译失败，请重试'
     ElMessage.error(detail)
-  } finally {
     translating.value = false
+    streamingTarget.value = ''
   }
 }
 
 function copyTranslation() {
-  if (!translationResult.value) return
-  navigator.clipboard.writeText(translationResult.value).then(() => {
+  const text = translationHistory.value.map(h => h.target).join('\n\n')
+  if (!text) return
+  navigator.clipboard.writeText(text).then(() => {
     ElMessage.success('译文已复制到剪贴板')
   })
 }
 
 function copySource() {
-  if (!selectedText.value) return
-  navigator.clipboard.writeText(selectedText.value).then(() => {
+  const text = translationHistory.value.map(h => h.source).join('\n\n')
+  if (!text) return
+  navigator.clipboard.writeText(text).then(() => {
     ElMessage.success('原文已复制到剪贴板')
   })
 }
@@ -1145,8 +1342,14 @@ function startPolling(taskId: string) {
         stopPolling()
         fullTranslating.value = false
       }
-    } catch {
-      // 轮询失败不中断
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        stopPolling()
+        fullTranslating.value = false
+        translateProgressStatus.value = 'exception'
+        translateProgressText.value = '登录已过期，请刷新页面后重新登录'
+        return
+      }
     }
   }, 1500)
 }
@@ -1156,6 +1359,13 @@ function stopPolling() {
     clearInterval(pollingTimer)
     pollingTimer = null
   }
+}
+
+function onProgressDialogClose() {
+  stopPolling()
+  progressDialogVisible.value = false
+  fullTranslating.value = false
+  ElMessage.info('翻译任务将在后台继续，翻译完成后可再次点击"全文翻译"查看结果')
 }
 
 function onTranslateComplete() {
@@ -1620,6 +1830,23 @@ function stopResize() {
   max-height: calc(100vh - 200px);
 }
 
+.trans-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.trans-history-item,
+.source-history-item {
+  padding: 4px 0;
+}
+
+.trans-history-item .el-divider,
+.source-history-item .el-divider {
+  margin: 8px 0;
+}
+
 .source-block,
 .trans-block {
   background: var(--bg-primary);
@@ -1710,11 +1937,48 @@ function stopResize() {
   color: var(--text-primary);
 }
 
+.trans-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.trans-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.trans-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.trans-scroll::-webkit-scrollbar-thumb {
+  background: var(--slate-300);
+  border-radius: 2px;
+}
+
+.trans-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--slate-400);
+}
+
 .translating {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--text-muted);
+}
+
+.streaming-preview {
+  max-height: 300px;
+  overflow-y: auto;
+  line-height: 1.8;
+  color: var(--text-primary);
+  background: rgba(66, 184, 131, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .note-panel {

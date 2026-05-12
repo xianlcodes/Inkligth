@@ -37,6 +37,10 @@
           <el-icon><Setting /></el-icon>
           <span>设置</span>
         </el-menu-item>
+        <el-menu-item index="/announcements">
+          <el-icon><Bell /></el-icon>
+          <span>系统公告</span>
+        </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
         <el-button text class="logout-btn" @click="handleLogout">
@@ -110,6 +114,24 @@
         </div>
       </el-header>
 
+      <!-- 公告栏 -->
+      <div v-if="headerAnnouncements.length > 0" class="announcement-bar">
+        <el-alert
+          v-for="ann in headerAnnouncements"
+          :key="ann.id"
+          :title="ann.title"
+          :type="ann.level as any"
+          :closable="true"
+          show-icon
+          class="announcement-alert"
+          @close="dismissAlert(ann.id)"
+        >
+          <template #default>
+            <span class="alert-content">{{ ann.content }}</span>
+          </template>
+        </el-alert>
+      </div>
+
       <!-- 内容区 -->
       <el-main class="app-main">
         <router-view />
@@ -124,6 +146,7 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { searchLiterature, type SearchResultItem } from '@/api/search'
+import { getActiveAnnouncements, type Announcement } from '@/api/announcement'
 import {
   Reading,
   Collection,
@@ -137,6 +160,7 @@ import {
   Loading,
   Close,
   Calendar,
+  Bell,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -149,6 +173,26 @@ const searchResults = ref<SearchResultItem[]>([])
 const searching = ref(false)
 const searchFocused = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+const headerAnnouncements = ref<Announcement[]>([])
+const dismissedIds = ref<Set<string>>(new Set(JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]')))
+
+async function loadHeaderAnnouncements() {
+  try {
+    const resp = await getActiveAnnouncements()
+    headerAnnouncements.value = (resp.data.items || [])
+      .filter(a => !dismissedIds.value.has(a.id))
+      .slice(0, 3)
+  } catch {
+    headerAnnouncements.value = []
+  }
+}
+
+function dismissAlert(id: string) {
+  dismissedIds.value.add(id)
+  localStorage.setItem('dismissedAnnouncements', JSON.stringify([...dismissedIds.value]))
+  headerAnnouncements.value = headerAnnouncements.value.filter(a => a.id !== id)
+}
 
 function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer)
@@ -202,6 +246,8 @@ onMounted(async () => {
       router.push('/login')
     })
   }
+
+  loadHeaderAnnouncements()
 })
 
 function handleLogout() {
@@ -306,6 +352,30 @@ function handleLogout() {
 
 .main-container {
   flex-direction: column;
+}
+
+.announcement-bar {
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.announcement-alert {
+  border-radius: 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.announcement-alert :deep(.el-alert__content) {
+  padding: 6px 0;
+}
+
+.alert-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 600px;
 }
 
 .app-header {

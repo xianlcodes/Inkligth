@@ -55,3 +55,7 @@ export function updateLiteratureStatus(id: string, status: string) {
 export function getLiteratureFileBlob(id: string) {
   return apiClient.get(`/literatures/${id}/file`, { responseType: 'blob' })
 }
+
+export function deleteLiterature(id: string) {
+  return apiClient.delete(`/literatures/${id}`)
+}

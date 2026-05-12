@@ -13,6 +13,7 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: str
+    is_admin: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -23,6 +24,7 @@ class UserResponse(UserBase):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    is_admin: bool = False
 
 
 class TokenPayload(BaseModel):

@@ -74,3 +74,10 @@ backend/doc/
 
 # Frontend
 inklight-frontend/密码.txt
+
+# 敏感信息及临时文件
+服务器地址密码.txt
+favicon.pub/
+羽毛笔.png
+羽毛笔.svg
+icons.svg

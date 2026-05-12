@@ -50,16 +50,16 @@ class NoteService:
         total_result = await db.execute(count_q)
         total = total_result.scalar() or 0
 
-        q = select(Note).where(*conditions).order_by(Note.created_at.desc()).offset(skip).limit(limit)
+        q = select(Note).options(joinedload(Note.literature)).where(*conditions).order_by(Note.created_at.desc()).offset(skip).limit(limit)
         result = await db.execute(q)
-        items = list(result.scalars().all())
+        items = list(result.unique().scalars().all())
         return total, items
 
     @staticmethod
     async def get_note_by_id(db: AsyncSession, note_id: str, user_id: str) -> Optional[Note]:
-        q = select(Note).where(Note.id == note_id, Note.user_id == user_id)
+        q = select(Note).options(joinedload(Note.literature)).where(Note.id == note_id, Note.user_id == user_id)
         result = await db.execute(q)
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     @staticmethod
     async def update_note(db: AsyncSession, note: Note, data: NoteUpdate) -> Note:
@@ -68,7 +68,7 @@ class NoteService:
         if data.note_type is not None:
             note.note_type = data.note_type
         await db.commit()
-        await db.refresh(note)
+        await db.refresh(note, attribute_names=["content", "note_type", "created_at"])
         logger.info(f"Note updated: {note.id}")
         return note
 

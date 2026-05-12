@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,3 +59,39 @@ async def translate_text(
     except Exception as e:
         logger.error(f"Translation failed: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"翻译失败: {str(e)}")
+
+
+@router.post("/text/stream")
+async def translate_text_stream(
+    req: TranslateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    logger.info(f"Stream translate request received, user: {current_user.id}, text length: {len(req.text)}")
+
+    async def event_stream():
+        try:
+            ai_client = await get_user_ai_client(db, current_user.id)
+            model = await get_user_default_model(db, current_user.id)
+            translator = OpenAITranslator(client=ai_client, model=model)
+            async for chunk in translator.translate_stream(
+                text=req.text,
+                source_lang=req.source_lang,
+                target_lang=req.target_lang,
+            ):
+                safe_chunk = chunk.replace("\n", " ").replace("\r", " ")
+                yield f"data: {safe_chunk}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.error(f"Stream translation failed: {e}", exc_info=True)
+            yield f"data: [ERROR] {str(e)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

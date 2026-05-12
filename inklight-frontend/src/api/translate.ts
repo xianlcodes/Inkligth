@@ -45,3 +45,94 @@ export function startFullTranslate(literatureId: string) {
 export function getTaskStatus(taskId: string) {
   return apiClient.get<TaskStatusResponse>(`/tasks/${taskId}`)
 }
+
+export async function translateTextStream(
+  data: TranslateRequest,
+  onChunk: (chunk: string) => void,
+  onDone: () => void,
+  onError: (error: string) => void,
+): Promise<void> {
+  const token = localStorage.getItem('token')
+  let response: Response
+  try {
+    response = await fetch('/api/v1/translate/text/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    })
+  } catch (err: any) {
+    onError(err?.message || '网络请求失败')
+    return
+  }
+
+  if (!response.ok) {
+    let errorText = ''
+    try {
+      errorText = await response.text()
+    } catch {
+      // ignore
+    }
+    onError(errorText || `翻译请求失败 (${response.status})`)
+    return
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    onError('无法读取响应流')
+    return
+  }
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  function processLines(lines: string[]): boolean {
+    for (const line of lines) {
+      if (line === '' || line === '\r') continue
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      if (trimmed.startsWith('data:')) {
+        const data = trimmed.slice(5).trim()
+        if (data === '[DONE]') {
+          onDone()
+          return true
+        }
+        if (data.startsWith('[ERROR]')) {
+          onError(data.slice(7).trim())
+          return true
+        }
+        onChunk(data)
+      }
+    }
+    return false
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      if (processLines(lines)) return
+    }
+
+    const finalChunk = decoder.decode()
+    if (finalChunk) {
+      buffer += finalChunk
+    }
+    if (buffer.trim()) {
+      const remaining = buffer.split('\n')
+      if (processLines(remaining)) return
+    }
+  } catch (err: any) {
+    onError(err?.message || '流读取失败')
+    return
+  }
+
+  onDone()
+}

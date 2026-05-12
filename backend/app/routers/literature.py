@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -117,6 +118,24 @@ async def update_literature(
     return updated
 
 
+class DeleteResponse(BaseModel):
+    message: str
+
+
+@router.delete("/{literature_id}", response_model=DeleteResponse)
+async def delete_literature(
+    literature_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+    await LiteratureService.delete_literature(db, literature)
+    logger.info(f"Literature deleted: {literature_id} by user {current_user.id}")
+    return DeleteResponse(message="文献已删除")
+
+
 @router.get("/{literature_id}/file")
 async def get_literature_file(
     literature_id: str,
@@ -185,6 +204,8 @@ async def start_full_translate(
 async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
     from app.db.database import async_session_factory
 
+    MAX_RETRIES = 3
+
     try:
         async with async_session_factory() as db:
             literature = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
@@ -209,11 +230,34 @@ async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
                     await task_store.update_task(task_id, progress=i + 1)
                     continue
 
-                try:
-                    translated = await translator.translate(text=para, source_lang="en", target_lang="zh")
-                except Exception as e:
-                    logger.error(f"Paragraph {i} translation failed: {e}")
-                    translated = f"[翻译失败: {str(e)}]"
+                translated = None
+                last_error = ""
+                for attempt in range(MAX_RETRIES):
+                    try:
+                        translated = await translator.translate(
+                            text=para,
+                            source_lang="en",
+                            target_lang="zh",
+                            timeout=120.0,
+                        )
+                        break
+                    except Exception as e:
+                        last_error = str(e)
+                        if attempt < MAX_RETRIES - 1:
+                            delay = 2 * (attempt + 1)
+                            logger.warning(
+                                "Paragraph %s translation attempt %s/%s failed: %s, retrying in %ss",
+                                i, attempt + 1, MAX_RETRIES, e, delay,
+                            )
+                            await asyncio.sleep(delay)
+                        else:
+                            logger.error(
+                                "Paragraph %s translation failed after %s retries: %s",
+                                i, MAX_RETRIES, e,
+                            )
+
+                if translated is None:
+                    translated = f"[翻译失败: {last_error}]"
 
                 translated_paragraphs.append({
                     "paragraph_index": i,
