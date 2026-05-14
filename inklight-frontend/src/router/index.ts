@@ -51,6 +51,47 @@ const router = createRouter({
       meta: { title: '系统公告', requiresAuth: true }
     },
     {
+      path: '/admin',
+      component: () => import('@/views/admin/AdminLayout.vue'),
+      meta: { requiresAuth: true, adminOnly: true },
+      children: [
+        {
+          path: '',
+          redirect: '/admin/statistics',
+        },
+        {
+          path: 'statistics',
+          name: 'AdminStatistics',
+          component: () => import('@/views/admin/Statistics.vue'),
+          meta: { title: '数据统计', requiresAuth: true, adminOnly: true },
+        },
+        {
+          path: 'users',
+          name: 'AdminUsers',
+          component: () => import('@/views/admin/UserManagement.vue'),
+          meta: { title: '用户管理', requiresAuth: true, adminOnly: true },
+        },
+        {
+          path: 'notifications',
+          name: 'AdminNotifications',
+          component: () => import('@/views/admin/NotificationManagement.vue'),
+          meta: { title: '通知管理', requiresAuth: true, adminOnly: true },
+        },
+        {
+          path: 'config',
+          name: 'AdminConfig',
+          component: () => import('@/views/admin/SystemConfig.vue'),
+          meta: { title: '系统配置', requiresAuth: true, adminOnly: true },
+        },
+        {
+          path: 'logs',
+          name: 'AdminLogs',
+          component: () => import('@/views/admin/OperationLogs.vue'),
+          meta: { title: '操作日志', requiresAuth: true, adminOnly: true },
+        },
+      ],
+    },
+    {
       path: '/login',
       name: 'Login',
       component: () => import('@/views/auth/Login.vue'),
@@ -65,6 +106,8 @@ router.beforeEach((to, _from, next) => {
 
   if (to.meta.requiresAuth && !isLoggedIn) {
     next('/login')
+  } else if (to.meta.adminOnly && !authStore.user?.is_admin) {
+    next('/')
   } else if (to.meta.guestOnly && isLoggedIn) {
     next('/')
   } else {

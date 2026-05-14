@@ -37,6 +37,15 @@
             >
               {{ levelLabel(item.level) }}
             </el-tag>
+            <el-tag
+              v-if="item.scope === 'site_wide'"
+              type="danger"
+              size="small"
+              effect="plain"
+              class="scope-tag"
+            >
+              全站
+            </el-tag>
             <span class="card-title">{{ item.title }}</span>
           </div>
           <div class="card-header-right">
@@ -99,6 +108,12 @@
             <el-radio value="success">好消息</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="可见范围">
+          <el-radio-group v-model="form.scope">
+            <el-radio value="authenticated">登录后可见</el-radio>
+            <el-radio value="site_wide">全站可见（含登录页）</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="是否置顶">
           <el-switch v-model="form.is_pinned" />
         </el-form-item>
@@ -152,6 +167,7 @@ const defaultForm = () => ({
   title: '',
   content: '',
   level: 'info',
+  scope: 'authenticated',
   is_pinned: false,
   is_published: true,
   expires_at: '',
@@ -195,6 +211,7 @@ function openEditDialog(item: Announcement) {
     title: item.title,
     content: item.content,
     level: item.level,
+    scope: item.scope || 'authenticated',
     is_pinned: item.is_pinned,
     is_published: item.is_published,
     expires_at: item.expires_at || '',

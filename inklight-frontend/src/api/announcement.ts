@@ -5,6 +5,7 @@ export interface Announcement {
   title: string
   content: string
   level: 'info' | 'warning' | 'success'
+  scope: 'site_wide' | 'authenticated'
   is_pinned: boolean
   is_published: boolean
   published_at: string | null
@@ -21,6 +22,7 @@ export interface AnnouncementCreatePayload {
   title: string
   content: string
   level?: string
+  scope?: string
   is_pinned?: boolean
   published_at?: string
   expires_at?: string
@@ -30,10 +32,15 @@ export interface AnnouncementUpdatePayload {
   title?: string
   content?: string
   level?: string
+  scope?: string
   is_pinned?: boolean
   is_published?: boolean
   published_at?: string
   expires_at?: string
+}
+
+export function getPublicAnnouncements() {
+  return apiClient.get<AnnouncementListResponse>('/announcements/public')
 }
 
 export function getActiveAnnouncements() {

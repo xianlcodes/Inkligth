@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload
+from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -41,6 +41,7 @@ app.include_router(stats.router, prefix=settings.API_V1_STR, tags=["stats"])
 app.include_router(presentation.router, prefix=settings.API_V1_STR, tags=["presentations"])
 app.include_router(announcement.router, prefix=settings.API_V1_STR, tags=["announcements"])
 app.include_router(folder.router, prefix=f"{settings.API_V1_STR}/folders", tags=["folders"])
+app.include_router(admin.router, prefix=settings.API_V1_STR, tags=["admin"])
 
 
 @app.get("/")

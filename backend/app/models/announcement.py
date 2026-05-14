@@ -11,6 +11,7 @@ class Announcement(Base):
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     level = Column(String, default="info")
+    scope = Column(String, default="authenticated")  # 'site_wide' or 'authenticated'
     is_pinned = Column(Boolean, default=False)
     is_published = Column(Boolean, default=False)
     published_at = Column(DateTime, nullable=True)

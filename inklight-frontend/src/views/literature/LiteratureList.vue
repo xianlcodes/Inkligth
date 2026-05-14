@@ -342,7 +342,7 @@ import {
 import { useLiteratureStore } from '@/stores/literature'
 import { useRouter } from 'vue-router'
 import type { Literature } from '@/api/literature'
-import { deleteLiterature, updateLiteratureFolder } from '@/api/literature'
+import { deleteLiterature, updateLiteratureFolder, getLiteratures } from '@/api/literature'
 import { getReadingStats, type ReadingStats } from '@/api/stats'
 import { getFolders, createFolder, renameFolder, deleteFolder, type FolderItem } from '@/api/folder'
 import { useUploadQueue } from '@/composables/useUploadQueue'
@@ -393,6 +393,7 @@ const stats = computed(() => [
 onMounted(() => {
   loadFolders()
   handleSearch()
+  loadAllCount()
   fetchReadingStats()
 })
 
@@ -413,6 +414,7 @@ onMounted(() => {
     if (newSuccess.length > 0 || processingItems.length > 0) {
       loadFolders()
       handleSearch()
+      loadAllCount()
       for (const item of newSuccess) {
         notifiedUploadIds.add(item.id)
       }
@@ -512,7 +514,6 @@ async function selectFolder(folderId: string | null) {
 
 async function loadAllCount() {
   try {
-    const { getLiteratures } = await import('@/api/literature')
     const resp = await getLiteratures({ limit: 1, folder_id: undefined })
     allLiteratureCount.value = resp.data.total
   } catch {

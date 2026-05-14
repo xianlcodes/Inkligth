@@ -45,6 +45,10 @@
           <el-icon><Bell /></el-icon>
           <span>系统公告</span>
         </el-menu-item>
+        <el-menu-item v-if="authStore.user?.is_admin" index="/admin/statistics">
+          <el-icon><Setting /></el-icon>
+          <span>后台管理</span>
+        </el-menu-item>
       </el-menu>
       <div class="sidebar-footer">
         <el-button text class="logout-btn" @click="handleLogout">
@@ -152,12 +156,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { searchLiterature, type SearchResultItem } from '@/api/search'
-import { getActiveAnnouncements, type Announcement } from '@/api/announcement'
+import { getActiveAnnouncements, getPublicAnnouncements, type Announcement } from '@/api/announcement'
 import {
   Reading,
   Collection,
@@ -199,7 +203,8 @@ const dismissedIds = ref<Set<string>>(new Set(JSON.parse(localStorage.getItem('d
 
 async function loadHeaderAnnouncements() {
   try {
-    const resp = await getActiveAnnouncements()
+    const fetcher = authStore.isLoggedIn ? getActiveAnnouncements : getPublicAnnouncements
+    const resp = await fetcher()
     headerAnnouncements.value = (resp.data.items || [])
       .filter(a => !dismissedIds.value.has(a.id))
       .slice(0, 3)
@@ -247,7 +252,7 @@ function goToResult(item: SearchResultItem) {
   const query: Record<string, string> = {}
   if (item.page_number) query.page = String(item.page_number)
   if (item.chunk_index !== undefined) query.chunk = String(item.chunk_index)
-  router.push({ path: `/literature/${item.literature_id}`, query })
+  router.push({ path: `/read/${item.literature_id}`, query })
 }
 
 onMounted(async () => {
@@ -267,6 +272,10 @@ onMounted(async () => {
     })
   }
 
+  loadHeaderAnnouncements()
+})
+
+watch(() => authStore.isLoggedIn, () => {
   loadHeaderAnnouncements()
 })
 

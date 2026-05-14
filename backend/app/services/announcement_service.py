@@ -31,6 +31,26 @@ class AnnouncementService:
         return list(result.scalars().all())
 
     @staticmethod
+    async def get_public_announcements(db: AsyncSession) -> list[Announcement]:
+        q = (
+            select(Announcement)
+            .where(
+                Announcement.is_published == True,
+                Announcement.scope == "site_wide",
+                or_(
+                    Announcement.expires_at == None,
+                    Announcement.expires_at > func.now(),
+                ),
+            )
+            .order_by(
+                Announcement.is_pinned.desc(),
+                Announcement.published_at.desc().nulls_last(),
+            )
+        )
+        result = await db.execute(q)
+        return list(result.scalars().all())
+
+    @staticmethod
     async def get_all_announcements(
         db: AsyncSession,
         skip: int = 0,

@@ -30,6 +30,7 @@ def _to_response(a) -> AnnouncementResponse:
         title=a.title,
         content=a.content,
         level=a.level,
+        scope=a.scope,
         is_pinned=a.is_pinned,
         is_published=a.is_published,
         published_at=a.published_at,
@@ -39,9 +40,18 @@ def _to_response(a) -> AnnouncementResponse:
     )
 
 
+@router.get("/public", response_model=AnnouncementListResponse)
+async def get_public_announcements(
+    db: AsyncSession = Depends(get_db),
+):
+    items = await AnnouncementService.get_public_announcements(db)
+    return AnnouncementListResponse(items=[_to_response(a) for a in items])
+
+
 @router.get("/active", response_model=AnnouncementListResponse)
 async def get_active_announcements(
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     items = await AnnouncementService.get_active_announcements(db)
     return AnnouncementListResponse(items=[_to_response(a) for a in items])

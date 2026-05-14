@@ -14,12 +14,25 @@ from app.models.announcement import Announcement  # noqa: F401
 from app.models.folder import Folder  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.translation import Translation  # noqa: F401
+from app.models.admin import OperationLog, SystemConfig, ConfigChangeLog  # noqa: F401
 
 MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false",
     "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS folder_id VARCHAR",
     "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS translated_at TIMESTAMP",
     "ALTER TABLE literatures ALTER COLUMN translated_text TYPE BYTEA USING NULL",
+    "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS scope VARCHAR DEFAULT 'authenticated'",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS category VARCHAR DEFAULT 'general'",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS config_type VARCHAR DEFAULT 'text'",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS label VARCHAR",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS default_value VARCHAR",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS valid_values TEXT",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS example VARCHAR",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS is_critical BOOLEAN DEFAULT false",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS requires_restart BOOLEAN DEFAULT false",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS scope VARCHAR DEFAULT 'admin'",
+    "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0",
+    "ALTER TABLE system_configs ALTER COLUMN description TYPE TEXT",
 ]
 
 
