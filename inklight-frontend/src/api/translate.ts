@@ -42,8 +42,20 @@ export function startFullTranslate(literatureId: string) {
   return apiClient.post<FullTranslateResponse>(`/literatures/${literatureId}/translate/full`)
 }
 
+export function deleteFullTranslation(literatureId: string) {
+  return apiClient.delete<{ message: string }>(`/literatures/${literatureId}/translate/full`)
+}
+
 export function getTaskStatus(taskId: string) {
   return apiClient.get<TaskStatusResponse>(`/tasks/${taskId}`)
+}
+
+export function cancelTask(taskId: string) {
+  return apiClient.post<{ code: number; msg: string; data: Record<string, unknown> }>(`/tasks/${taskId}/cancel`)
+}
+
+export function cleanupExpiredTranslations() {
+  return apiClient.post<{ code: number; msg: string; data: { deleted: number; cutoff: string; ttl_days: number } }>('/tasks/translations/cleanup')
 }
 
 export async function translateTextStream(

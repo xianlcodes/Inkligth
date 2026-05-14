@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import apiClient, { setApiToken, getApiToken } from '@/api/client'
+import apiClient, { setApiToken, setRefreshToken, getApiToken, clearAuth } from '@/api/client'
 
 interface User {
   id: string
@@ -21,12 +21,6 @@ export const useAuthStore = defineStore('auth', () => {
     setApiToken(newToken)
   }
 
-  function clearAuth() {
-    token.value = null
-    user.value = null
-    setApiToken(null)
-  }
-
   async function login(email: string, password: string) {
     const params = new URLSearchParams()
     params.append('username', email)
@@ -34,8 +28,9 @@ export const useAuthStore = defineStore('auth', () => {
     const res = await apiClient.post('/auth/token', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
-    const { access_token, is_admin } = res.data
+    const { access_token, refresh_token, is_admin } = res.data
     setToken(access_token)
+    setRefreshToken(refresh_token)
     user.value = {
       id: '',
       email,
@@ -52,11 +47,13 @@ export const useAuthStore = defineStore('auth', () => {
     return res.data
   }
 
-  async function register(email: string, password: string, username?: string) {
+  async function register(email: string, password: string, captchaId: string, captchaAnswer: string, username?: string) {
     const res = await apiClient.post('/auth/register', {
       email,
       password,
-      username: username || null
+      username: username || null,
+      captcha_id: captchaId,
+      captcha_answer: captchaAnswer,
     })
     return res.data
   }
@@ -67,7 +64,22 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = res.data
   }
 
-  function logout() {
+  async function fetchCaptcha(): Promise<{ captcha_id: string; image_base64: string }> {
+    const res = await apiClient.get('/auth/captcha')
+    return res.data
+  }
+
+  async function logout() {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (refreshToken) {
+        await apiClient.post('/auth/logout', { refresh_token: refreshToken })
+      }
+    } catch {
+      // logout 失败不阻塞本地清理
+    }
+    token.value = null
+    user.value = null
     clearAuth()
   }
 
@@ -76,10 +88,10 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isLoggedIn,
     setToken,
-    clearAuth,
     login,
     register,
     fetchUser,
-    logout
+    fetchCaptcha,
+    logout,
   }
 })

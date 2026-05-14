@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.core.deps import get_current_user
 from app.core.ai_client import get_user_ai_client, get_user_default_model
-from app.core.ai_providers.translator import OpenAITranslator
+from app.core.ai_providers.translator import OpenAITranslator, beautify_translation_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["translate"])
@@ -58,7 +58,7 @@ async def translate_text(
         raise
     except Exception as e:
         logger.error(f"Translation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"翻译失败: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=beautify_translation_error(str(e)))
 
 
 @router.post("/text/stream")
@@ -84,7 +84,7 @@ async def translate_text_stream(
             yield "data: [DONE]\n\n"
         except Exception as e:
             logger.error(f"Stream translation failed: {e}", exc_info=True)
-            yield f"data: [ERROR] {str(e)}\n\n"
+            yield f"data: [ERROR] {beautify_translation_error(str(e))}\n\n"
 
     return StreamingResponse(
         event_stream(),

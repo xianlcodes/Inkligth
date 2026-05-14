@@ -40,6 +40,22 @@
             <el-form-item label="确认密码" prop="confirmPassword">
               <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请再次输入密码" show-password size="large" class="login-input" />
             </el-form-item>
+            <el-form-item label="验证码" prop="captchaAnswer">
+              <div class="captcha-row">
+                <el-input v-model="registerForm.captchaAnswer" placeholder="请输入验证码" size="large" class="captcha-input" />
+                <img
+                  v-if="captchaImageBase64"
+                  :src="'data:image/png;base64,' + captchaImageBase64"
+                  class="captcha-image"
+                  alt="验证码"
+                  title="点击刷新验证码"
+                  @click="refreshCaptcha"
+                />
+                <el-button text size="small" :loading="captchaLoading" class="captcha-refresh-btn" @click="refreshCaptcha">
+                  换一张
+                </el-button>
+              </div>
+            </el-form-item>
             <el-form-item>
               <el-button type="primary" @click="handleRegister" :loading="loading" class="login-btn">
                 注册
@@ -53,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Reading } from '@element-plus/icons-vue'
@@ -65,6 +81,9 @@ const activeTab = ref('login')
 const loading = ref(false)
 const loginFormRef = ref()
 const registerFormRef = ref()
+const captchaLoading = ref(false)
+const captchaId = ref('')
+const captchaImageBase64 = ref('')
 
 const loginForm = reactive({
   email: '',
@@ -75,7 +94,8 @@ const registerForm = reactive({
   email: '',
   username: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  captchaAnswer: '',
 })
 
 const rules = {
@@ -110,7 +130,11 @@ const registerRules = {
       },
       trigger: 'blur'
     }
-  ]
+  ],
+  captchaAnswer: [
+    { required: true, message: '请输入验证码', trigger: 'blur' },
+    { min: 4, message: '验证码长度不正确', trigger: 'blur' },
+  ],
 }
 
 async function handleLogin() {
@@ -133,19 +157,55 @@ async function handleRegister() {
   if (!valid) return
   loading.value = true
   try {
-    await authStore.register(registerForm.email, registerForm.password, registerForm.username || undefined)
+    await authStore.register(
+      registerForm.email,
+      registerForm.password,
+      captchaId.value,
+      registerForm.captchaAnswer,
+      registerForm.username || undefined,
+    )
     ElMessage.success('注册成功，请登录')
     activeTab.value = 'login'
     registerForm.email = ''
     registerForm.username = ''
     registerForm.password = ''
     registerForm.confirmPassword = ''
+    registerForm.captchaAnswer = ''
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '注册失败')
+    const detail = e.response?.data?.detail || '注册失败'
+    ElMessage.error(detail)
+    if (detail.includes('验证码')) {
+      refreshCaptcha()
+    }
   } finally {
     loading.value = false
   }
 }
+
+async function refreshCaptcha() {
+  captchaLoading.value = true
+  try {
+    const data = await authStore.fetchCaptcha()
+    captchaId.value = data.captcha_id
+    captchaImageBase64.value = data.image_base64
+  } catch {
+    ElMessage.error('获取验证码失败，请稍后重试')
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'register') {
+    refreshCaptcha()
+  }
+})
+
+onMounted(() => {
+  if (activeTab.value === 'register') {
+    refreshCaptcha()
+  }
+})
 </script>
 
 <style scoped>
@@ -235,5 +295,38 @@ async function handleRegister() {
   font-size: 16px;
   border-radius: var(--radius-lg);
   margin-top: 4px;
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.captcha-input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.captcha-image {
+  height: 42px;
+  width: 130px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: var(--bg-primary);
+}
+
+.captcha-image:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+}
+
+.captcha-refresh-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 </style>

@@ -14,19 +14,23 @@ from app.schemas.ai_engine import (
     AIEngineListResponse,
     AIEngineTestResult,
 )
-from app.services.ai_engine_service import AIEngineService, mask_api_key
+from app.services.ai_engine_service import AIEngineService, mask_api_key, decrypt_api_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ai-engines"])
 
 
 def _engine_to_response(engine) -> AIEngineResponse:
+    try:
+        decrypted = decrypt_api_key(engine.api_key)
+    except Exception:
+        decrypted = ""
     return AIEngineResponse(
         id=engine.id,
         user_id=engine.user_id,
         provider=engine.provider,
         api_base=engine.api_base,
-        api_key_mask=mask_api_key(engine.api_key),
+        api_key_mask=mask_api_key(decrypted),
         default_model=engine.default_model,
         fallback_models=engine.fallback_models,
         is_default=engine.is_default,

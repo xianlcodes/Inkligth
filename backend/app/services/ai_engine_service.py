@@ -2,10 +2,9 @@ import logging
 import uuid
 from typing import Optional
 
-import httpx
 from cryptography.fernet import Fernet
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, update
 
 from app.models.ai_engine import AIEngine
 from app.schemas.ai_engine import AIEngineCreate, AIEngineUpdate, AIEngineTestResult
@@ -18,9 +17,7 @@ def _get_fernet() -> Fernet:
     import base64
     import hashlib
 
-    secret = getattr(settings, "AI_KEY_SECRET", None)
-    if not secret:
-        secret = settings.SECRET_KEY
+    secret = getattr(settings, "AI_KEY_SECRET", None) or settings.SECRET_KEY
     key = secret.encode("utf-8")
     digest = hashlib.sha256(key).digest()
     url_safe_key = base64.urlsafe_b64encode(digest)
@@ -86,7 +83,7 @@ class AIEngineService:
             engine.provider = data.provider
         if data.api_base is not None:
             engine.api_base = data.api_base
-        if data.api_key is not None:
+        if data.api_key:
             engine.api_key = encrypt_api_key(data.api_key)
         if data.default_model is not None:
             engine.default_model = data.default_model
@@ -111,16 +108,24 @@ class AIEngineService:
 
     @staticmethod
     async def set_default_engine(db: AsyncSession, user_id: str, engine_id: str) -> None:
-        result = await db.execute(
-            select(AIEngine).where(AIEngine.user_id == user_id)
+        """批量更新：将其他引擎设为非默认，目标引擎设为默认"""
+        # 1. 先取消该用户所有引擎的默认状态
+        await db.execute(
+            update(AIEngine)
+            .where(AIEngine.user_id == user_id)
+            .values(is_default=False)
         )
-        engines = result.scalars().all()
-        for eng in engines:
-            eng.is_default = (eng.id == engine_id)
+        # 2. 将目标引擎设为默认
+        await db.execute(
+            update(AIEngine)
+            .where(AIEngine.id == engine_id, AIEngine.user_id == user_id)
+            .values(is_default=True)
+        )
         await db.commit()
 
     @staticmethod
     async def get_default_engine(db: AsyncSession, user_id: str) -> Optional[AIEngine]:
+        """获取默认引擎，若无默认则取第一个（按创建时间升序）"""
         result = await db.execute(
             select(AIEngine)
             .where(AIEngine.user_id == user_id, AIEngine.is_default == True)
@@ -128,37 +133,25 @@ class AIEngineService:
         engine = result.scalar_one_or_none()
         if engine:
             return engine
+        # 降级：取用户最早创建的引擎
         result = await db.execute(
-            select(AIEngine).where(AIEngine.user_id == user_id).order_by(AIEngine.created_at.asc())
+            select(AIEngine)
+            .where(AIEngine.user_id == user_id)
+            .order_by(AIEngine.created_at.asc())
         )
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     @staticmethod
     async def test_engine_connection(engine: AIEngine) -> AIEngineTestResult:
-        try:
-            decrypted_key = decrypt_api_key(engine.api_key)
-            headers = {"Authorization": f"Bearer {decrypted_key}"}
-            url = engine.api_base.rstrip("/") + "/models"
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url, headers=headers)
-            if response.status_code == 200:
-                data = response.json()
-                models = [m.get("id", m.get("name", "")) for m in data.get("data", [])]
-                return AIEngineTestResult(
-                    success=True,
-                    message="连接成功",
-                    models=models,
-                )
-            else:
-                return AIEngineTestResult(
-                    success=False,
-                    message=f"连接失败，状态码: {response.status_code}",
-                    models=[],
-                )
-        except Exception as e:
-            logger.error(f"AI engine test connection failed: {e}")
-            return AIEngineTestResult(
-                success=False,
-                message=f"连接异常: {str(e)}",
-                models=[],
-            )
+        """测试引擎连接，通过 AIProviderRegistry 自动适配不同供应商"""
+        from app.core.ai_providers.provider_registry import AIProviderRegistry
+
+        decrypted_key = decrypt_api_key(engine.api_key)
+        registry = AIProviderRegistry()
+        adapter = registry.get_or_default(engine.provider)
+
+        return await adapter.test_connection(
+            api_base=engine.api_base,
+            api_key=decrypted_key,
+            model=engine.default_model,
+        )

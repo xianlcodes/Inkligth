@@ -12,7 +12,8 @@ class Settings(BaseSettings):
 
     # Security (兼容 .env 中的 JWT_SECRET 或 SECRET_KEY)
     SECRET_KEY: str = "inklight-secret-key-change-in-production"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # 数据库和缓存的完整 URL（可选，如果 .env 中直接提供了则优先使用）
     DATABASE_URL: Optional[str] = None
@@ -39,6 +40,9 @@ class Settings(BaseSettings):
 
     # Embedding model
     EMBEDDING_MODEL_PATH: str = "E:/InkLight/code/backend/all-MiniLM-L6-v2"
+
+    # Translation cache
+    TRANSLATION_CACHE_TTL_DAYS: int = 7
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl, Field
+from pydantic import BaseModel, field_validator, Field
 from datetime import datetime
 from typing import Optional
 
@@ -9,6 +9,14 @@ class AIEngineBase(BaseModel):
     default_model: str = Field(..., min_length=1)
     fallback_models: Optional[str] = None
     is_default: bool = False
+
+    @field_validator('api_base')
+    @classmethod
+    def ensure_api_base_protocol(cls, v: str) -> str:
+        v = v.strip()
+        if not v.startswith(('http://', 'https://')):
+            v = 'https://' + v
+        return v.rstrip('/')
 
 
 class AIEngineCreate(AIEngineBase):

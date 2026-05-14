@@ -9,6 +9,8 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    captcha_id: str
+    captcha_answer: str
 
 
 class UserResponse(UserBase):

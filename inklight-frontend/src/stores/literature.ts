@@ -21,6 +21,7 @@ export const useLiteratureStore = defineStore('literature', () => {
     title: '',
     status: '',
     sort_by_year: '',
+    folder_id: undefined,
   })
 
   async function fetchLiteratures(params?: LiteratureQuery) {
@@ -35,8 +36,8 @@ export const useLiteratureStore = defineStore('literature', () => {
     }
   }
 
-  async function upload(file: File) {
-    const res = await uploadLiterature(file)
+  async function upload(file: File, folderId?: string) {
+    const res = await uploadLiterature(file, folderId)
     literatures.value.unshift(res.data)
     total.value += 1
     return res.data

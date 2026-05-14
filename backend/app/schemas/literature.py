@@ -1,6 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional
+
+from app.utils.compression import decompress_json
 
 
 class LiteratureBase(BaseModel):
@@ -16,10 +18,19 @@ class LiteratureBase(BaseModel):
 class LiteratureCreate(LiteratureBase):
     file_path: str
     raw_text: Optional[str] = None
+    folder_id: Optional[str] = None
 
 
 class LiteratureUpdate(BaseModel):
+    title: Optional[str] = None
+    authors: Optional[str] = None
+    abstract: Optional[str] = None
+    year: Optional[str] = None
+    journal: Optional[str] = None
+    doi: Optional[str] = None
     status: Optional[str] = None
+    folder_id: Optional[str] = None
+    raw_text: Optional[str] = None
 
 
 class LiteratureResponse(LiteratureBase):
@@ -28,8 +39,17 @@ class LiteratureResponse(LiteratureBase):
     file_path: str
     raw_text: Optional[str] = None
     translated_text: Optional[str] = None
+    translated_at: Optional[datetime] = None
+    folder_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator('translated_text', mode='before')
+    @classmethod
+    def decompress_translated_text(cls, v):
+        if isinstance(v, bytes):
+            return decompress_json(v)
+        return v
 
     class Config:
         from_attributes = True

@@ -38,24 +38,30 @@
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑引擎' : '添加引擎'" width="560px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="供应商" prop="provider">
-          <el-select v-model="form.provider" filterable allow-create placeholder="请选择或输入供应商">
+          <el-select v-model="form.provider" filterable allow-create placeholder="请选择或输入供应商" @change="onProviderChange">
             <el-option label="OpenAI" value="openai" />
             <el-option label="DeepSeek" value="deepseek" />
-            <el-option label="Qwen" value="qwen" />
-            <el-option label="GLM" value="glm" />
+            <el-option label="Qwen (通义千问)" value="qwen" />
+            <el-option label="GLM (智谱)" value="glm" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="API 地址" prop="api_base">
-          <el-input v-model="form.api_base" placeholder="https://api.deepseek.com/v1" />
+          <el-input v-model="form.api_base" :placeholder="apiBasePlaceholder" />
         </el-form-item>
 
         <el-form-item label="API Key" prop="api_key">
-          <el-input v-model="form.api_key" type="password" show-password placeholder="sk-..." />
+          <div v-if="isEdit && editingKeyMask" class="key-mask-hint">当前 Key: {{ editingKeyMask }}</div>
+          <el-input
+            v-model="form.api_key"
+            type="password"
+            show-password
+            :placeholder="isEdit ? '留空则不修改' : 'sk-...'"
+          />
         </el-form-item>
 
         <el-form-item label="默认模型" prop="default_model">
-          <el-input v-model="form.default_model" placeholder="deepseek-chat" />
+          <el-input v-model="form.default_model" :placeholder="modelPlaceholder" />
         </el-form-item>
 
         <el-form-item label="备用模型">
@@ -85,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
@@ -95,9 +101,27 @@ const store = useAiEngineStore()
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editingId = ref<string | null>(null)
+const editingKeyMask = ref('')
 const testing = ref(false)
 const saving = ref(false)
 const testResult = ref<AIEngineTestResult | null>(null)
+
+const providerDefaults: Record<string, { apiBase: string; model: string }> = {
+  openai: { apiBase: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+  deepseek: { apiBase: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
+  qwen: { apiBase: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+  glm: { apiBase: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
+}
+
+const apiBasePlaceholder = computed(() => {
+  const key = form.provider?.toLowerCase()
+  return providerDefaults[key]?.apiBase || 'https://api.example.com/v1'
+})
+
+const modelPlaceholder = computed(() => {
+  const key = form.provider?.toLowerCase()
+  return providerDefaults[key]?.model || 'model-name'
+})
 
 const formRef = ref<FormInstance>()
 const form = reactive({
@@ -112,7 +136,16 @@ const form = reactive({
 const rules: FormRules = {
   provider: [{ required: true, message: '请选择供应商', trigger: 'change' }],
   api_base: [{ required: true, message: '请输入 API 地址', trigger: 'blur' }],
-  api_key: [{ required: true, message: '请输入 API Key', trigger: 'blur' }],
+  api_key: [{
+    validator: (_rule, value, callback) => {
+      if (!isEdit.value && !value) {
+        callback(new Error('请输入 API Key'))
+      } else {
+        callback()
+      }
+    },
+    trigger: 'blur',
+  }],
   default_model: [{ required: true, message: '请输入默认模型', trigger: 'blur' }],
 }
 
@@ -130,9 +163,19 @@ function resetForm() {
   testResult.value = null
 }
 
+function onProviderChange(value: string) {
+  const key = value?.toLowerCase()
+  const defaults = providerDefaults[key]
+  if (defaults && !isEdit.value) {
+    form.api_base = defaults.apiBase
+    form.default_model = defaults.model
+  }
+}
+
 function openCreateDialog() {
   isEdit.value = false
   editingId.value = null
+  editingKeyMask.value = ''
   resetForm()
   dialogVisible.value = true
 }
@@ -140,6 +183,7 @@ function openCreateDialog() {
 function openEditDialog(engine: AIEngine) {
   isEdit.value = true
   editingId.value = engine.id
+  editingKeyMask.value = engine.api_key_mask
   form.provider = engine.provider
   form.api_base = engine.api_base
   form.api_key = ''
@@ -195,7 +239,7 @@ async function handleSave() {
       if (form.api_base) updatePayload.api_base = form.api_base
       if (form.api_key) updatePayload.api_key = form.api_key
       if (form.default_model) updatePayload.default_model = form.default_model
-      if (form.fallback_models) updatePayload.fallback_models = form.fallback_models
+      if (form.fallback_models !== undefined) updatePayload.fallback_models = form.fallback_models || null
       if (form.is_default !== undefined) updatePayload.is_default = form.is_default
       await store.editEngine(editingId.value, updatePayload)
       ElMessage.success('更新成功')
@@ -281,5 +325,10 @@ async function handleDelete(engineId: string) {
 .model-tag {
   margin-right: 6px;
   margin-bottom: 6px;
+}
+.key-mask-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
 }
 </style>

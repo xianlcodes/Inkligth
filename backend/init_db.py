@@ -11,9 +11,15 @@ from app.models.literature_chunk import LiteratureChunk  # noqa: F401
 from app.models.reading_record import ReadingRecord  # noqa: F401
 from app.models.presentation import Presentation  # noqa: F401
 from app.models.announcement import Announcement  # noqa: F401
+from app.models.folder import Folder  # noqa: F401
+from app.models.refresh_token import RefreshToken  # noqa: F401
+from app.models.translation import Translation  # noqa: F401
 
 MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false",
+    "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS folder_id VARCHAR",
+    "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS translated_at TIMESTAMP",
+    "ALTER TABLE literatures ALTER COLUMN translated_text TYPE BYTEA USING NULL",
 ]
 
 

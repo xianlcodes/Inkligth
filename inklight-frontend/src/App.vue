@@ -3,14 +3,18 @@
     <!-- 侧边栏 -->
     <el-aside
       v-if="authStore.isLoggedIn"
-      width="240px"
+      :width="sidebarCollapsed ? '0' : '240px'"
       class="app-sidebar"
+      :class="{ collapsed: sidebarCollapsed }"
     >
       <div class="sidebar-header">
         <div class="sidebar-logo">
           <el-icon :size="22" class="logo-icon"><Reading /></el-icon>
         </div>
         <span class="logo-text">ScholarFocus</span>
+        <button class="sidebar-toggle-btn" @click="toggleSidebar" :title="sidebarCollapsed ? '展开菜单' : '折叠菜单'">
+          <el-icon><component :is="sidebarCollapsed ? Expand : Fold" /></el-icon>
+        </button>
       </div>
       <el-menu
         :default-active="route.path"
@@ -49,6 +53,13 @@
         </el-button>
       </div>
     </el-aside>
+
+    <!-- 侧边栏展开按钮（折叠时显示） -->
+    <div v-if="authStore.isLoggedIn && sidebarCollapsed" class="sidebar-expand-fab">
+      <el-button class="expand-fab-btn" @click="toggleSidebar">
+        <el-icon :size="20"><Expand /></el-icon>
+      </el-button>
+    </div>
 
     <!-- 右侧主区域 -->
     <el-container class="main-container">
@@ -161,6 +172,8 @@ import {
   Close,
   Calendar,
   Bell,
+  Fold,
+  Expand,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -173,6 +186,13 @@ const searchResults = ref<SearchResultItem[]>([])
 const searching = ref(false)
 const searchFocused = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+const sidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === '1')
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  localStorage.setItem('sidebar_collapsed', sidebarCollapsed.value ? '1' : '0')
+}
 
 const headerAnnouncements = ref<Announcement[]>([])
 const dismissedIds = ref<Set<string>>(new Set(JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]')))
@@ -250,8 +270,8 @@ onMounted(async () => {
   loadHeaderAnnouncements()
 })
 
-function handleLogout() {
-  authStore.logout()
+async function handleLogout() {
+  await authStore.logout()
   router.push('/login')
 }
 </script>
@@ -268,6 +288,13 @@ function handleLogout() {
   display: flex;
   flex-direction: column;
   position: relative;
+  transition: width 0.3s ease;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.app-sidebar.collapsed {
+  border-right: none;
 }
 
 .sidebar-header {
@@ -276,6 +303,54 @@ function handleLogout() {
   gap: 10px;
   padding: 20px 20px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.sidebar-toggle-btn:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: var(--teal-50);
+}
+
+.sidebar-expand-fab {
+  position: fixed;
+  left: 8px;
+  top: 12px;
+  z-index: 1000;
+}
+
+.expand-fab-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.expand-fab-btn:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
 }
 
 .sidebar-logo {

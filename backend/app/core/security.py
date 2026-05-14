@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from jose import jwt, JWTError
 from passlib.context import CryptContext
+import secrets
 from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -34,3 +35,7 @@ def decode_token(token: str) -> str | None:
         return payload.get("sub")
     except JWTError:
         return None
+
+
+def generate_refresh_token() -> str:
+    return secrets.token_hex(32)

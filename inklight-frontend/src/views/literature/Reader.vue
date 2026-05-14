@@ -56,6 +56,10 @@
           <el-icon><Document /></el-icon>
           全文翻译
         </el-button>
+        <span v-if="backgroundTranslatingId" class="toolbar-translating-hint">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          翻译中 {{ translateProgress }}%
+        </span>
         <el-button :loading="parsing" @click="handleAIParse">
           <el-icon><MagicStick /></el-icon>
           AI 解析
@@ -95,6 +99,14 @@
         </el-button>
         <el-button v-else @click="onProgressDialogClose">
           后台翻译
+        </el-button>
+        <el-button
+          v-if="translateProgressStatus !== 'success' && translateProgressStatus !== 'exception'"
+          type="danger"
+          :loading="cancelling"
+          @click="handleStopTranslation"
+        >
+          停止翻译
         </el-button>
       </template>
     </el-dialog>
@@ -400,11 +412,41 @@
             <div class="tab-content">
               <!-- 全文翻译视图 -->
               <div v-if="fullTranslationParagraphs.length > 0" class="full-translation-panel">
+                <el-alert
+                  v-if="translationAgeInfo?.isExpired"
+                  title="译文已过期"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  class="translation-expiry-warning"
+                >
+                  <template #default>
+                    该译文生成于 {{ translationAgeInfo.ageDays }} 天前，已超过 {{ TRANSLATION_TTL_DAYS }} 天保留期限，建议重新翻译以获取最新结果。
+                  </template>
+                </el-alert>
+                <el-alert
+                  v-else-if="translationAgeInfo?.isNearExpiry"
+                  :title="`译文即将过期（剩余 ${translationAgeInfo.remainingDays} 天）`"
+                  type="info"
+                  :closable="false"
+                  show-icon
+                  class="translation-expiry-warning"
+                />
                 <div class="full-trans-header">
                   <span class="full-trans-title">全文译文</span>
-                  <el-button text size="small" type="primary" @click="clearFullTranslation">
-                    返回逐段翻译
-                  </el-button>
+                  <div class="full-trans-actions">
+                    <el-button text size="small" type="primary" @click="handleRetryFullTranslate">
+                      <el-icon><Refresh /></el-icon>
+                      重新翻译
+                    </el-button>
+                    <el-button text size="small" type="danger" @click="handleDeleteFullTranslation">
+                      <el-icon><Delete /></el-icon>
+                      删除翻译结果
+                    </el-button>
+                    <el-button text size="small" type="primary" @click="clearFullTranslation">
+                      返回逐段翻译
+                    </el-button>
+                  </div>
                 </div>
                 <div class="full-trans-list">
                   <div
@@ -522,11 +564,11 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, DataAnalysis, ChatLineSquare, Plus, CircleCheck, ArrowRight } from '@element-plus/icons-vue'
+import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, DataAnalysis, ChatLineSquare, Plus, CircleCheck, ArrowRight, Refresh } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
 import { getLiterature, getLiteratureFileBlob, type Literature } from '@/api/literature'
-import { translateText, translateTextStream, startFullTranslate, getTaskStatus, type TranslatedParagraph } from '@/api/translate'
+import { translateText, translateTextStream, startFullTranslate, getTaskStatus, deleteFullTranslation, cancelTask, type TranslatedParagraph } from '@/api/translate'
 import { createNote, getNotes, deleteNote, type Note, type RectCoords } from '@/api/note'
 import { startAnalyze, getAnalysis, type AnalysisData } from '@/api/analysis'
 import { generateOutline, type OutlineData } from '@/api/outline'
@@ -570,6 +612,25 @@ const translateProgressText = ref('')
 const fullTranslationParagraphs = ref<TranslatedParagraph[]>([])
 const activeParagraphIndex = ref(-1)
 let pollingTimer: ReturnType<typeof setInterval> | null = null
+let cancelling = false
+let currentTaskId = ''
+const backgroundTranslatingId = ref('')
+
+const TRANSLATION_TTL_DAYS = 7
+
+const translationAgeInfo = computed(() => {
+  if (!literature.value?.translated_at || !literature.value?.translated_text) return null
+  const translatedAt = new Date(literature.value.translated_at)
+  const now = new Date()
+  const ageDays = (now.getTime() - translatedAt.getTime()) / (1000 * 60 * 60 * 24)
+  const remainingDays = TRANSLATION_TTL_DAYS - ageDays
+  return {
+    ageDays: Math.round(ageDays * 10) / 10,
+    remainingDays: Math.round(remainingDays * 10) / 10,
+    isExpired: remainingDays <= 0,
+    isNearExpiry: remainingDays > 0 && remainingDays <= 1,
+  }
+})
 
 const floatingMenu = ref<{
   visible: boolean
@@ -637,6 +698,8 @@ let readingStartTime = 0
 let readingTimer: ReturnType<typeof setInterval> | null = null
 let lastRecordedPage = 0
 const currentPage = ref(1)
+let resizeObserver: ResizeObserver | null = null
+let resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function updateWidths() {
   const readerBody = document.querySelector('.reader-body') as HTMLElement | null
@@ -669,6 +732,18 @@ onMounted(() => {
   document.addEventListener('click', onDocumentClick)
   handleSearchNavigation()
   startReadingTracking()
+
+  const readerBody = document.querySelector('.reader-body') as HTMLElement | null
+  if (readerBody) {
+    resizeObserver = new ResizeObserver(() => {
+      updateWidths()
+      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer)
+      resizeDebounceTimer = setTimeout(() => {
+        fitToWidth()
+      }, 350)
+    })
+    resizeObserver.observe(readerBody)
+  }
 })
 
 onUnmounted(() => {
@@ -679,6 +754,14 @@ onUnmounted(() => {
   stopPolling()
   stopAnalysisPolling()
   stopReadingTracking()
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  if (resizeDebounceTimer) {
+    clearTimeout(resizeDebounceTimer)
+    resizeDebounceTimer = null
+  }
 })
 
 function onDocumentClick() {
@@ -797,7 +880,10 @@ watch(scale, () => {
 
 function onWindowResize() {
   updateWidths()
-  fitToWidth()
+  if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer)
+  resizeDebounceTimer = setTimeout(() => {
+    fitToWidth()
+  }, 350)
 }
 
 async function loadLiterature() {
@@ -845,7 +931,8 @@ function onPdfLoaded(doc: { numPages: number; getPage: (n: number) => Promise<{ 
 function fitToWidth() {
   if (pdfPageWidth === 0) return
   const availableWidth = pdfPanelWidth.value - 48
-  scale.value = availableWidth / pdfPageWidth
+  if (availableWidth <= 0) return
+  scale.value = Math.max(0.1, availableWidth / pdfPageWidth)
 }
 
 function onPdfError() {
@@ -1268,31 +1355,25 @@ function handleAIExplain() {
 async function handleFullTranslate() {
   if (!literature.value) return
 
-  if (literature.value.translated_text) {
-    try {
-      fullTranslationParagraphs.value = JSON.parse(literature.value.translated_text)
-      activeTab.value = 'translate'
-      ElMessage.success('已加载缓存译文')
-      return
-    } catch {
-      fullTranslationParagraphs.value = []
-    }
-  }
-
   if (!literature.value.raw_text) {
     ElMessage.warning('该文献暂无文本内容，无法翻译')
     return
   }
 
   fullTranslating.value = true
+  activeTab.value = 'translate'
   try {
     const resp = await startFullTranslate(literature.value.id)
 
     if (resp.data.task_id === 'cached') {
-      ElMessage.info('已有缓存译文')
       if (literature.value.translated_text) {
-        fullTranslationParagraphs.value = JSON.parse(literature.value.translated_text)
+        try {
+          fullTranslationParagraphs.value = JSON.parse(literature.value.translated_text)
+        } catch {
+          fullTranslationParagraphs.value = []
+        }
       }
+      ElMessage.success('已加载缓存译文')
       fullTranslating.value = false
       return
     }
@@ -1301,7 +1382,22 @@ async function handleFullTranslate() {
     translateProgress.value = 0
     translateProgressStatus.value = ''
     translateProgressText.value = '正在准备翻译...'
+    backgroundTranslatingId.value = ''
 
+    if (resp.data.message === '翻译任务正在进行中，请查看进度') {
+      ElMessage.info('翻译任务正在进行中，已为您关联到当前进度')
+      try {
+        const litResp = await getLiterature(literature.value!.id)
+        literature.value = litResp.data
+        if (literature.value.translated_text) {
+          fullTranslationParagraphs.value = JSON.parse(literature.value.translated_text)
+        }
+      } catch {
+        // 加载已翻译内容失败不阻塞
+      }
+    }
+
+    currentTaskId = resp.data.task_id
     startPolling(resp.data.task_id)
   } catch (error: any) {
     fullTranslating.value = false
@@ -1328,7 +1424,7 @@ function startPolling(taskId: string) {
         translateProgressText.value = `翻译完成！共 ${task.total} 段`
         stopPolling()
         fullTranslating.value = false
-
+        backgroundTranslatingId.value = ''
         if (literature.value) {
           const litResp = await getLiterature(literature.value.id)
           literature.value = litResp.data
@@ -1341,11 +1437,35 @@ function startPolling(taskId: string) {
         translateProgressText.value = task.error || '翻译失败'
         stopPolling()
         fullTranslating.value = false
+        backgroundTranslatingId.value = ''
+      } else if (task.status === 'cancelled') {
+        translateProgressStatus.value = 'exception'
+        translateProgressText.value = '翻译已停止'
+        stopPolling()
+        fullTranslating.value = false
+        backgroundTranslatingId.value = ''
+        if (literature.value && literature.value.translated_text) {
+          fullTranslationParagraphs.value = JSON.parse(literature.value.translated_text)
+        }
+      } else if (task.progress > 0 && literature.value) {
+        try {
+          const litResp = await getLiterature(literature.value.id)
+          literature.value = litResp.data
+          if (literature.value.translated_text) {
+            fullTranslationParagraphs.value = JSON.parse(literature.value.translated_text)
+            if (fullTranslationParagraphs.value.length === 1 && activeTab.value !== 'translate') {
+              activeTab.value = 'translate'
+            }
+          }
+        } catch {
+          // 渐进加载失败不中断
+        }
       }
     } catch (err: any) {
       if (err?.response?.status === 401) {
         stopPolling()
         fullTranslating.value = false
+        backgroundTranslatingId.value = ''
         translateProgressStatus.value = 'exception'
         translateProgressText.value = '登录已过期，请刷新页面后重新登录'
         return
@@ -1362,10 +1482,10 @@ function stopPolling() {
 }
 
 function onProgressDialogClose() {
-  stopPolling()
   progressDialogVisible.value = false
   fullTranslating.value = false
-  ElMessage.info('翻译任务将在后台继续，翻译完成后可再次点击"全文翻译"查看结果')
+  backgroundTranslatingId.value = currentTaskId
+  ElMessage.info('翻译在后台继续，结果将实时更新')
 }
 
 function onTranslateComplete() {
@@ -1373,7 +1493,95 @@ function onTranslateComplete() {
   activeTab.value = 'translate'
 }
 
+async function handleStopTranslation() {
+  try {
+    await ElMessageBox.confirm(
+      '停止后已完成的翻译结果将保留，未完成的段落不会继续翻译。是否确认停止？',
+      '确认停止翻译',
+      { confirmButtonText: '停止', cancelButtonText: '继续翻译', type: 'warning' },
+    )
+  } catch {
+    return
+  }
+
+  cancelling = true
+  try {
+    await cancelTask(currentTaskId)
+    stopPolling()
+    fullTranslating.value = false
+    backgroundTranslatingId.value = ''
+    translateProgressStatus.value = 'exception'
+    translateProgressText.value = '翻译已停止'
+    ElMessage.success('翻译已停止，已完成的部分已保留')
+  } catch {
+    stopPolling()
+    fullTranslating.value = false
+    backgroundTranslatingId.value = ''
+    translateProgressStatus.value = 'exception'
+    translateProgressText.value = '翻译已停止'
+    ElMessage.warning('翻译已停止（部分结果可能未完整保存）')
+  } finally {
+    cancelling = false
+  }
+}
+
 function clearFullTranslation() {
+  fullTranslationParagraphs.value = []
+  activeParagraphIndex.value = -1
+}
+
+async function handleRetryFullTranslate() {
+  if (!literature.value) return
+  try {
+    await ElMessageBox.confirm('重新翻译将覆盖当前译文，是否继续？', '确认重新翻译', {
+      confirmButtonText: '重新翻译',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+
+  stopPolling()
+  backgroundTranslatingId.value = ''
+
+  try {
+    await deleteFullTranslation(literature.value.id)
+    literature.value.translated_text = null
+  } catch {
+    literature.value.translated_text = null
+  }
+
+  fullTranslationParagraphs.value = []
+  await handleFullTranslate()
+}
+
+async function handleDeleteFullTranslation() {
+  if (!literature.value) return
+  try {
+    await ElMessageBox.confirm('删除后将清除所有译文数据，此操作不可恢复。是否继续？', '确认删除译文', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger',
+    })
+  } catch {
+    return
+  }
+
+  stopPolling()
+  fullTranslating.value = false
+  backgroundTranslatingId.value = ''
+
+  try {
+    await deleteFullTranslation(literature.value.id)
+    ElMessage.success('翻译结果已删除')
+  } catch (error: any) {
+    const detail = error.response?.data?.detail || '删除失败'
+    ElMessage.error(detail)
+  }
+
+  literature.value.translated_text = null
   fullTranslationParagraphs.value = []
   activeParagraphIndex.value = -1
 }
@@ -1667,8 +1875,22 @@ function stopResize() {
 
 .toolbar-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.toolbar-translating-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--accent-primary);
+  white-space: nowrap;
+}
+
+.toolbar-translating-hint .el-icon {
+  font-size: 14px;
 }
 
 .toolbar-actions .el-button {
@@ -1803,6 +2025,10 @@ function stopResize() {
   width: 100%;
 }
 
+.side-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
 .tab-content {
   height: 100%;
   overflow: hidden;
@@ -1827,7 +2053,6 @@ function stopResize() {
   width: 100%;
   min-height: 0;
   flex: 1;
-  max-height: calc(100vh - 200px);
 }
 
 .trans-toolbar {
@@ -1861,7 +2086,11 @@ function stopResize() {
 .trans-block {
   background: var(--teal-50);
   border-color: var(--teal-100);
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .source-block {
@@ -1877,7 +2106,6 @@ function stopResize() {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: 300px;
 }
 
 .source-scroll::-webkit-scrollbar {
@@ -1902,6 +2130,7 @@ function stopResize() {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .block-label {
@@ -1910,6 +2139,7 @@ function stopResize() {
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  flex-shrink: 0;
 }
 
 .block-label.trans-label {
@@ -1938,7 +2168,8 @@ function stopResize() {
 }
 
 .trans-scroll {
-  max-height: 300px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -2022,6 +2253,7 @@ function stopResize() {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -2031,6 +2263,20 @@ function stopResize() {
   justify-content: space-between;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.translation-expiry-warning {
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.full-trans-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -2107,10 +2353,6 @@ function stopResize() {
   line-height: 1.5;
   color: var(--text-muted);
   margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .full-trans-empty {

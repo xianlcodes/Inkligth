@@ -4,3 +4,6 @@ from app.models.ai_engine import AIEngine
 from app.models.note import Note
 from app.models.ai_analysis import AIAnalysis
 from app.models.announcement import Announcement
+from app.models.folder import Folder
+from app.models.refresh_token import RefreshToken
+from app.models.translation import Translation

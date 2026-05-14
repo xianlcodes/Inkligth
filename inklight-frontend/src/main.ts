@@ -5,6 +5,9 @@ import './styles/theme.css'
 import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
+import { setRouter } from './api/client'
+
+setRouter(router)
 
 const app = createApp(App)
 app.use(ElementPlus)
