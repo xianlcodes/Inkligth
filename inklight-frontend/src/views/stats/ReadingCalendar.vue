@@ -30,16 +30,20 @@
       <div class="heatmap-legend">
         <span class="legend-label">少</span>
         <div
-          v-for="level in 5"
-          :key="level"
+          v-for="(level, idx) in legendLevels"
+          :key="idx"
           class="legend-cell"
-          :style="{ background: getHeatColor((level - 1) * 25) }"
+          :style="{ background: level.color }"
+          :title="level.label"
         ></div>
         <span class="legend-label">多</span>
       </div>
 
-      <div class="heatmap-grid">
-        <div class="heatmap-months">
+      <div class="heatmap-grid" v-if="weekCount > 0">
+        <div
+          class="heatmap-months"
+          :style="{ gridTemplateColumns: `repeat(${weekCount}, 32px)` }"
+        >
           <span
             v-for="(label, idx) in monthLabels"
             :key="idx"
@@ -49,34 +53,40 @@
         </div>
         <div class="heatmap-body">
           <div class="heatmap-weekdays">
-            <span>一</span>
-            <span>三</span>
-            <span>五</span>
+            <span v-for="wd in weekdays" :key="wd">{{ wd }}</span>
           </div>
-          <div class="heatmap-cells">
-            <div
-              v-for="(day, idx) in calendarDays"
-              :key="idx"
-              class="heatmap-cell"
-              :style="{ background: getHeatColor(day.pages_read) }"
-              :title="`${day.date}: ${day.pages_read} 页`"
-            >
-              <el-tooltip placement="top" :show-after="200">
-                <template #content>
-                  <div class="cell-tooltip">
-                    <div>{{ formatDate(day.date) }}</div>
-                    <div>{{ day.pages_read }} 页 · {{ formatMinutes(day.time_seconds) }} 分钟</div>
-                  </div>
-                </template>
-                <span class="cell-inner"></span>
-              </el-tooltip>
-            </div>
+          <div
+            class="heatmap-cells"
+            :style="{
+              gridTemplateColumns: `repeat(${weekCount}, 32px)`,
+              gridTemplateRows: `repeat(7, 32px)`,
+            }"
+          >
+            <template v-for="(day, idx) in calendarDays" :key="idx">
+              <div
+                v-if="day"
+                class="heatmap-cell"
+                :class="{ 'has-activity': day.pages_read > 0 }"
+                :style="{ background: getHeatColor(day.pages_read) }"
+              >
+                <el-tooltip placement="top" :show-after="200">
+                  <template #content>
+                    <div class="cell-tooltip">
+                      <div>{{ formatDate(day.date) }}</div>
+                      <div>{{ day.pages_read }} 页 · {{ formatMinutes(day.time_seconds) }} 分钟</div>
+                    </div>
+                  </template>
+                  <span class="cell-date">{{ getDayNumber(day.date) }}</span>
+                </el-tooltip>
+              </div>
+              <div v-else class="heatmap-cell heatmap-cell-empty"></div>
+            </template>
           </div>
         </div>
       </div>
     </div>
 
-    <el-empty v-if="!loading && calendarDays.length === 0" description="暂无阅读记录，去阅读文献吧" />
+    <el-empty v-if="!loading && rawDays.length === 0" description="暂无阅读记录，去阅读文献吧" />
   </div>
 </template>
 
@@ -89,45 +99,93 @@ import { getCalendar, type CalendarDay } from '@/api/stats'
 const router = useRouter()
 const loading = ref(true)
 const days = ref(30)
-const calendarDays = ref<CalendarDay[]>([])
+const rawDays = ref<CalendarDay[]>([])
+
+const weekdays = ['一', '二', '三', '四', '五', '六', '日']
+
+const HEAT_COLORS = [
+  { threshold: 0, color: 'var(--bg-tertiary)', label: '0 页' },
+  { threshold: 1, color: '#c6f6d5', label: '1-5 页' },
+  { threshold: 6, color: '#9ae6b4', label: '6-10 页' },
+  { threshold: 11, color: '#68d391', label: '11-20 页' },
+  { threshold: 21, color: '#38a169', label: '21+ 页' },
+]
+
+const legendLevels = computed(() => HEAT_COLORS)
+
+const calendarDays = computed(() => {
+  const data = rawDays.value
+  if (data.length === 0) return []
+
+  const firstDate = new Date(data[0].date)
+  const jsDay = firstDate.getDay()
+  const offset = (jsDay + 6) % 7
+
+  const padded: (CalendarDay | null)[] = []
+  for (let i = 0; i < offset; i++) {
+    padded.push(null)
+  }
+  for (const d of data) {
+    padded.push(d)
+  }
+
+  return padded
+})
+
+const weekCount = computed(() => Math.ceil(calendarDays.value.length / 7))
 
 const summary = computed(() => {
-  if (calendarDays.value.length === 0) return null
-  const totalPages = calendarDays.value.reduce((s, d) => s + d.pages_read, 0)
-  const totalTime = calendarDays.value.reduce((s, d) => s + d.time_seconds, 0)
-  const activeDays = calendarDays.value.filter(d => d.pages_read > 0).length
+  if (rawDays.value.length === 0) return null
+  const totalPages = rawDays.value.reduce((s, d) => s + d.pages_read, 0)
+  const totalTime = rawDays.value.reduce((s, d) => s + d.time_seconds, 0)
+  const activeDays = rawDays.value.filter(d => d.pages_read > 0).length
   return { total_pages: totalPages, total_time: totalTime, active_days: activeDays }
 })
 
 const monthLabels = computed(() => {
-  if (calendarDays.value.length === 0) return []
+  const data = calendarDays.value
+  if (data.length === 0) return []
   const labels: { name: string; col: number; span: number }[] = []
   let currentMonth = ''
-  let startCol = 1
+  let startWeek = 1
+  let spanWeeks = 0
 
-  calendarDays.value.forEach((day, idx) => {
+  data.forEach((day, idx) => {
+    const weekCol = Math.floor(idx / 7) + 1
+    if (!day) {
+      if (currentMonth) spanWeeks = weekCol - startWeek + 1
+      return
+    }
     const d = new Date(day.date)
     const monthName = `${d.getMonth() + 1}月`
     if (monthName !== currentMonth) {
-      if (currentMonth) {
-        labels.push({ name: currentMonth, col: startCol, span: idx - startCol + 1 })
+      if (currentMonth && spanWeeks > 0) {
+        labels.push({ name: currentMonth, col: startWeek, span: spanWeeks })
       }
       currentMonth = monthName
-      startCol = idx + 1
+      startWeek = weekCol
+      spanWeeks = 1
+    } else {
+      spanWeeks = weekCol - startWeek + 1
     }
   })
-  if (currentMonth) {
-    labels.push({ name: currentMonth, col: startCol, span: calendarDays.value.length - startCol + 1 })
+  if (currentMonth && spanWeeks > 0) {
+    labels.push({ name: currentMonth, col: startWeek, span: spanWeeks })
   }
   return labels
 })
 
 function getHeatColor(pages: number): string {
-  if (pages <= 0) return 'var(--bg-tertiary)'
-  if (pages <= 5) return '#c6f6d5'
-  if (pages <= 10) return '#9ae6b4'
-  if (pages <= 20) return '#68d391'
-  return '#38a169'
+  if (pages <= 0) return HEAT_COLORS[0].color
+  if (pages <= 5) return HEAT_COLORS[1].color
+  if (pages <= 10) return HEAT_COLORS[2].color
+  if (pages <= 20) return HEAT_COLORS[3].color
+  return HEAT_COLORS[4].color
+}
+
+function getDayNumber(dateStr: string): string {
+  const d = new Date(dateStr)
+  return String(d.getDate())
 }
 
 function formatDate(dateStr: string): string {
@@ -142,9 +200,9 @@ function formatMinutes(seconds: number): string {
 onMounted(async () => {
   try {
     const resp = await getCalendar(days.value)
-    calendarDays.value = resp.data.data.days
+    rawDays.value = resp.data.data.days
   } catch {
-    calendarDays.value = []
+    rawDays.value = []
   } finally {
     loading.value = false
   }
@@ -239,16 +297,16 @@ onMounted(async () => {
 
 .heatmap-months {
   display: grid;
-  grid-template-columns: repeat(v-bind('calendarDays.length'), 14px);
-  gap: 3px;
+  gap: 4px;
   margin-bottom: 4px;
   padding-left: 32px;
 }
 
 .month-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .heatmap-body {
@@ -259,44 +317,60 @@ onMounted(async () => {
 .heatmap-weekdays {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-top: 2px;
+  gap: 4px;
   width: 26px;
   flex-shrink: 0;
 }
 
 .heatmap-weekdays span {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
-  height: 14px;
-  line-height: 14px;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
 }
 
 .heatmap-cells {
   display: grid;
-  grid-template-columns: repeat(v-bind('calendarDays.length'), 14px);
-  grid-template-rows: repeat(7, 14px);
-  gap: 3px;
+  gap: 4px;
   grid-auto-flow: column;
 }
 
 .heatmap-cell {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: outline 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: outline 0.1s, transform 0.1s;
 }
 
 .heatmap-cell:hover {
   outline: 2px solid var(--text-secondary);
   outline-offset: 1px;
+  transform: scale(1.1);
+  z-index: 1;
 }
 
-.cell-inner {
-  display: block;
-  width: 100%;
-  height: 100%;
+.heatmap-cell-empty {
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.cell-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.heatmap-cell.has-activity .cell-date {
+  color: #fff;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .cell-tooltip {

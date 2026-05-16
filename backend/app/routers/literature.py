@@ -46,7 +46,18 @@ async def upload_literature(
 
     has_space = await StorageService.check_space_available(db, current_user.id, file_size)
     if not has_space:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="存储空间不足")
+        storage = await StorageService.get_storage(db, current_user.id)
+        remaining = storage.total_space - storage.used_space
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INSUFFICIENT_STORAGE",
+                "message": "存储空间不足",
+                "remaining_bytes": remaining,
+                "needed_bytes": file_size,
+                "total_bytes": storage.total_space,
+            },
+        )
 
     file_path = LiteratureService.save_upload_file(file)
     raw_filename = file.filename.rsplit(".", 1)[0]

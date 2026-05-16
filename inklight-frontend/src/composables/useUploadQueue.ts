@@ -1,4 +1,5 @@
 import { ref, computed, reactive } from 'vue'
+import axios from 'axios'
 import {
   initChunkUpload,
   uploadChunk,
@@ -31,6 +32,18 @@ const CHUNK_SIZE = getChunkSize()
 
 function genId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function extractErrorMessage(e: unknown): string {
+  if (axios.isAxiosError(e) && e.response?.data?.detail) {
+    const detail = e.response.data.detail
+    if (typeof detail === 'object' && detail !== null && 'message' in detail) {
+      return String(detail.message)
+    }
+    return String(detail)
+  }
+  if (e instanceof Error) return e.message
+  return '上传失败'
 }
 
 export function useUploadQueue() {
@@ -247,7 +260,7 @@ export function useUploadQueue() {
         item.progress = 100
       }
     } catch (e: unknown) {
-      item.error = e instanceof Error ? e.message : '上传失败'
+      item.error = extractErrorMessage(e)
       item.status = 'failed'
       item.retryCount++
     }

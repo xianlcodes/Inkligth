@@ -16,6 +16,7 @@
     "@tiptap/starter-kit": "^3.23.1",
     "@tiptap/vue-3": "^3.23.1",
     "axios": "^1.16.0",
+    "echarts": "^6.0.0",
     "element-plus": "^2.13.7",
     "pinia": "^3.0.4",
     "vue": "^3.5.32",

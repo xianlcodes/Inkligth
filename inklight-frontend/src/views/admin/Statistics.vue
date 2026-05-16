@@ -67,24 +67,8 @@
             <span class="section-subtitle">用户增长情况统计</span>
           </div>
         </div>
-        <div class="bar-chart" v-if="tsData?.new_users?.length">
-          <div
-            v-for="(point, idx) in tsData.new_users"
-            :key="idx"
-            class="bar-item"
-          >
-            <div class="bar-fill-wrap">
-              <div
-                class="bar-fill bar-fill-user"
-                :style="{ height: barHeight(point.value, maxUserVal) }"
-                :title="`${point.date}: ${point.value}`"
-              ></div>
-            </div>
-            <span class="bar-label">{{ formatDate(point.date) }}</span>
-            <span class="bar-val">{{ point.value }}</span>
-          </div>
-        </div>
-        <el-empty v-else description="暂无数据" :image-size="40" />
+        <div ref="userChartRef" class="echarts-container"></div>
+        <el-empty v-if="!tsData?.new_users?.length" description="暂无数据" :image-size="40" />
       </div>
 
       <div class="chart-divider"></div>
@@ -99,34 +83,19 @@
             <span class="section-subtitle">文献入库情况统计</span>
           </div>
         </div>
-        <div class="bar-chart" v-if="tsData?.new_literatures?.length">
-          <div
-            v-for="(point, idx) in tsData.new_literatures"
-            :key="idx"
-            class="bar-item"
-          >
-            <div class="bar-fill-wrap">
-              <div
-                class="bar-fill bar-fill-lit"
-                :style="{ height: barHeight(point.value, maxLitVal) }"
-                :title="`${point.date}: ${point.value}`"
-              ></div>
-            </div>
-            <span class="bar-label">{{ formatDate(point.date) }}</span>
-            <span class="bar-val">{{ point.value }}</span>
-          </div>
-        </div>
-        <el-empty v-else description="暂无数据" :image-size="40" />
+        <div ref="litChartRef" class="echarts-container"></div>
+        <el-empty v-if="!tsData?.new_literatures?.length" description="暂无数据" :image-size="40" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   UserFilled, Document, Checked, Clock, Notebook, DataAnalysis,
 } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 import { getStatsOverview, getStatsTimeseries, type StatsOverview, type TimeSeriesStats } from '@/api/admin'
 
 const overview = ref<StatsOverview | null>(null)
@@ -134,23 +103,100 @@ const tsData = ref<TimeSeriesStats | null>(null)
 const period = ref('day')
 const chartLoading = ref(false)
 
-const maxUserVal = computed(() => {
-  if (!tsData.value?.new_users?.length) return 1
-  return Math.max(...tsData.value.new_users.map(p => p.value), 1)
-})
-
-const maxLitVal = computed(() => {
-  if (!tsData.value?.new_literatures?.length) return 1
-  return Math.max(...tsData.value.new_literatures.map(p => p.value), 1)
-})
-
-function barHeight(val: number, max: number): string {
-  return Math.max((val / max) * 200, 4) + 'px'
-}
+const userChartRef = ref<HTMLDivElement | null>(null)
+const litChartRef = ref<HTMLDivElement | null>(null)
+let userChart: echarts.ECharts | null = null
+let litChart: echarts.ECharts | null = null
 
 function formatDate(dateStr: string): string {
   if (dateStr.length > 10) return dateStr.slice(5, 10)
   return dateStr
+}
+
+function makeLineOption(data: { date: string; value: number }[], color: string, areaColor: string) {
+  return {
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(30, 41, 59, 0.92)',
+      borderColor: 'transparent',
+      textStyle: { color: '#fff', fontSize: 13 },
+      formatter: (params: { name: string; value: number }[]) => {
+        const p = params[0]
+        return `<div style="font-size:12px;color:#94a3b8;margin-bottom:4px">${p.name}</div>
+          <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px"></span>${p.value}</div>`
+      },
+    },
+    xAxis: {
+      type: 'category',
+      data: data.map(d => formatDate(d.date)),
+      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisTick: { show: false },
+      axisLabel: { color: '#94a3b8', fontSize: 11 },
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+      axisLabel: { color: '#94a3b8', fontSize: 11 },
+    },
+    series: [{
+      type: 'line',
+      data: data.map(d => d.value),
+      smooth: 0.4,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: { color, width: 2.5 },
+      itemStyle: {
+        color,
+        borderColor: '#fff',
+        borderWidth: 2,
+      },
+      areaStyle: {
+        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: areaColor },
+          { offset: 1, color: 'rgba(255,255,255,0)' },
+        ]),
+      },
+    }],
+    dataZoom: [
+      {
+        type: 'inside',
+        start: 0,
+        end: 100,
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: true,
+      },
+    ],
+  }
+}
+
+function initCharts() {
+  if (userChartRef.value) {
+    userChart = echarts.init(userChartRef.value)
+  }
+  if (litChartRef.value) {
+    litChart = echarts.init(litChartRef.value)
+  }
+  renderCharts()
+}
+
+function renderCharts() {
+  if (userChart && tsData.value?.new_users?.length) {
+    userChart.setOption(makeLineOption(tsData.value.new_users, '#0d9488', 'rgba(13,148,136,0.15)'), true)
+  }
+  if (litChart && tsData.value?.new_literatures?.length) {
+    litChart.setOption(makeLineOption(tsData.value.new_literatures, '#6366f1', 'rgba(99,102,241,0.12)'), true)
+  }
+}
+
+function disposeCharts() {
+  userChart?.dispose()
+  litChart?.dispose()
+  userChart = null
+  litChart = null
 }
 
 async function loadOverview() {
@@ -165,13 +211,33 @@ async function loadTimeseries() {
   try {
     const res = await getStatsTimeseries(period.value)
     tsData.value = res.data
+    await nextTick()
+    if (!userChart && !litChart) {
+      initCharts()
+    } else {
+      renderCharts()
+    }
   } catch { /* handled silently */ }
   finally { chartLoading.value = false }
 }
 
+let resizeHandler: (() => void) | null = null
+
 onMounted(() => {
   loadOverview()
   loadTimeseries()
+  resizeHandler = () => {
+    userChart?.resize()
+    litChart?.resize()
+  }
+  window.addEventListener('resize', resizeHandler)
+})
+
+onUnmounted(() => {
+  disposeCharts()
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+  }
 })
 </script>
 
@@ -296,104 +362,14 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
+.echarts-container {
+  width: 100%;
+  height: 280px;
+}
+
 .chart-divider {
   height: 1px;
   background: linear-gradient(to right, transparent, var(--border-color), transparent);
   margin: 0 24px;
-}
-
-.bar-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 240px;
-  overflow-x: auto;
-  padding: 0 4px 8px;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 39px,
-      var(--bg-secondary) 39px,
-      var(--bg-secondary) 40px
-    );
-  border-radius: var(--radius-md);
-  position: relative;
-}
-
-.bar-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 30px;
-  flex: 1;
-  height: 100%;
-  justify-content: flex-end;
-}
-
-.bar-fill-wrap {
-  width: 100%;
-  max-width: 40px;
-  display: flex;
-  justify-content: center;
-  position: relative;
-}
-
-.bar-fill {
-  width: 100%;
-  max-width: 36px;
-  border-radius: 4px 4px 0 0;
-  min-height: 4px;
-  transition: height 0.3s ease, opacity 0.2s ease;
-  cursor: pointer;
-  position: relative;
-}
-
-.bar-fill::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  border-radius: 4px 4px 0 0;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.bar-fill-user {
-  background: linear-gradient(180deg, #14b8a6 0%, #0d9488 40%, #0f766e 100%);
-  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
-}
-
-.bar-fill-user:hover {
-  opacity: 0.85;
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
-}
-
-.bar-fill-lit {
-  background: linear-gradient(180deg, #818cf8 0%, #6366f1 40%, #4f46e5 100%);
-  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
-}
-
-.bar-fill-lit:hover {
-  opacity: 0.85;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
-}
-
-.bar-label {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 60px;
-}
-
-.bar-val {
-  font-size: 10px;
-  color: var(--text-tertiary);
-  font-weight: 600;
-  margin-top: 2px;
 }
 </style>

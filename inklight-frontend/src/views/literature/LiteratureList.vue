@@ -345,6 +345,7 @@ import type { Literature } from '@/api/literature'
 import { deleteLiterature, updateLiteratureFolder, getLiteratures } from '@/api/literature'
 import { getReadingStats, type ReadingStats } from '@/api/stats'
 import { getFolders, createFolder, renameFolder, deleteFolder, type FolderItem } from '@/api/folder'
+import { getStorage } from '@/api/storage'
 import { useUploadQueue } from '@/composables/useUploadQueue'
 import UploadProgressPanel from '@/components/business/UploadProgressPanel.vue'
 
@@ -446,7 +447,7 @@ function triggerFileSelect() {
   fileInputRef.value?.click()
 }
 
-function onFilesSelected(event: Event) {
+async function onFilesSelected(event: Event) {
   const input = event.target as HTMLInputElement
   const files = input.files
   if (!files || files.length === 0) return
@@ -486,6 +487,48 @@ function onFilesSelected(event: Event) {
   const toAdd = validFiles.slice(0, remaining)
   if (toAdd.length < validFiles.length) {
     ElMessage.info(`仅添加前 ${toAdd.length} 个文件（队列最多 ${uploadQueue.MAX_BATCH_SIZE} 个）`)
+  }
+
+  const totalUploadSize = toAdd.reduce((sum, f) => sum + f.size, 0)
+  try {
+    const storage = await getStorage()
+    if (totalUploadSize > storage.remaining_space) {
+      const neededMB = (totalUploadSize / 1024 / 1024).toFixed(2)
+      const remainingMB = (storage.remaining_space / 1024 / 1024).toFixed(2)
+      const shortfallMB = ((totalUploadSize - storage.remaining_space) / 1024 / 1024).toFixed(2)
+      await ElMessageBox.alert(
+        `<div style="line-height:1.8">
+          <p style="margin:0 0 12px;font-size:14px;color:#1e293b">
+            您的存储空间不足，无法完成上传。
+          </p>
+          <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:12px">
+            <p style="margin:0 0 6px;font-size:13px;color:#64748b">待上传文件大小：<b style="color:#0f172a">${neededMB} MB</b></p>
+            <p style="margin:0 0 6px;font-size:13px;color:#64748b">当前剩余空间：<b style="color:#0f172a">${remainingMB} MB</b></p>
+            <p style="margin:0;font-size:13px;color:#64748b">空间缺口：<b style="color:#dc2626">${shortfallMB} MB</b></p>
+          </div>
+          <p style="margin:0 0 8px;font-size:13px;color:#475569;font-weight:600">您可以尝试以下方式解决：</p>
+          <ul style="margin:0;padding:0 0 0 18px;font-size:13px;color:#475569;line-height:2">
+            <li>删除以前上传的文献以释放空间</li>
+            <li>通过完成每日打卡等任务获取额外存储空间</li>
+            <li>通过充值购买更多存储空间（即将上线）</li>
+          </ul>
+        </div>`,
+        '存储空间不足',
+        {
+          confirmButtonText: '我知道了',
+          type: 'warning',
+          dangerouslyUseHTMLString: true,
+          customClass: 'storage-insufficient-dialog',
+        },
+      )
+      input.value = ''
+      return
+    }
+  } catch (err: unknown) {
+    if (err === 'cancel' || (err instanceof Error && err.message === 'cancel')) {
+      input.value = ''
+      return
+    }
   }
 
   uploadQueue.addFiles(toAdd, uploadFolderId.value || undefined)

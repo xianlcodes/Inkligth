@@ -171,6 +171,22 @@ async def merge_chunks(
     raw_filename = meta["filename"].rsplit(".", 1)[0]
     file_size = os.path.getsize(output_path)
 
+    has_space = await StorageService.check_space_available(db, str(current_user.id), file_size)
+    if not has_space:
+        storage = await StorageService.get_storage(db, str(current_user.id))
+        remaining = storage.total_space - storage.used_space
+        os.remove(output_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INSUFFICIENT_STORAGE",
+                "message": "存储空间不足",
+                "remaining_bytes": remaining,
+                "needed_bytes": file_size,
+                "total_bytes": storage.total_space,
+            },
+        )
+
     from app.schemas.literature import LiteratureCreate
 
     literature = await LiteratureService.create_literature(
