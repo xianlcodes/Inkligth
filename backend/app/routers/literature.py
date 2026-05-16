@@ -58,12 +58,12 @@ async def upload_literature(
         literature_in=LiteratureCreate(
             title=raw_filename,
             file_path=file_path,
+            file_size=file_size,
             raw_text=None,
             folder_id=folder_id,
         ),
     )
 
-    literature.file_size = file_size
     await StorageService.add_used_space(db, current_user.id, file_size)
     await db.commit()
 

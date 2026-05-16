@@ -67,9 +67,18 @@ const DARK_SEMANTIC_OVERRIDES: Record<string, string> = {
   '--el-color-black': '#e0e0e0',
 }
 
-export const DEFAULT_THEME_COLOR = '#e8f2e2'
+export const DEFAULT_THEME_COLOR = '#ffffff'
 
 export const themePresets: ThemePreset[] = [
+  {
+    name: '纯净白',
+    label: '纯净白',
+    isDark: false,
+    variables: {
+      ...LIGHT_SEMANTIC_DEFAULTS,
+      '--bg-color': '#ffffff',
+    },
+  },
   {
     name: '极淡绿',
     label: '极淡绿',
@@ -122,15 +131,6 @@ export const themePresets: ThemePreset[] = [
     variables: {
       ...LIGHT_SEMANTIC_DEFAULTS,
       '--bg-color': '#e8e8e8',
-    },
-  },
-  {
-    name: '纯净白',
-    label: '纯净白',
-    isDark: false,
-    variables: {
-      ...LIGHT_SEMANTIC_DEFAULTS,
-      '--bg-color': '#ffffff',
     },
   },
   {

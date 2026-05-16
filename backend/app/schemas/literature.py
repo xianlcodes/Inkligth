@@ -17,6 +17,7 @@ class LiteratureBase(BaseModel):
 
 class LiteratureCreate(LiteratureBase):
     file_path: str
+    file_size: Optional[int] = None
     raw_text: Optional[str] = None
     folder_id: Optional[str] = None
 

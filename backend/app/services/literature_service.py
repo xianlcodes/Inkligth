@@ -903,6 +903,7 @@ class LiteratureService:
             journal=literature_in.journal,
             doi=literature_in.doi,
             file_path=literature_in.file_path,
+            file_size=literature_in.file_size,
             raw_text=literature_in.raw_text,
             status=literature_in.status or "unread",
             folder_id=literature_in.folder_id,

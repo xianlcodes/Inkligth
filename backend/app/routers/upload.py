@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.core.deps import get_current_user
 from app.services.literature_service import LiteratureService
+from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["upload"])
@@ -168,6 +169,7 @@ async def merge_chunks(
     _cleanup_session(session_path)
 
     raw_filename = meta["filename"].rsplit(".", 1)[0]
+    file_size = os.path.getsize(output_path)
 
     from app.schemas.literature import LiteratureCreate
 
@@ -178,10 +180,14 @@ async def merge_chunks(
         literature_in=LiteratureCreate(
             title=raw_filename,
             file_path=output_path,
+            file_size=file_size,
             raw_text=None,
             folder_id=meta.get("folder_id"),
         ),
     )
+
+    await StorageService.add_used_space(db, str(current_user.id), file_size)
+    await db.commit()
 
     import asyncio as _asyncio
     _asyncio.create_task(
