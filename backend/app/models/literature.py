@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, LargeBinary
+from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, LargeBinary, BigInteger
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 from app.models.tag import literature_tags
@@ -26,6 +26,7 @@ class Literature(Base):
     total_pages = Column(Integer, nullable=True)
     last_read_page = Column(Integer, nullable=True)
     total_reading_time_seconds = Column(Integer, default=0)
+    file_size = Column(BigInteger, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

@@ -39,10 +39,22 @@ const router = createRouter({
       meta: { title: '阅读日历', requiresAuth: true }
     },
     {
+      path: '/task/storage',
+      name: 'StorageOverview',
+      component: () => import('@/views/task/StorageOverview.vue'),
+      meta: { title: '个人空间', requiresAuth: true }
+    },
+    {
       path: '/settings/ai',
       name: 'AiEngineSettings',
       component: () => import('@/views/settings/AiEngineSettings.vue'),
       meta: { title: 'AI 引擎设置', requiresAuth: true }
+    },
+    {
+      path: '/settings/profile',
+      name: 'ProfileSettings',
+      component: () => import('@/views/settings/ProfileSettings.vue'),
+      meta: { title: '个人设置', requiresAuth: true }
     },
     {
       path: '/announcements',
@@ -96,6 +108,24 @@ const router = createRouter({
       name: 'Login',
       component: () => import('@/views/auth/Login.vue'),
       meta: { title: '登录', guestOnly: true }
+    },
+    {
+      path: '/forgot-password',
+      name: 'ForgotPassword',
+      component: () => import('@/views/auth/ForgotPassword.vue'),
+      meta: { title: '忘记密码' }
+    },
+    {
+      path: '/terms-of-service',
+      name: 'TermsOfService',
+      component: () => import('@/views/legal/TermsOfService.vue'),
+      meta: { title: '用户服务协议' }
+    },
+    {
+      path: '/privacy-policy',
+      name: 'PrivacyPolicy',
+      component: () => import('@/views/legal/PrivacyPolicy.vue'),
+      meta: { title: '隐私政策' }
     }
   ]
 })

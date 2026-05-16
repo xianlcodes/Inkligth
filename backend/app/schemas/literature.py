@@ -37,6 +37,7 @@ class LiteratureResponse(LiteratureBase):
     id: str
     user_id: str
     file_path: str
+    file_size: Optional[int] = None
     raw_text: Optional[str] = None
     translated_text: Optional[str] = None
     translated_at: Optional[datetime] = None

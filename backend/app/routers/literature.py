@@ -19,6 +19,7 @@ from app.services.literature_service import LiteratureService
 from app.services.analysis_service import AnalysisService
 from app.services.search_service import SearchService
 from app.services.translation_service import TranslationService
+from app.services.storage_service import StorageService
 from app.schemas.literature import LiteratureResponse, LiteratureCreate, LiteratureUpdate, LiteratureListResponse
 from app.schemas.analysis import AnalysisResponse, AnalyzeResponse
 from app.utils.task_store import task_store, TaskStatus
@@ -39,6 +40,14 @@ async def upload_literature(
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are allowed")
 
+    file_content = await file.read()
+    file_size = len(file_content)
+    await file.seek(0)
+
+    has_space = await StorageService.check_space_available(db, current_user.id, file_size)
+    if not has_space:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="存储空间不足")
+
     file_path = LiteratureService.save_upload_file(file)
     raw_filename = file.filename.rsplit(".", 1)[0]
 
@@ -53,6 +62,10 @@ async def upload_literature(
             folder_id=folder_id,
         ),
     )
+
+    literature.file_size = file_size
+    await StorageService.add_used_space(db, current_user.id, file_size)
+    await db.commit()
 
     if background_tasks:
         background_tasks.add_task(
@@ -123,7 +136,10 @@ async def delete_literature(
     literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
     if not literature:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+    file_size = literature.file_size or 0
     await LiteratureService.delete_literature(db, literature)
+    if file_size > 0:
+        await StorageService.release_used_space(db, current_user.id, file_size)
     logger.info(f"Literature deleted: {literature_id} by user {current_user.id}")
     return DeleteResponse(message="文献已删除")
 

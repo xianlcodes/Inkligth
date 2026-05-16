@@ -15,6 +15,11 @@ from app.models.folder import Folder  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.translation import Translation  # noqa: F401
 from app.models.admin import OperationLog, SystemConfig, ConfigChangeLog  # noqa: F401
+from app.models.password_reset import PasswordResetToken  # noqa: F401
+from app.models.email_verification import EmailVerificationToken  # noqa: F401
+from app.models.user_storage import UserStorage  # noqa: F401
+from app.models.check_in import CheckIn  # noqa: F401
+from app.models.invitation import Invitation  # noqa: F401
 
 MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false",
@@ -33,6 +38,12 @@ MIGRATIONS = [
     "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS scope VARCHAR DEFAULT 'admin'",
     "ALTER TABLE system_configs ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0",
     "ALTER TABLE system_configs ALTER COLUMN description TYPE TEXT",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_style VARCHAR",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS agreed_terms_at TIMESTAMP",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_color VARCHAR DEFAULT '#e8f2e2'",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_invite_code ON users (invite_code) WHERE invite_code IS NOT NULL",
+    "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS file_size BIGINT",
 ]
 
 

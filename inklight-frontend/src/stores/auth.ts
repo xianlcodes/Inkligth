@@ -7,6 +7,8 @@ interface User {
   email: string
   username: string | null
   is_admin: boolean
+  avatar_style: string | null
+  theme_color: string | null
   created_at: string
   updated_at: string
 }
@@ -47,15 +49,23 @@ export const useAuthStore = defineStore('auth', () => {
     return res.data
   }
 
-  async function register(email: string, password: string, captchaId: string, captchaAnswer: string, username?: string) {
+  async function register(email: string, password: string, captchaId: string, captchaAnswer: string, emailVerificationCode: string, username?: string, agreedToTerms?: boolean, inviteCode?: string) {
     const res = await apiClient.post('/auth/register', {
       email,
       password,
       username: username || null,
       captcha_id: captchaId,
       captcha_answer: captchaAnswer,
+      email_verification_code: emailVerificationCode,
+      agreed_to_terms: agreedToTerms === true,
+      invite_code: inviteCode || null,
     })
     return res.data
+  }
+
+  async function sendVerificationCode(email: string): Promise<string> {
+    const res = await apiClient.post('/auth/send-verification-code', { email })
+    return res.data.message
   }
 
   async function fetchUser() {
@@ -83,15 +93,30 @@ export const useAuthStore = defineStore('auth', () => {
     clearAuth()
   }
 
+  async function updateProfile(data: { username?: string; avatar_style?: string; theme_color?: string }) {
+    const res = await apiClient.patch('/users/me', data)
+    user.value = res.data
+    return res.data
+  }
+
+  const avatarUrl = computed(() => {
+    const style = user.value?.avatar_style || 'initials'
+    const seed = user.value?.username || user.value?.email || 'user'
+    return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}`
+  })
+
   return {
     token,
     user,
     isLoggedIn,
+    avatarUrl,
     setToken,
     login,
     register,
     fetchUser,
     fetchCaptcha,
+    sendVerificationCode,
+    updateProfile,
     logout,
   }
 })

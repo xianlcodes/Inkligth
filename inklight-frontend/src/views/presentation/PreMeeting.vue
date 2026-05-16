@@ -197,8 +197,8 @@ async function fetchPresentations() {
 
 async function fetchAllLiterature() {
   try {
-    const resp = await getLiteratures({ limit: 200 })
-    literatureOptions.value = resp.data.data.items
+    const resp = await getLiteratures({ limit: 100 })
+    literatureOptions.value = resp.data.items
   } catch {
     literatureOptions.value = []
   }

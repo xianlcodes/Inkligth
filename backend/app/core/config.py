@@ -1,8 +1,11 @@
 from typing import Optional
-from pydantic_settings import BaseSettings
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="allow")
+
     PROJECT_NAME: str = "InkLight"
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
@@ -10,10 +13,17 @@ class Settings(BaseSettings):
     # CORS
     BACKEND_CORS_ORIGINS: list[str] = ["*"]
 
-    # Security (兼容 .env 中的 JWT_SECRET 或 SECRET_KEY)
+    # Security
     SECRET_KEY: str = "inklight-secret-key-change-in-production"
+    JWT_SECRET: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    @model_validator(mode="after")
+    def _apply_jwt_secret(self) -> "Settings":
+        if self.JWT_SECRET and self.SECRET_KEY == "inklight-secret-key-change-in-production":
+            self.SECRET_KEY = self.JWT_SECRET
+        return self
 
     # 数据库和缓存的完整 URL（可选，如果 .env 中直接提供了则优先使用）
     DATABASE_URL: Optional[str] = None
@@ -38,22 +48,17 @@ class Settings(BaseSettings):
     DEFAULT_AI_MODEL: str = "gpt-4o-mini"
     AI_KEY_SECRET: str = ""
 
+    # Brevo email service
+    BREVO_API_KEY: str = ""
+    BREVO_SENDER_EMAIL: str = ""
+    BREVO_SENDER_NAME: str = "InkLight"
+    DEV_MODE: bool = False
+
     # Embedding model
     EMBEDDING_MODEL_PATH: str = "E:/InkLight/code/backend/all-MiniLM-L6-v2"
 
     # Translation cache
     TRANSLATION_CACHE_TTL_DAYS: int = 7
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # 如果 .env 中没有提供 SECRET_KEY，但提供了 JWT_SECRET，则使用 JWT_SECRET
-        # 注意：由于 pydantic 禁止额外字段，我们无法直接接收 JWT_SECRET。
-        # 所以建议在 .env 中统一使用 SECRET_KEY。如果您的 .env 仍写着 JWT_SECRET，请改为 SECRET_KEY。
-        # 此处保留兼容逻辑：从环境变量获取 JWT_SECRET 并赋值给 SECRET_KEY。
-        import os
-        jwt_secret = os.getenv("JWT_SECRET")
-        if jwt_secret and self.SECRET_KEY == "inklight-secret-key-change-in-production":
-            self.SECRET_KEY = jwt_secret
 
     @property
     def DATABASE_URL_FINAL(self) -> str:
@@ -71,12 +76,6 @@ class Settings(BaseSettings):
         if self.REDIS_URL:
             return self.REDIS_URL
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        # 允许额外的环境变量，例如 JWT_SECRET
-        extra = "allow"
 
 
 settings = Settings()

@@ -54,7 +54,7 @@ const router = useRouter()
 
 <style scoped>
 .admin-container {
-  height: 100vh;
+  height: 100%;
   background: var(--bg-secondary);
 }
 

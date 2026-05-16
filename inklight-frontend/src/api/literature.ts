@@ -10,6 +10,7 @@ export interface Literature {
   journal: string | null
   doi: string | null
   file_path: string
+  file_size: number | null
   raw_text: string | null
   translated_text: string | null
   translated_at: string | null

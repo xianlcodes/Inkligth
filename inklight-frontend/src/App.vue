@@ -39,7 +39,7 @@
         </el-menu-item>
         <el-menu-item index="/settings/ai">
           <el-icon><Setting /></el-icon>
-          <span>设置</span>
+          <span>AI 设置</span>
         </el-menu-item>
         <el-menu-item index="/announcements">
           <el-icon><Bell /></el-icon>
@@ -50,12 +50,6 @@
           <span>后台管理</span>
         </el-menu-item>
       </el-menu>
-      <div class="sidebar-footer">
-        <el-button text class="logout-btn" @click="handleLogout">
-          <el-icon><SwitchButton /></el-icon>
-          <span>退出登录</span>
-        </el-button>
-      </div>
     </el-aside>
 
     <!-- 侧边栏展开按钮（折叠时显示） -->
@@ -125,7 +119,35 @@
           </span>
           <div class="header-divider"></div>
           <span class="user-email">{{ authStore.user?.email }}</span>
-          <el-avatar :size="34" :icon="UserFilled" class="user-avatar" />
+          <CheckInPopover
+            :visible="checkInVisible"
+            @update:visible="checkInVisible = $event"
+            @checked-in="onCheckedIn"
+          />
+          <el-dropdown trigger="click" @command="handleUserCommand">
+            <img
+              :src="authStore.avatarUrl"
+              alt="头像"
+              class="user-avatar-img"
+              @error="onAvatarError"
+            />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="profile">
+                  <el-icon><UserFilled /></el-icon>
+                  个人设置
+                </el-dropdown-item>
+                <el-dropdown-item command="storage">
+                  <el-icon><FolderOpened /></el-icon>
+                  个人空间
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>
+                  退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
 
@@ -156,12 +178,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { searchLiterature, type SearchResultItem } from '@/api/search'
 import { getActiveAnnouncements, getPublicAnnouncements, type Announcement } from '@/api/announcement'
+import { applyTheme, findThemeByColor } from '@/utils/themes'
+import CheckInPopover from '@/components/CheckInPopover.vue'
 import {
   Reading,
   Collection,
@@ -178,6 +202,7 @@ import {
   Bell,
   Fold,
   Expand,
+  FolderOpened,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -192,6 +217,7 @@ const searchFocused = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const sidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === '1')
+const checkInVisible = ref(false)
 
 function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
@@ -283,12 +309,37 @@ async function handleLogout() {
   await authStore.logout()
   router.push('/login')
 }
+
+function handleUserCommand(command: string) {
+  if (command === 'profile') {
+    router.push('/settings/profile')
+  } else if (command === 'storage') {
+    router.push('/task/storage')
+  } else if (command === 'logout') {
+    handleLogout()
+  }
+}
+
+function onAvatarError(e: Event) {
+  const img = e.target as HTMLImageElement
+  img.style.display = 'none'
+}
+
+function onCheckedIn() {
+  checkInVisible.value = false
+}
+
+watchEffect(() => {
+  const color = authStore.user?.theme_color
+  const preset = findThemeByColor(color)
+  applyTheme(preset)
+})
 </script>
 
 <style scoped>
 .app-container {
-  height: 100vh;
-  background: var(--bg-secondary);
+  height: 100%;
+  background: var(--bg-color);
 }
 
 .app-sidebar {
@@ -414,24 +465,6 @@ async function handleLogout() {
 .sidebar-menu :deep(.el-menu-item .el-icon) {
   color: inherit;
   font-size: 18px;
-}
-
-.sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
-}
-
-.logout-btn {
-  width: 100%;
-  justify-content: flex-start;
-  color: var(--text-secondary);
-  height: 40px;
-  font-size: 14px;
-}
-
-.logout-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
 }
 
 .main-container {
@@ -668,8 +701,18 @@ async function handleLogout() {
   font-weight: 500;
 }
 
-.user-avatar {
+.user-avatar-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
   border: 2px solid var(--teal-100);
+  cursor: pointer;
+  object-fit: cover;
+  transition: border-color 0.2s ease;
+}
+
+.user-avatar-img:hover {
+  border-color: var(--accent-primary);
 }
 
 .app-main {

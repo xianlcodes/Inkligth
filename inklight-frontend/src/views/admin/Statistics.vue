@@ -57,41 +57,67 @@
     </div>
 
     <div class="chart-section" v-loading="chartLoading">
-      <h3 class="section-title">新增用户趋势</h3>
-      <div class="bar-chart" v-if="tsData?.new_users?.length">
-        <div
-          v-for="(point, idx) in tsData.new_users"
-          :key="idx"
-          class="bar-item"
-        >
-          <div
-            class="bar-fill"
-            :style="{ height: barHeight(point.value, maxUserVal) }"
-            :title="`${point.date}: ${point.value}`"
-          ></div>
-          <span class="bar-label">{{ formatDate(point.date) }}</span>
-          <span class="bar-val">{{ point.value }}</span>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div class="chart-card-icon user-icon">
+            <el-icon :size="18"><UserFilled /></el-icon>
+          </div>
+          <div class="chart-card-title">
+            <h3 class="section-title">新增用户趋势</h3>
+            <span class="section-subtitle">用户增长情况统计</span>
+          </div>
         </div>
+        <div class="bar-chart" v-if="tsData?.new_users?.length">
+          <div
+            v-for="(point, idx) in tsData.new_users"
+            :key="idx"
+            class="bar-item"
+          >
+            <div class="bar-fill-wrap">
+              <div
+                class="bar-fill bar-fill-user"
+                :style="{ height: barHeight(point.value, maxUserVal) }"
+                :title="`${point.date}: ${point.value}`"
+              ></div>
+            </div>
+            <span class="bar-label">{{ formatDate(point.date) }}</span>
+            <span class="bar-val">{{ point.value }}</span>
+          </div>
+        </div>
+        <el-empty v-else description="暂无数据" :image-size="40" />
       </div>
-      <el-empty v-else description="暂无数据" :image-size="40" />
 
-      <h3 class="section-title">新增文献趋势</h3>
-      <div class="bar-chart" v-if="tsData?.new_literatures?.length">
-        <div
-          v-for="(point, idx) in tsData.new_literatures"
-          :key="idx"
-          class="bar-item"
-        >
-          <div
-            class="bar-fill"
-            :style="{ height: barHeight(point.value, maxLitVal) }"
-            :title="`${point.date}: ${point.value}`"
-          ></div>
-          <span class="bar-label">{{ formatDate(point.date) }}</span>
-          <span class="bar-val">{{ point.value }}</span>
+      <div class="chart-divider"></div>
+
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div class="chart-card-icon lit-icon">
+            <el-icon :size="18"><Document /></el-icon>
+          </div>
+          <div class="chart-card-title">
+            <h3 class="section-title">新增文献趋势</h3>
+            <span class="section-subtitle">文献入库情况统计</span>
+          </div>
         </div>
+        <div class="bar-chart" v-if="tsData?.new_literatures?.length">
+          <div
+            v-for="(point, idx) in tsData.new_literatures"
+            :key="idx"
+            class="bar-item"
+          >
+            <div class="bar-fill-wrap">
+              <div
+                class="bar-fill bar-fill-lit"
+                :style="{ height: barHeight(point.value, maxLitVal) }"
+                :title="`${point.date}: ${point.value}`"
+              ></div>
+            </div>
+            <span class="bar-label">{{ formatDate(point.date) }}</span>
+            <span class="bar-val">{{ point.value }}</span>
+          </div>
+        </div>
+        <el-empty v-else description="暂无数据" :image-size="40" />
       </div>
-      <el-empty v-else description="暂无数据" :image-size="40" />
     </div>
   </div>
 </template>
@@ -217,18 +243,63 @@ onMounted(() => {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.chart-card {
+  padding: 24px 24px 16px;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.chart-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chart-card-icon.user-icon {
+  background: linear-gradient(135deg, #ecfeff, #ccfbf1);
+  color: #0d9488;
+}
+
+.chart-card-icon.lit-icon {
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  color: #4f46e5;
+}
+
+.chart-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .section-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 16px 0;
+  margin: 0;
 }
 
-.section-title + .section-title {
-  margin-top: 28px;
+.section-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chart-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-color), transparent);
+  margin: 0 24px;
 }
 
 .bar-chart {
@@ -237,7 +308,17 @@ onMounted(() => {
   gap: 4px;
   height: 240px;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding: 0 4px 8px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 39px,
+      var(--bg-secondary) 39px,
+      var(--bg-secondary) 40px
+    );
+  border-radius: var(--radius-md);
+  position: relative;
 }
 
 .bar-item {
@@ -250,24 +331,59 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.bar-fill {
+.bar-fill-wrap {
   width: 100%;
   max-width: 40px;
-  background: linear-gradient(180deg, var(--accent-primary), #5eead4);
-  border-radius: 4px 4px 0 0;
-  min-height: 4px;
-  transition: height 0.3s ease;
-  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  position: relative;
 }
 
-.bar-fill:hover {
-  opacity: 0.75;
+.bar-fill {
+  width: 100%;
+  max-width: 36px;
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  transition: height 0.3s ease, opacity 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.bar-fill::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  border-radius: 4px 4px 0 0;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.bar-fill-user {
+  background: linear-gradient(180deg, #14b8a6 0%, #0d9488 40%, #0f766e 100%);
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+}
+
+.bar-fill-user:hover {
+  opacity: 0.85;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
+}
+
+.bar-fill-lit {
+  background: linear-gradient(180deg, #818cf8 0%, #6366f1 40%, #4f46e5 100%);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+}
+
+.bar-fill-lit:hover {
+  opacity: 0.85;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
 }
 
 .bar-label {
   font-size: 10px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -277,5 +393,7 @@ onMounted(() => {
 .bar-val {
   font-size: 10px;
   color: var(--text-tertiary);
+  font-weight: 600;
+  margin-top: 2px;
 }
 </style>
