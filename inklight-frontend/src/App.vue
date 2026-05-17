@@ -50,6 +50,27 @@
           <span>后台管理</span>
         </el-menu-item>
       </el-menu>
+
+      <div class="sidebar-storage" v-if="storageInfo">
+        <div class="sidebar-storage-header">
+          <el-icon :size="14"><FolderOpened /></el-icon>
+          <span>存储空间</span>
+        </div>
+        <div class="sidebar-storage-bar">
+          <div
+            class="sidebar-storage-fill"
+            :class="{ warning: storageWarning }"
+            :style="{ width: storagePercent + '%' }"
+          ></div>
+        </div>
+        <div class="sidebar-storage-text">
+          <span class="sidebar-storage-used">{{ formatBytes(storageInfo.used_space) }}</span>
+          <span class="sidebar-storage-total">/ {{ formatBytes(storageInfo.total_space) }}</span>
+        </div>
+        <div class="sidebar-storage-remaining" :class="{ warning: storageWarning }">
+          剩余 {{ formatBytes(storageInfo.remaining_space) }}
+        </div>
+      </div>
     </el-aside>
 
     <!-- 侧边栏展开按钮（折叠时显示） -->
@@ -178,12 +199,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, watchEffect } from 'vue'
+import { ref, computed, onMounted, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { searchLiterature, type SearchResultItem } from '@/api/search'
 import { getActiveAnnouncements, getPublicAnnouncements, type Announcement } from '@/api/announcement'
+import { getStorage } from '@/api/storage'
 import { applyTheme, findThemeByColor } from '@/utils/themes'
 import CheckInPopover from '@/components/CheckInPopover.vue'
 import {
@@ -218,6 +240,32 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const sidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === '1')
 const checkInVisible = ref(false)
+
+const storageInfo = ref<{ total_space: number; used_space: number; remaining_space: number } | null>(null)
+
+const storagePercent = computed(() => {
+  if (!storageInfo.value || storageInfo.value.total_space <= 0) return 0
+  return Math.round((storageInfo.value.used_space / storageInfo.value.total_space) * 100)
+})
+
+const storageWarning = computed(() => {
+  if (!storageInfo.value || storageInfo.value.total_space <= 0) return false
+  return storageInfo.value.remaining_space / storageInfo.value.total_space < 0.1
+})
+
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '0.00 MB'
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB'
+}
+
+async function fetchStorageInfo() {
+  try {
+    const data = await getStorage()
+    storageInfo.value = data
+  } catch {
+    storageInfo.value = null
+  }
+}
 
 function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
@@ -298,11 +346,18 @@ onMounted(async () => {
     })
   }
 
+  if (authStore.isLoggedIn) {
+    fetchStorageInfo()
+  }
+
   loadHeaderAnnouncements()
 })
 
-watch(() => authStore.isLoggedIn, () => {
+watch(() => authStore.isLoggedIn, (loggedIn) => {
   loadHeaderAnnouncements()
+  if (loggedIn) {
+    fetchStorageInfo()
+  }
 })
 
 async function handleLogout() {
@@ -465,6 +520,73 @@ watchEffect(() => {
 .sidebar-menu :deep(.el-menu-item .el-icon) {
   color: inherit;
   font-size: 18px;
+}
+
+.sidebar-storage {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.sidebar-storage-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.sidebar-storage-header .el-icon {
+  color: var(--text-muted);
+}
+
+.sidebar-storage-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sidebar-storage-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  border-radius: 3px;
+  transition: width 0.4s ease, background 0.3s;
+}
+
+.sidebar-storage-fill.warning {
+  background: var(--el-color-danger);
+}
+
+.sidebar-storage-text {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.sidebar-storage-used {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sidebar-storage-total {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sidebar-storage-remaining {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.sidebar-storage-remaining.warning {
+  color: var(--el-color-danger);
+  font-weight: 500;
 }
 
 .main-container {
