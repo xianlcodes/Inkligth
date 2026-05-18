@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation
+from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -45,6 +45,7 @@ app.include_router(admin.router, prefix=settings.API_V1_STR, tags=["admin"])
 app.include_router(storage.router, prefix=f"{settings.API_V1_STR}/storage", tags=["storage"])
 app.include_router(check_in.router, prefix=f"{settings.API_V1_STR}/check-in", tags=["check-in"])
 app.include_router(invitation.router, prefix=f"{settings.API_V1_STR}/invitations", tags=["invitations"])
+app.include_router(tutorial.router, prefix=settings.API_V1_STR, tags=["tutorials"])
 
 
 @app.get("/")

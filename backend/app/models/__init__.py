@@ -10,3 +10,4 @@ from app.models.translation import Translation
 from app.models.user_storage import UserStorage
 from app.models.check_in import CheckIn
 from app.models.invitation import Invitation
+from app.models.tutorial import Tutorial, TutorialVersion

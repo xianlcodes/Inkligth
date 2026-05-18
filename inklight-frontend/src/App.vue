@@ -46,8 +46,12 @@
           <span>系统公告</span>
         </el-menu-item>
         <el-menu-item v-if="authStore.user?.is_admin" index="/admin/statistics">
-          <el-icon><Setting /></el-icon>
+          <el-icon><Management /></el-icon>
           <span>后台管理</span>
+        </el-menu-item>
+        <el-menu-item index="/tutorials">
+          <el-icon><Help /></el-icon>
+          <span>使用教程</span>
         </el-menu-item>
       </el-menu>
 
@@ -225,6 +229,8 @@ import {
   Fold,
   Expand,
   FolderOpened,
+  Management,
+  Help,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -531,7 +537,7 @@ watchEffect(() => {
 .sidebar-storage-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);

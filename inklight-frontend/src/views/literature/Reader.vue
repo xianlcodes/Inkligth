@@ -1292,6 +1292,8 @@ function clearHighlights() {
 }
 
 async function doTranslate(text: string, sourceText: string) {
+  const tStart = performance.now()
+  console.log(`🔄 doTranslate 开始 | 文本长度: ${text.length} 字符 | ${new Date().toLocaleTimeString()}`)
   activeTab.value = 'translate'
   fullTranslationParagraphs.value = []
   translating.value = true
@@ -1305,6 +1307,8 @@ async function doTranslate(text: string, sourceText: string) {
         streamingTarget.value = accumulated
       },
       () => {
+        const totalMs = performance.now() - tStart
+        console.log(`✅ doTranslate 完成 | 总UI耗时: ${totalMs.toFixed(0)}ms (${(totalMs/1000).toFixed(1)}s) | 译文长度: ${accumulated.length} 字符`)
         const entry = { source: sourceText, target: accumulated }
         if (continuousMode.value) {
           translationHistory.value.push(entry)
@@ -1315,6 +1319,8 @@ async function doTranslate(text: string, sourceText: string) {
         streamingTarget.value = ''
       },
       (error: string) => {
+        const totalMs = performance.now() - tStart
+        console.error(`❌ doTranslate 失败 | 耗时: ${totalMs.toFixed(0)}ms | 错误: ${error}`)
         ElMessage.error(error)
         translating.value = false
         streamingTarget.value = ''
@@ -1322,6 +1328,8 @@ async function doTranslate(text: string, sourceText: string) {
     )
   } catch (error: any) {
     const detail = error?.message || '翻译失败，请重试'
+    const totalMs = performance.now() - tStart
+    console.error(`❌ doTranslate 异常 | 耗时: ${totalMs.toFixed(0)}ms | 错误: ${detail}`)
     ElMessage.error(detail)
     translating.value = false
     streamingTarget.value = ''

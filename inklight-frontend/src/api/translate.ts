@@ -64,9 +64,13 @@ export async function translateTextStream(
   onDone: () => void,
   onError: (error: string) => void,
 ): Promise<void> {
+  const t0 = performance.now()
   const token = localStorage.getItem('token')
+
   let response: Response
+  let fetchMs = 0
   try {
+    const tFetchStart = performance.now()
     response = await fetch('/api/v1/translate/text/stream', {
       method: 'POST',
       headers: {
@@ -75,6 +79,7 @@ export async function translateTextStream(
       },
       body: JSON.stringify(data),
     })
+    fetchMs = performance.now() - tFetchStart
   } catch (err: any) {
     onError(err?.message || '网络请求失败')
     return
@@ -99,6 +104,10 @@ export async function translateTextStream(
 
   const decoder = new TextDecoder()
   let buffer = ''
+  let firstTokenMs = 0
+  let firstTokenRecorded = false
+  let chunkCount = 0
+  let backendTiming = ''
 
   function processLines(lines: string[]): boolean {
     for (const line of lines) {
@@ -106,16 +115,44 @@ export async function translateTextStream(
       const trimmed = line.trim()
       if (!trimmed) continue
       if (trimmed.startsWith('data:')) {
-        const data = trimmed.slice(5).trim()
-        if (data === '[DONE]') {
+        const payload = trimmed.slice(5).trim()
+        if (payload === '[START]') {
+          console.log(`🟢 SSE连接已建立 | fetch耗时: ${fetchMs.toFixed(0)}ms`)
+          continue
+        }
+        if (payload === '[DONE]') {
+          const totalMs = performance.now() - t0
+          console.groupCollapsed(
+            `📝 翻译性能 [${new Date().toLocaleTimeString()}] ${totalMs < 5000 ? '✅' : totalMs < 15000 ? '⚠️' : '❌'} ${(totalMs / 1000).toFixed(1)}s`
+          )
+          console.log('输入文本长度:', data.text.length, '字符')
+          console.log('网络延迟 (fetch):', fetchMs.toFixed(0), 'ms')
+          console.log('首Token延迟 (TTFT):', firstTokenMs.toFixed(0), 'ms')
+          console.log('接收chunk数:', chunkCount)
+          console.log('总耗时:', totalMs.toFixed(0), 'ms', `(${(totalMs / 1000).toFixed(1)}s)`)
+          if (backendTiming) {
+            console.log('后端计时:', backendTiming)
+          }
+          console.groupEnd()
           onDone()
           return true
         }
-        if (data.startsWith('[ERROR]')) {
-          onError(data.slice(7).trim())
+        if (payload.startsWith('[ERROR]')) {
+          const totalMs = performance.now() - t0
+          console.error(`翻译失败 | 耗时: ${totalMs.toFixed(0)}ms | 错误: ${payload.slice(7).trim()}`)
+          onError(payload.slice(7).trim())
           return true
         }
-        onChunk(data)
+        if (payload.startsWith('[TIMING]')) {
+          backendTiming = payload.slice(8).trim()
+          continue
+        }
+        if (!firstTokenRecorded) {
+          firstTokenMs = performance.now() - t0
+          firstTokenRecorded = true
+        }
+        chunkCount++
+        onChunk(payload)
       }
     }
     return false

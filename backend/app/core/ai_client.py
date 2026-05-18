@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Optional
 
 import httpx
@@ -12,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 _http_client: httpx.AsyncClient | None = None
 
+_AI_CLIENT_CACHE_TTL = 300
+_user_ai_cache: dict[str, tuple[float, AsyncOpenAI, str]] = {}
+
 
 def _get_http_client() -> httpx.AsyncClient:
     global _http_client
@@ -21,6 +25,27 @@ def _get_http_client() -> httpx.AsyncClient:
             timeout=httpx.Timeout(300.0, connect=30.0),
         )
     return _http_client
+
+
+def invalidate_user_ai_cache(user_id: str) -> None:
+    _user_ai_cache.pop(user_id, None)
+
+
+async def get_cached_user_ai_client_and_model(
+    db: AsyncSession, user_id: str
+) -> tuple[AsyncOpenAI, str]:
+    cache_key = str(user_id)
+    now = time.monotonic()
+    if cache_key in _user_ai_cache:
+        ts, client, model = _user_ai_cache[cache_key]
+        if now - ts < _AI_CLIENT_CACHE_TTL:
+            return client, model
+
+    client = await get_user_ai_client(db, user_id)
+    model = await get_user_default_model(db, user_id)
+    _user_ai_cache[cache_key] = (now, client, model)
+    logger.debug("AI client cached for user %s, model=%s", user_id, model)
+    return client, model
 
 
 async def get_user_ai_client(db: AsyncSession, user_id: str) -> AsyncOpenAI:
@@ -37,9 +62,9 @@ async def get_user_ai_client(db: AsyncSession, user_id: str) -> AsyncOpenAI:
         registry = AIProviderRegistry()
         adapter = registry.get_or_default(engine.provider)
         base_url = adapter.get_openai_base_url(engine.api_base)
-        logger.info(
-            "Using AI engine: %s, base_url: %s (normalized from %s), model: %s",
-            engine.provider, base_url, engine.api_base, engine.default_model
+        logger.debug(
+            "Using AI engine: %s, base_url: %s, model: %s",
+            engine.provider, base_url, engine.default_model
         )
         return AsyncOpenAI(
             base_url=base_url,

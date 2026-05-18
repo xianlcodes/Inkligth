@@ -101,7 +101,25 @@ const router = createRouter({
           component: () => import('@/views/admin/OperationLogs.vue'),
           meta: { title: '操作日志', requiresAuth: true, adminOnly: true },
         },
+        {
+          path: 'tutorials',
+          name: 'AdminTutorials',
+          component: () => import('@/views/admin/TutorialManager.vue'),
+          meta: { title: '使用教程管理', requiresAuth: true, adminOnly: true },
+        },
       ],
+    },
+    {
+      path: '/tutorials',
+      name: 'TutorialList',
+      component: () => import('@/views/tutorial/TutorialList.vue'),
+      meta: { title: '使用教程', requiresAuth: true },
+    },
+    {
+      path: '/tutorials/:id',
+      name: 'TutorialView',
+      component: () => import('@/views/tutorial/TutorialView.vue'),
+      meta: { title: '教程详情', requiresAuth: true },
     },
     {
       path: '/login',

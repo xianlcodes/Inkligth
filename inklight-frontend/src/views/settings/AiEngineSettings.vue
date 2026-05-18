@@ -2,7 +2,9 @@
   <div class="ai-engine-settings">
     <div class="header">
       <h2>AI 引擎配置</h2>
-      <el-button type="primary" @click="openCreateDialog">添加引擎</el-button>
+      <div class="header-actions">
+        <el-button type="primary" @click="openCreateDialog">添加引擎</el-button>
+      </div>
     </div>
 
     <el-skeleton v-if="store.loading" :rows="3" animated />
@@ -77,6 +79,12 @@
           <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
         </el-form-item>
 
+        <div class="tutorial-hint">
+          <el-icon :size="14"><QuestionFilled /></el-icon>
+          <span>添加有问题？</span>
+          <el-button link type="primary" @click="$router.push('/tutorials')">可以看教程</el-button>
+        </div>
+
         <div v-if="testResult" class="test-result">
           <el-alert :title="testResult.message" :type="testResult.success ? 'success' : 'error'" :closable="false" />
           <div v-if="testResult.models.length > 0" class="model-list">
@@ -93,6 +101,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
 import type { AIEngine, AIEngineTestResult } from '@/api/aiEngine'
@@ -288,6 +297,11 @@ async function handleDelete(engineId: string) {
   align-items: center;
   margin-bottom: 16px;
 }
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .engine-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
@@ -330,5 +344,22 @@ async function handleDelete(engineId: string) {
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 4px;
+}
+
+.tutorial-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  background: var(--teal-50);
+  border: 1px solid var(--teal-100);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--teal-700);
+}
+
+.tutorial-hint .el-icon {
+  color: var(--accent-primary);
 }
 </style>
