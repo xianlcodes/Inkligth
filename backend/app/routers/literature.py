@@ -164,10 +164,12 @@ async def get_literature_file(
     literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
     if not literature:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
-    if not os.path.exists(literature.file_path):
+    # 将相对路径转换为绝对路径（容器内工作目录为 /app）
+    absolute_path = os.path.join("/app", literature.file_path) if not os.path.isabs(literature.file_path) else literature.file_path
+    if not os.path.exists(absolute_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
     return FileResponse(
-        path=literature.file_path,
+        path=absolute_path,
         media_type="application/pdf",
         filename=os.path.basename(literature.file_path),
     )
