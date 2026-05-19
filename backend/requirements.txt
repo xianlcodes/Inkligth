@@ -18,3 +18,4 @@ cryptography==43.0.0
 captcha==0.7.1
 python-pptx==1.0.2
 sib-api-v3-sdk==7.6.0
+sentence-transformers>=3.0.0
