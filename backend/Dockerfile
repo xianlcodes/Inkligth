@@ -10,15 +10,16 @@ RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/source
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# 配置 pip 国内镜像（加速依赖下载）
-RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
-
-# 先安装 InkLight 基础依赖（含 FastAPI、Pydantic 等）
+# 先安装项目依赖（强制 CPU 版 PyTorch，防止自动装 GPU 版）
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 再安装 pdf2zh（自动覆盖 FastAPI、Pydantic 为它需要的版本）
-RUN pip install --no-cache-dir pdf2zh
+# 再安装 pdf2zh（其依赖会自动覆盖旧版本）
+RUN pip install --no-cache-dir pdf2zh \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 复制后端代码
 COPY . .
