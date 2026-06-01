@@ -11,10 +11,11 @@ RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/source
         libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. 安装项目依赖（全部从阿里云镜像拉取）
+# 2. 安装项目依赖（CPU 版 PyTorch 强制从官方 CPU 索引拉取，不含任何 NVIDIA 包）
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
-    -i https://mirrors.aliyun.com/pypi/simple/
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://mirrors.aliyun.com/pypi/simple/
 
 # 3. 安装 pdf2zh（同样使用阿里云镜像）
 RUN pip install --no-cache-dir pdf2zh \
