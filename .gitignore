@@ -81,6 +81,7 @@ favicon.pub/
 羽毛笔.png
 羽毛笔.svg
 icons.svg
+*.txt
 # 排除所有 .md 文件（除 README.md 外）
 *.md
 !README.md
