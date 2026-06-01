@@ -54,6 +54,10 @@ export function cancelTask(taskId: string) {
   return apiClient.post<{ code: number; msg: string; data: Record<string, unknown> }>(`/tasks/${taskId}/cancel`)
 }
 
+export function cancelAllUserTasks() {
+  return apiClient.post<{ code: number; msg: string; data: { cancelled_count: number } }>('/tasks/cancel-all')
+}
+
 export function cleanupExpiredTranslations() {
   return apiClient.post<{ code: number; msg: string; data: { deleted: number; cutoff: string; ttl_days: number } }>('/tasks/translations/cleanup')
 }

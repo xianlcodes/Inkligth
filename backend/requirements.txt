@@ -1,21 +1,46 @@
+# ============================================================
+# InkLight 后端核心依赖
+# ============================================================
+# 注意：PDFMathTranslate (pdf2zh) 作为独立包安装，其依赖（PyMuPDF、pdfminer-six、
+# babeldoc、onnxruntime、huggingface_hub、opencv-python-headless、fonttools、tqdm、
+# tenacity、numpy、rich、pikepdf 等）由 pdf2zh 自带，不在此处重复列出。
+# ============================================================
+
+# Web 框架
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
 pydantic==2.9.2
 pydantic-settings==2.6.1
+python-multipart==0.0.27
+
+# 数据库
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
+
+# 缓存
 redis==5.2.0
-python-dotenv==1.0.1
-bcrypt==4.1.2
+
+# 认证与安全
 python-jose[cryptography]==3.5.0
 passlib==1.7.4
-email-validator==2.3.0
-python-multipart==0.0.27
-httpx==0.27.0
-PyMuPDF==1.24.5
-openai==1.54.0
+bcrypt==4.1.2
 cryptography==43.0.0
+certifi>=2024.0.0
+
+# AI/LLM 客户端
+openai>=1.59.3,<3.0.0
+httpx==0.27.0
+
+# 工具库
+python-dotenv==1.0.1
+email-validator==2.3.0
 captcha==0.7.1
+
+# 文档生成
 python-pptx==1.0.2
+
+# 邮件服务
 sib-api-v3-sdk==7.6.0
+
+# 向量嵌入
 sentence-transformers>=3.0.0

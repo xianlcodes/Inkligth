@@ -68,6 +68,25 @@
           <el-icon><DataAnalysis /></el-icon>
           生成汇报大纲
         </el-button>
+        <el-dropdown trigger="click">
+          <el-button>
+            <el-icon><Download /></el-icon>
+            下载
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="handleDownloadOriginal">
+                <el-icon><Document /></el-icon>
+                下载原文 PDF
+              </el-dropdown-item>
+              <el-dropdown-item @click="showPdfTranslateDialog = true">
+                <el-icon><Notebook /></el-icon>
+                下载原位翻译 PDF
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </div>
 
@@ -299,6 +318,11 @@
         </div>
       </template>
     </el-dialog>
+
+    <PdfTranslateDialog
+      v-model="showPdfTranslateDialog"
+      :literature-id="route.params.id as string"
+    />
 
     <div class="reader-body">
       <!-- PDF 面板 -->
@@ -564,10 +588,11 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, DataAnalysis, ChatLineSquare, Plus, CircleCheck, ArrowRight, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, DataAnalysis, ChatLineSquare, Plus, CircleCheck, ArrowRight, Refresh, Download, ArrowDown } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
 import { getLiterature, getLiteratureFileBlob, type Literature } from '@/api/literature'
+import PdfTranslateDialog from '@/components/business/PdfTranslateDialog.vue'
 import { translateText, translateTextStream, startFullTranslate, getTaskStatus, deleteFullTranslation, cancelTask, type TranslatedParagraph } from '@/api/translate'
 import { createNote, getNotes, deleteNote, type Note, type RectCoords } from '@/api/note'
 import { startAnalyze, getAnalysis, type AnalysisData } from '@/api/analysis'
@@ -682,6 +707,7 @@ let analysisPollingTimer: ReturnType<typeof setInterval> | null = null
 const innovationAddingIdx = ref(-1)
 
 const outlineGenerating = ref(false)
+const showPdfTranslateDialog = ref(false)
 const outlineDialogVisible = ref(false)
 const outlineData = ref<OutlineData | null>(null)
 const outlineActiveSlides = ref<number[]>([])
@@ -942,6 +968,31 @@ function onPdfError() {
 
 function goBack() {
   router.push('/literature')
+}
+
+function handleDownloadOriginal() {
+  const id = route.params.id as string
+  if (!id) return
+  const token = localStorage.getItem('token')
+  const url = `/api/v1/literatures/${id}/file`
+  const a = document.createElement('a')
+  if (token) {
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob)
+        a.href = objectUrl
+        a.download = ''
+        a.click()
+        URL.revokeObjectURL(objectUrl)
+      })
+      .catch(() => {
+        ElMessage.error('下载失败')
+      })
+  } else {
+    a.href = url
+    a.click()
+  }
 }
 
 function handleWheel(e: WheelEvent) {

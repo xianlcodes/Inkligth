@@ -34,6 +34,46 @@ TOKEN_LIMIT_KEYWORDS = (
     "token limit", "context_length_exceeded", "max_tokens",
 )
 
+REASONING_TAG_PATTERN = re.compile(
+    r'<\s*(?:think|thinking|Thought|reasoning|analysis|scratchpad)\s*>'
+    r'.*?'
+    r'<\s*/\s*(?:think|thinking|Thought|reasoning|analysis|scratchpad)\s*>',
+    re.DOTALL,
+)
+
+TRANSLATION_MAX_OUTPUT_TOKENS = 4096
+MIN_MAX_OUTPUT_TOKENS = 500
+MAX_TOKENS_INPUT_RATIO = 5
+
+TOKEN_WASTE_RATIO_THRESHOLD = 10
+TOKEN_WASTE_ABSOLUTE_THRESHOLD = 1000
+
+STOP_TOKENS_ENV_KEY = "TRANSLATION_STOP_TOKENS"
+_DEFAULT_STOP_TOKENS: list[str] = ["\n\n\n", "Explanation:", "Note:", "说明：", "注："]
+GLM_MAX_STOP_TOKENS = 4
+GLM_RATE_LIMIT_RETRIES = 3
+GLM_RATE_LIMIT_BACKOFF_BASE = 2.0
+GLM_INTER_PARAGRAPH_DELAY = 1.5
+RATE_LIMIT_KEYWORDS_429 = ("429", "rate limit", "速率限制", "访问量过大", "1302", "1305", "并发数过高", "频率过高")
+PROVIDER_MAX_CONCURRENCY: dict[str, int] = {
+    "glm": 1,
+    "zhipu": 1,
+}
+_UNSET = object()
+_stop_tokens_cache: list[str] | None | object = _UNSET
+
+
+def _lazy_has_pdf_math_indicators(text: str) -> bool:
+    from app.services.formula_protection_service import has_pdf_math_indicators
+    return has_pdf_math_indicators(text)
+
+COMMON_PREAMBLE_PATTERNS = [
+    re.compile(r'^[,，。；\s]*'),
+    re.compile(r'^(?:好的|当然|以下是|翻译(?:如下|结果)?|译文(?:如下)?)[:：，,\s]*', re.IGNORECASE),
+    re.compile(r'^(?:Here\s+is|The\s+translation|Sure|Certainly|OK|Alright)[,:\s]+', re.IGNORECASE),
+    re.compile(r'^(?:翻译内容|翻译文本|源文本|原文)[:：，,\s]*'),
+]
+
 
 @dataclass
 class TranslationTiming:
@@ -99,6 +139,11 @@ def _cache_set(text: str, source_lang: str, target_lang: str, result: str) -> No
 def _is_token_limit_error(error: Exception) -> bool:
     msg = str(error).lower()
     return any(kw in msg for kw in TOKEN_LIMIT_KEYWORDS)
+
+
+def _is_rate_limit_error(error: Exception) -> bool:
+    msg = str(error).lower()
+    return any(kw in msg for kw in RATE_LIMIT_KEYWORDS_429)
 
 
 def beautify_translation_error(raw_error: str) -> str:
@@ -238,10 +283,114 @@ class BaseTranslator(ABC):
         pass
 
 
+def _is_glm_provider(model: str) -> bool:
+    model_lower = model.lower()
+    return model_lower.startswith("glm") or "zhipu" in model_lower or "chatglm" in model_lower
+
+
+def _get_max_concurrent_for_model(model: str) -> int:
+    model_lower = model.lower()
+    for key, limit in PROVIDER_MAX_CONCURRENCY.items():
+        if key in model_lower:
+            logger.info(
+                "GLM detected: lowering max concurrent paragraphs from %d to %d for model '%s'",
+                MAX_CONCURRENT_PARAGRAPHS, limit, model,
+            )
+            return limit
+    return MAX_CONCURRENT_PARAGRAPHS
+
+
 class OpenAITranslator(BaseTranslator):
-    def __init__(self, client: AsyncOpenAI, model: str):
+    def __init__(self, client: AsyncOpenAI, model: str, cancel_check=None):
         self.client = client
         self.model = model
+        self._cancel_check = cancel_check
+        self._total_prompt_tokens: int = 0
+        self._total_completion_tokens: int = 0
+        self._total_tokens: int = 0
+
+    def _is_cancelled(self) -> bool:
+        if self._cancel_check is None:
+            return False
+        return self._cancel_check()
+
+    async def _call_llm_cancellable(self, params: dict):
+        task = asyncio.create_task(self.client.chat.completions.create(**params))
+        try:
+            while not task.done():
+                if self._is_cancelled():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    return None
+                await asyncio.sleep(0.1)
+            return task.result()
+        except asyncio.CancelledError:
+            if not task.done():
+                task.cancel()
+            return None
+
+    COMBINED_TRANSLATION_PROMPT: str = (
+        "You are a professional, authentic machine translation engine. "
+        "Only Output the translated text, do not include any other text."
+        "\n\n"
+        "Translate the following source text to {target_lang}. "
+        "Output translation directly without any additional text."
+        "\n\n"
+        "Source Text: {text}"
+        "\n\n"
+        "Translated Text:"
+    )
+
+    COMBINED_FORMULA_PROMPT: str = (
+        "You are a professional, authentic machine translation engine. "
+        "Only Output the translated text, do not include any other text."
+        "\n\n"
+        "Translate the following markdown source text to {target_lang}. "
+        "Keep the formula notation {{v*}} unchanged. "
+        "Output translation directly without any additional text."
+        "\n\n"
+        "Source Text: {text}"
+        "\n\n"
+        "Translated Text:"
+    )
+
+    @staticmethod
+    def _compute_max_tokens(text_len: int) -> int:
+        dynamic = max(MIN_MAX_OUTPUT_TOKENS, text_len * MAX_TOKENS_INPUT_RATIO)
+        return min(dynamic, TRANSLATION_MAX_OUTPUT_TOKENS)
+
+    @staticmethod
+    def _get_stop_tokens(model: str | None = None) -> list[str] | None:
+        global _stop_tokens_cache
+        if _stop_tokens_cache is not _UNSET:
+            tokens: list[str] | None = _stop_tokens_cache  # type: ignore[assignment]
+        else:
+            from app.core.config import settings
+            env_val: str = getattr(settings, STOP_TOKENS_ENV_KEY, '') or ''
+            if env_val:
+                tokens = [t.strip() for t in env_val.split(',') if t.strip()]
+                tokens = tokens if tokens else None
+            else:
+                tokens = list(_DEFAULT_STOP_TOKENS)
+            _stop_tokens_cache = tokens  # type: ignore[assignment]
+
+        if tokens and model and _is_glm_provider(model) and len(tokens) > GLM_MAX_STOP_TOKENS:
+            logger.info(
+                "Truncating stop tokens from %d to %d for GLM provider (max %d)",
+                len(tokens), GLM_MAX_STOP_TOKENS, GLM_MAX_STOP_TOKENS,
+            )
+            return tokens[:GLM_MAX_STOP_TOKENS]
+        return tokens
+
+    @staticmethod
+    def _build_combined_prompt(text: str, source_lang: str, target_lang: str, has_formula: bool = False) -> str:
+        _ = source_lang
+        tgt = OpenAITranslator.LANG_DISPLAY.get(target_lang, target_lang)
+        template = OpenAITranslator.COMBINED_FORMULA_PROMPT if has_formula else OpenAITranslator.COMBINED_TRANSLATION_PROMPT
+        return template.format(target_lang=tgt, text=text)
 
     LANG_DISPLAY: dict[str, str] = {
         "en": "英文", "zh": "中文", "zh-CN": "简体中文", "zh-TW": "繁体中文",
@@ -251,9 +400,186 @@ class OpenAITranslator(BaseTranslator):
 
     @staticmethod
     def _build_prompt(text: str, source_lang: str, target_lang: str) -> str:
+        return OpenAITranslator._build_combined_prompt(text, source_lang, target_lang, has_formula=False)
+
+    def _log_usage(self, label: str, usage, message, input_len: int, output_len: int, elapsed_ms: float) -> None:
+        reasoning_info = self._extract_reasoning_info(message, usage)
+        if usage is None:
+            logger.warning(
+                "TOKEN USAGE [%s] | input_chars=%d output_chars=%d elapsed=%.0fms | usage=N/A",
+                label, input_len, output_len, elapsed_ms,
+            )
+            return
+        prompt_tokens = getattr(usage, 'prompt_tokens', 0)
+        completion_tokens = getattr(usage, 'completion_tokens', 0)
+        total_tokens = getattr(usage, 'total_tokens', 0)
+        reasoning_tokens = reasoning_info.get("reasoning_tokens", 0)
+        non_reasoning_completion = completion_tokens - reasoning_tokens
+        self._total_prompt_tokens += prompt_tokens
+        self._total_completion_tokens += completion_tokens
+        self._total_tokens += total_tokens
+        if reasoning_tokens > 0:
+            logger.warning(
+                "TOKEN USAGE [%s] | input_chars=%d output_chars=%d elapsed=%.0fms | "
+                "prompt_tokens=%d completion_tokens=%d(%dreasoning+%doutput) total_tokens=%d | "
+                "cumulative_prompt=%d cumulative_completion=%d cumulative_total=%d",
+                label, input_len, output_len, elapsed_ms,
+                prompt_tokens, completion_tokens, reasoning_tokens, non_reasoning_completion, total_tokens,
+                self._total_prompt_tokens, self._total_completion_tokens, self._total_tokens,
+            )
+        else:
+            logger.warning(
+                "TOKEN USAGE [%s] | input_chars=%d output_chars=%d elapsed=%.0fms | "
+                "prompt_tokens=%d completion_tokens=%d total_tokens=%d | "
+                "cumulative_prompt=%d cumulative_completion=%d cumulative_total=%d",
+                label, input_len, output_len, elapsed_ms,
+                prompt_tokens, completion_tokens, total_tokens,
+                self._total_prompt_tokens, self._total_completion_tokens, self._total_tokens,
+            )
+
+    @staticmethod
+    def _extract_reasoning_info(message, usage) -> dict:
+        info: dict = {"reasoning_tokens": 0, "has_reasoning_content": False}
+        if message is not None:
+            reasoning_content = getattr(message, 'reasoning_content', None)
+            if reasoning_content:
+                info["has_reasoning_content"] = True
+                info["reasoning_content_length"] = len(str(reasoning_content))
+        if usage is not None:
+            details = getattr(usage, 'completion_tokens_details', None)
+            if details is not None:
+                rt = getattr(details, 'reasoning_tokens', None)
+                if rt is not None:
+                    info["reasoning_tokens"] = rt
+        return info
+
+    def _is_reasoning_model(self, model_name: str | None = None) -> bool:
+        name = (model_name or self.model).lower()
+        reasoning_keywords = [
+            "r1", "reasoner", "qwq", "o1", "o3", "o4",
+            "k2.5", "k2.6", "m2.5", "m2.7", "thinking",
+            "gemini-2.5-pro",
+        ]
+        return any(kw in name for kw in reasoning_keywords)
+
+    REASONING_TO_NON_REASONING: dict[str, str] = {
+        "deepseek-r1": "deepseek-v4-flash",
+        "deepseek-r1-0528": "deepseek-v4-flash",
+        "deepseek-reasoner": "deepseek-v4-flash",
+        "qwen3-max-thinking": "qwen3.6-plus",
+        "qwq-32b": "qwen3.6-plus",
+        "o3": "gpt-5-nano",
+        "o4-mini": "gpt-5-nano",
+        "o1": "gpt-4o",
+        "glm-5.1": "glm-4.7-flash",
+        "kimi-k2.5": "kimi-k2-instruct-0905",
+        "kimi-k2.6": "kimi-k2-instruct-0905",
+        "m2.5": "MiniMax-Text-01",
+        "m2.7": "MiniMax-Text-01",
+        "gemini-2.5-pro": "gemini-3.5-flash",
+    }
+
+    NON_THINKING_PARAMS: dict[str, dict] = {
+        "deepseek-v4-flash": {"extra_body": {"thinking": {"type": "disabled"}}},
+        "deepseek-v4-pro": {"extra_body": {"thinking": {"type": "disabled"}}},
+        "glm-4.7-flash": {"extra_body": {"thinking": {"type": "disabled"}}},
+        "glm-4.5-flash": {"extra_body": {"thinking": {"type": "disabled"}}},
+    }
+
+    def _resolve_model(self) -> str:
+        resolved = self.REASONING_TO_NON_REASONING.get(self.model.lower(), self.model)
+        if resolved != self.model:
+            logger.warning(
+                "[Model Auto-Downgrade] Replaced reasoning model '%s' with '%s'",
+                self.model, resolved,
+            )
+        elif self._is_reasoning_model(self.model):
+            logger.warning(
+                "[Reasoning Model] Model '%s' is a reasoning model but no replacement mapping exists. "
+                "Using as-is. Consider configuring a non-reasoning model.",
+                self.model,
+            )
+        return resolved
+
+    def _get_non_thinking_params(self, model_name: str) -> dict:
+        return self.NON_THINKING_PARAMS.get(model_name.lower(), {})
+
+    def _get_max_concurrent(self) -> int:
+        return _get_max_concurrent_for_model(self.model)
+
+    @staticmethod
+    def _clean_reasoning_output(text: str) -> str:
+        cleaned = REASONING_TAG_PATTERN.sub('', text).strip()
+        if not cleaned and text.strip():
+            last_tag_end = 0
+            for m in REASONING_TAG_PATTERN.finditer(text):
+                last_tag_end = max(last_tag_end, m.end())
+            after = text[last_tag_end:].strip()
+            if after:
+                cleaned = after
+        return cleaned
+
+    def get_usage_summary(self) -> dict:
+        return {
+            "total_prompt_tokens": self._total_prompt_tokens,
+            "total_completion_tokens": self._total_completion_tokens,
+            "total_tokens": self._total_tokens,
+        }
+
+    @staticmethod
+    def _strip_preamble(text: str) -> str:
+        for pattern in COMMON_PREAMBLE_PATTERNS:
+            text = pattern.sub('', text, count=1)
+        return text
+
+    def _validate_and_clean_output(
+        self, raw_output: str, source_text: str, usage, label: str,
+    ) -> str:
+        raw_output = self._clean_reasoning_output(raw_output)
+
+        cleaned = self._strip_preamble(raw_output.strip())
+
+        if len(cleaned) > len(source_text) * 3:
+            prefix = source_text[:50].strip()
+            if prefix and cleaned.startswith(prefix):
+                logger.warning(
+                    "OUTPUT CONTAINS REPEATED INPUT [%s] | removing echoed source text "
+                    "from output (output=%d chars, input=%d chars)",
+                    label, len(cleaned), len(source_text),
+                )
+                cleaned = cleaned[len(prefix):].strip()
+                cleaned = self._strip_preamble(cleaned)
+
+        if usage is not None:
+            completion_tokens = getattr(usage, 'completion_tokens', 0)
+            reasoning_info = self._extract_reasoning_info(None, usage)
+            reasoning_tokens = reasoning_info.get("reasoning_tokens", 0)
+            effective_output_tokens = completion_tokens - reasoning_tokens
+
+            if effective_output_tokens > 0 and len(cleaned) > 0:
+                ratio = effective_output_tokens / max(len(cleaned), 1)
+                if ratio > TOKEN_WASTE_RATIO_THRESHOLD and effective_output_tokens > TOKEN_WASTE_ABSOLUTE_THRESHOLD:
+                    logger.warning(
+                        "TOKEN WASTE ALERT [%s] | output_chars=%d completion_tokens=%d "
+                        "reasoning_tokens=%d effective_tokens=%d ratio=%.1fx threshold=%.1fx | "
+                        "Model may be generating excessive hidden/reasoning content",
+                        label, len(cleaned), completion_tokens,
+                        reasoning_tokens, effective_output_tokens, ratio, TOKEN_WASTE_RATIO_THRESHOLD,
+                    )
+
+        return cleaned
+
+    @staticmethod
+    def _build_formula_prompt(text: str, source_lang: str, target_lang: str) -> str:
         src = OpenAITranslator.LANG_DISPLAY.get(source_lang, source_lang)
         tgt = OpenAITranslator.LANG_DISPLAY.get(target_lang, target_lang)
-        return f"将以下{src}翻译为{tgt}，只输出译文：\n{text}"
+        return (
+            f"将以下{src}翻译为{tgt}。\n"
+            f"严格只输出纯译文，不要输出原文、不要解释、不要前缀标签、不要任何额外内容。\n"
+            f"注意：文本中的 {{v0}}, {{v1}} 等占位符是数学公式，"
+            f"必须原样保留在译文中，不要翻译或修改这些占位符。\n\n"
+            f"{text}"
+        )
 
     async def translate(
         self,
@@ -266,29 +592,60 @@ class OpenAITranslator(BaseTranslator):
         if cached is not None:
             return cached
 
-        try:
-            result = await self._translate_raw(text, source_lang, target_lang, timeout)
-        except BadRequestError as e:
-            if _is_token_limit_error(e):
-                logger.warning("Token limit exceeded, auto-splitting text (%d chars)", len(text))
-                chunks = _chunk_text(text, PARAGRAPH_MAX_CHARS // 2)
-                sem = asyncio.Semaphore(MAX_CONCURRENT_PARAGRAPHS)
-                results: dict[int, str] = {}
+        has_formulas = _lazy_has_pdf_math_indicators(text)
+        if has_formulas:
+            from app.services.formula_protection_service import FormulaProtectionService
+            fsvc = FormulaProtectionService()
+            protected = fsvc.protect_text(text)
+            try:
+                result = await self._translate_with_formula_prompt(protected, source_lang, target_lang, timeout)
+            except BadRequestError as e:
+                if _is_token_limit_error(e):
+                    logger.warning("Token limit in formula-protected translate, auto-splitting (%d chars)", len(text))
+                    chunks = _chunk_text(text, PARAGRAPH_MAX_CHARS // 2)
+                    sem = asyncio.Semaphore(self._get_max_concurrent())
+                    results: dict[int, str] = {}
 
-                async def _translate_chunk(idx: int, chunk: str) -> None:
-                    async with sem:
-                        try:
-                            results[idx] = await self._translate_raw(
-                                chunk, source_lang, target_lang, timeout
-                            )
-                        except Exception as inner_e:
-                            logger.error("Auto-split chunk %d failed: %s", idx, inner_e)
-                            results[idx] = f"[翻译失败: {beautify_translation_error(str(inner_e))}]"
+                    async def _translate_chunk(idx: int, chunk: str) -> None:
+                        async with sem:
+                            try:
+                                csvc = FormulaProtectionService()
+                                cprotected = csvc.protect_text(chunk)
+                                raw = await self._translate_with_formula_prompt(cprotected, source_lang, target_lang, timeout)
+                                results[idx] = csvc.restore_text(raw)
+                            except Exception as inner_e:
+                                logger.error("Auto-split chunk %d failed: %s", idx, inner_e)
+                                results[idx] = f"[翻译失败: {beautify_translation_error(str(inner_e))}]"
 
-                await asyncio.gather(*[_translate_chunk(i, c) for i, c in enumerate(chunks)])
-                result = " ".join(results[i] for i in range(len(chunks)))
-            else:
-                raise
+                    await asyncio.gather(*[_translate_chunk(i, c) for i, c in enumerate(chunks)])
+                    result = " ".join(results[i] for i in range(len(chunks)))
+                else:
+                    raise
+            result = fsvc.restore_text(result)
+        else:
+            try:
+                result = await self._translate_raw(text, source_lang, target_lang, timeout)
+            except BadRequestError as e:
+                if _is_token_limit_error(e):
+                    logger.warning("Token limit exceeded, auto-splitting text (%d chars)", len(text))
+                    chunks = _chunk_text(text, PARAGRAPH_MAX_CHARS // 2)
+                    sem = asyncio.Semaphore(self._get_max_concurrent())
+                    results: dict[int, str] = {}
+
+                    async def _translate_chunk(idx: int, chunk: str) -> None:
+                        async with sem:
+                            try:
+                                results[idx] = await self._translate_raw(
+                                    chunk, source_lang, target_lang, timeout
+                                )
+                            except Exception as inner_e:
+                                logger.error("Auto-split chunk %d failed: %s", idx, inner_e)
+                                results[idx] = f"[翻译失败: {beautify_translation_error(str(inner_e))}]"
+
+                    await asyncio.gather(*[_translate_chunk(i, c) for i, c in enumerate(chunks)])
+                    result = " ".join(results[i] for i in range(len(chunks)))
+                else:
+                    raise
 
         _cache_set(text, source_lang, target_lang, result)
         return result
@@ -300,19 +657,95 @@ class OpenAITranslator(BaseTranslator):
         target_lang: str,
         timeout: float,
     ) -> str:
+        if self._is_cancelled():
+            return text
+
         t_start = time.perf_counter()
-        prompt = self._build_prompt(text, source_lang, target_lang)
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            timeout=timeout,
+        effective_model = self._resolve_model()
+        merged_prompt = self._build_prompt(text, source_lang, target_lang)
+
+        messages: list[dict] = [{"role": "user", "content": merged_prompt}]
+
+        max_tokens = self._compute_max_tokens(len(text))
+
+        params: dict = {
+            "model": effective_model,
+            "messages": messages,
+            "temperature": 0.3,
+            "max_tokens": max_tokens,
+            "timeout": timeout,
+        }
+        stop_tokens = self._get_stop_tokens(effective_model)
+        if stop_tokens:
+            params["stop"] = stop_tokens
+
+        non_thinking = self._get_non_thinking_params(effective_model)
+        if non_thinking:
+            params.update(non_thinking)
+
+        is_glm = _is_glm_provider(effective_model)
+        max_attempts = GLM_RATE_LIMIT_RETRIES + 1 if is_glm else 1
+        response = None
+        last_error: Exception | None = None
+
+        for attempt in range(max_attempts):
+            if self._is_cancelled():
+                return text
+
+            if attempt > 0:
+                delay = GLM_RATE_LIMIT_BACKOFF_BASE ** (attempt - 1)
+                logger.warning(
+                    "GLM rate limit retry %d/%d for translate_raw (%d chars), waiting %.1fs",
+                    attempt, GLM_RATE_LIMIT_RETRIES, len(text), delay,
+                )
+                await asyncio.sleep(delay)
+                if self._is_cancelled():
+                    return text
+
+            try:
+                response = await self._call_llm_cancellable(params)
+                if response is None:
+                    return text
+                break
+            except Exception as e:
+                last_error = e
+                if is_glm and _is_rate_limit_error(e) and attempt < max_attempts - 1:
+                    continue
+                raise
+
+        if response is None and last_error is not None:
+            raise last_error
+
+        raw_result = response.choices[0].message.content
+        if raw_result is None:
+            raw_result = ""
+
+        if not raw_result.strip():
+            reasoning_content = getattr(response.choices[0].message, 'reasoning_content', None)
+            if reasoning_content and str(reasoning_content).strip():
+                logger.warning(
+                    "_translate_raw: content empty but reasoning_content present (%d chars), "
+                    "using reasoning_content as fallback. Add NON_THINKING_PARAMS for this model.",
+                    len(str(reasoning_content)),
+                )
+                raw_result = str(reasoning_content)
+
+        result = self._validate_and_clean_output(
+            raw_result, text, getattr(response, 'usage', None), "_translate_raw",
         )
-        result = response.choices[0].message.content.strip()
+
         elapsed = (time.perf_counter() - t_start) * 1000
         logger.debug(
-            "_translate_raw: %d chars, %d chars output, %.0fms",
-            len(text), len(result), elapsed
+            "_translate_raw: %d chars input -> %d chars output (raw=%d), %.0fms, max_tokens=%d stop=%s non_thinking=%s",
+            len(text), len(result), len(raw_result), elapsed, max_tokens, bool(stop_tokens), bool(non_thinking),
+        )
+        self._log_usage(
+            "_translate_raw",
+            getattr(response, 'usage', None),
+            response.choices[0].message,
+            len(text),
+            len(result),
+            elapsed,
         )
         return result
 
@@ -322,23 +755,44 @@ class OpenAITranslator(BaseTranslator):
         source_lang: str = "en",
         target_lang: str = "zh",
     ) -> AsyncGenerator[str, None]:
+        if self._is_cancelled():
+            return
+
         t_start = time.perf_counter()
         first_token = True
         first_token_ms = 0.0
         chunk_count = 0
-        prompt = self._build_prompt(text, source_lang, target_lang)
+        effective_model = self._resolve_model()
+        merged_prompt = self._build_prompt(text, source_lang, target_lang)
+        is_reasoning = self._is_reasoning_model(self.model)
         last_error = ""
+
+        messages: list[dict] = [{"role": "user", "content": merged_prompt}]
+
+        max_tokens = self._compute_max_tokens(len(text))
+
+        stream_params: dict = {
+            "model": effective_model,
+            "messages": messages,
+            "stream": True,
+            "temperature": 0.3,
+            "max_tokens": max_tokens,
+            "timeout": STREAM_TIMEOUT,
+        }
+        stop_tokens = self._get_stop_tokens(effective_model)
+        if stop_tokens:
+            stream_params["stop"] = stop_tokens
+
+        non_thinking = self._get_non_thinking_params(effective_model)
+        if non_thinking:
+            stream_params.update(non_thinking)
 
         for attempt in range(STREAM_RETRIES + 1):
             try:
-                stream = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3,
-                    stream=True,
-                    timeout=STREAM_TIMEOUT,
-                )
+                stream = await self.client.chat.completions.create(**stream_params)
                 async for chunk in stream:
+                    if self._is_cancelled():
+                        return
                     if not chunk.choices:
                         continue
                     delta = chunk.choices[0].delta
@@ -350,8 +804,13 @@ class OpenAITranslator(BaseTranslator):
                         yield delta.content
                 elapsed = (time.perf_counter() - t_start) * 1000
                 logger.debug(
-                    "translate_stream: %d chars, %d chunks, first_token=%.0fms, total=%.0fms",
-                    len(text), chunk_count, first_token_ms, elapsed
+                    "translate_stream: %d chars input, %d chunks, first_token=%.0fms, total=%.0fms",
+                    len(text), chunk_count, first_token_ms, elapsed,
+                )
+                logger.warning(
+                    "TOKEN USAGE [translate_stream] | input_chars=%d chunks=%d elapsed=%.0fms | "
+                    "streaming - usage not available | model=%s reasoning=%s",
+                    len(text), chunk_count, elapsed, self.model, is_reasoning,
                 )
                 return
             except Exception as e:
@@ -421,13 +880,17 @@ class OpenAITranslator(BaseTranslator):
         timing.cache_lookup_ms = (time.perf_counter() - t_cache) * 1000
         timing.cache_hits = cache_hits
 
-        sem = asyncio.Semaphore(MAX_CONCURRENT_PARAGRAPHS)
+        sem = asyncio.Semaphore(self._get_max_concurrent())
         results: dict[int, str] = {}
 
         t_api = time.perf_counter()
 
         async def _translate_one(idx: int, para: str) -> None:
+            if self._is_cancelled():
+                return
             async with sem:
+                if self._is_cancelled():
+                    return
                 try:
                     results[idx] = await self._translate_raw(para, source_lang, target_lang, timeout)
                     _cache_set(para, source_lang, target_lang, results[idx])
@@ -452,12 +915,228 @@ class OpenAITranslator(BaseTranslator):
         logger.info("translate_paragraphs timing: %s", timing.summary())
         return merged, timing
 
+    async def translate_with_formula_protection(
+        self,
+        text: str,
+        formula_service,
+        source_lang: str = "en",
+        target_lang: str = "zh",
+        timeout: float = 60.0,
+    ) -> str:
+        protected_text = formula_service.protect_text(text)
+        protect_ms = formula_service._last_protect_ms if hasattr(formula_service, '_last_protect_ms') else 0.0
+
+        try:
+            result = await self._translate_with_formula_prompt(
+                protected_text, source_lang, target_lang, timeout
+            )
+        except BadRequestError as e:
+            if _is_token_limit_error(e):
+                logger.warning(
+                    "Token limit exceeded in formula-protected translate, auto-splitting (%d chars)",
+                    len(protected_text)
+                )
+                paragraphs = split_paragraphs(text)
+                sem = asyncio.Semaphore(self._get_max_concurrent())
+                results: dict[int, str] = {}
+
+                async def _do_one(idx: int, para: str) -> None:
+                    async with sem:
+                        try:
+                            svc = type(formula_service)()
+                            svc.protect_text(para)
+                            protected = svc._last_text if hasattr(svc, '_last_text') else para
+                            raw = await self._translate_with_formula_prompt(
+                                protected, source_lang, target_lang, timeout
+                            )
+                            results[idx] = svc.restore_text(raw)
+                        except Exception as inner_e:
+                            logger.error("Protected chunk %d failed: %s", idx, inner_e)
+                            results[idx] = f"[翻译失败: {beautify_translation_error(str(inner_e))}]"
+
+                await asyncio.gather(*[_do_one(i, p) for i, p in enumerate(paragraphs)])
+                result = " ".join(results[i] for i in range(len(paragraphs)))
+            else:
+                raise
+
+        return formula_service.restore_text(result)
+
+    async def _translate_with_formula_prompt(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        timeout: float,
+    ) -> str:
+        if self._is_cancelled():
+            return text
+
+        t_start = time.perf_counter()
+        effective_model = self._resolve_model()
+        merged_prompt = self._build_formula_prompt(text, source_lang, target_lang)
+
+        messages: list[dict] = [{"role": "user", "content": merged_prompt}]
+
+        max_tokens = self._compute_max_tokens(len(text))
+
+        params: dict = {
+            "model": effective_model,
+            "messages": messages,
+            "temperature": 0.0,
+            "max_tokens": max_tokens,
+            "timeout": timeout,
+        }
+        stop_tokens = self._get_stop_tokens(effective_model)
+        if stop_tokens:
+            params["stop"] = stop_tokens
+
+        non_thinking = self._get_non_thinking_params(effective_model)
+        if non_thinking:
+            params.update(non_thinking)
+
+        is_glm = _is_glm_provider(effective_model)
+        max_attempts = GLM_RATE_LIMIT_RETRIES + 1 if is_glm else 1
+        response = None
+        last_error: Exception | None = None
+
+        for attempt in range(max_attempts):
+            if self._is_cancelled():
+                return text
+
+            if attempt > 0:
+                delay = GLM_RATE_LIMIT_BACKOFF_BASE ** (attempt - 1)
+                logger.warning(
+                    "GLM rate limit retry %d/%d for translate_with_formula_prompt (%d chars), waiting %.1fs",
+                    attempt, GLM_RATE_LIMIT_RETRIES, len(text), delay,
+                )
+                await asyncio.sleep(delay)
+                if self._is_cancelled():
+                    return text
+
+            try:
+                response = await self._call_llm_cancellable(params)
+                if response is None:
+                    return text
+                break
+            except Exception as e:
+                last_error = e
+                if is_glm and _is_rate_limit_error(e) and attempt < max_attempts - 1:
+                    continue
+                raise
+
+        if response is None and last_error is not None:
+            raise last_error
+
+        raw_result = response.choices[0].message.content
+        if raw_result is None:
+            raw_result = ""
+
+        if not raw_result.strip():
+            reasoning_content = getattr(response.choices[0].message, 'reasoning_content', None)
+            if reasoning_content and str(reasoning_content).strip():
+                logger.warning(
+                    "_translate_with_formula_prompt: content empty but reasoning_content present (%d chars), "
+                    "using reasoning_content as fallback.",
+                    len(str(reasoning_content)),
+                )
+                raw_result = str(reasoning_content)
+
+        result = self._validate_and_clean_output(
+            raw_result, text, getattr(response, 'usage', None),
+            "_translate_with_formula_prompt",
+        )
+
+        elapsed = (time.perf_counter() - t_start) * 1000
+        logger.debug(
+            "_translate_with_formula_prompt: %d chars input -> %d chars output (raw=%d), %.0fms",
+            len(text), len(result), len(raw_result), elapsed,
+        )
+        self._log_usage(
+            "_translate_with_formula_prompt",
+            getattr(response, 'usage', None),
+            response.choices[0].message,
+            len(text),
+            len(result),
+            elapsed,
+        )
+        return result
+
+    async def translate_paragraphs_with_formula_protection(
+        self,
+        text: str,
+        source_lang: str = "en",
+        target_lang: str = "zh",
+        timeout: float = 60.0,
+    ) -> tuple[str, TranslationTiming]:
+        from app.services.formula_protection_service import FormulaProtectionService
+
+        timing = TranslationTiming()
+        t_start = time.perf_counter()
+
+        t0 = time.perf_counter()
+        paragraphs = split_paragraphs(text)
+        timing.preprocess_ms = (time.perf_counter() - t0) * 1000
+        timing.paragraph_count = len(paragraphs)
+
+        fsvc = FormulaProtectionService()
+        protected_paragraphs = fsvc.protect_paragraphs(paragraphs)
+
+        if len(paragraphs) <= 1:
+            t_api = time.perf_counter()
+            result = await self._translate_with_formula_prompt(
+                protected_paragraphs[0] if protected_paragraphs else text,
+                source_lang, target_lang, timeout
+            )
+            timing.api_request_ms = (time.perf_counter() - t_api) * 1000
+            result = fsvc.restore_text(result)
+            timing.total_ms = (time.perf_counter() - t_start) * 1000
+            return result, timing
+
+        sem = asyncio.Semaphore(self._get_max_concurrent())
+        results: dict[int, str] = {}
+
+        t_api = time.perf_counter()
+
+        async def _translate_one(idx: int, para: str) -> None:
+            if self._is_cancelled():
+                return
+            async with sem:
+                if self._is_cancelled():
+                    return
+                try:
+                    results[idx] = await self._translate_with_formula_prompt(
+                        para, source_lang, target_lang, timeout
+                    )
+                except Exception as e:
+                    logger.error("Paragraph %d formula-protected translation failed: %s", idx, e)
+                    results[idx] = f"[翻译失败: {beautify_translation_error(str(e))}]"
+
+        tasks = [_translate_one(i, p) for i, p in enumerate(protected_paragraphs)]
+        await asyncio.gather(*tasks)
+
+        timing.api_request_ms = (time.perf_counter() - t_api) * 1000
+
+        t_post = time.perf_counter()
+        restored = fsvc.restore_paragraphs([
+            results.get(i, f"[段落 {i} 翻译缺失]")
+            for i in range(len(paragraphs))
+        ])
+        merged = "\n\n".join(restored)
+        timing.postprocess_ms = (time.perf_counter() - t_post) * 1000
+
+        timing.total_ms = (time.perf_counter() - t_start) * 1000
+        logger.info("translate_paragraphs_with_formula_protection timing: %s", timing.summary())
+        return merged, timing
+
     async def translate_stream_paragraphs(
         self,
         text: str,
         source_lang: str = "en",
         target_lang: str = "zh",
     ) -> AsyncGenerator[str, None]:
+        if self._is_cancelled():
+            return
+
         timing = TranslationTiming()
         t_start = time.perf_counter()
         timing.input_chars = len(text)
@@ -478,16 +1157,27 @@ class OpenAITranslator(BaseTranslator):
         t_api = time.perf_counter()
         queue: asyncio.Queue = asyncio.Queue(maxsize=n * 4)
         first_token_recorded = False
+        stream_sem = asyncio.Semaphore(self._get_max_concurrent())
 
         async def _producer(idx: int, para: str) -> None:
-            try:
-                async for chunk in self.translate_stream(para, source_lang, target_lang):
-                    await queue.put((idx, chunk, False))
+            if self._is_cancelled():
                 await queue.put((idx, "", True))
-            except Exception as e:
-                logger.error("Paragraph %d stream translation failed: %s", idx, e)
-                error_msg = f"[翻译失败: {beautify_translation_error(str(e))}]"
-                await queue.put((idx, error_msg, True))
+                return
+            async with stream_sem:
+                if self._is_cancelled():
+                    await queue.put((idx, "", True))
+                    return
+                try:
+                    async for chunk in self.translate_stream(para, source_lang, target_lang):
+                        if self._is_cancelled():
+                            await queue.put((idx, "", True))
+                            return
+                        await queue.put((idx, chunk, False))
+                    await queue.put((idx, "", True))
+                except Exception as e:
+                    logger.error("Paragraph %d stream translation failed: %s", idx, e)
+                    error_msg = f"[翻译失败: {beautify_translation_error(str(e))}]"
+                    await queue.put((idx, error_msg, True))
 
         producers = [asyncio.create_task(_producer(i, p)) for i, p in enumerate(paragraphs)]
 

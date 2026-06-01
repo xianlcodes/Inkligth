@@ -47,6 +47,15 @@ async def cancel_task(
     return {"code": 200, "msg": "success", "data": {"task_id": task_id, "status": "cancelled"}}
 
 
+@router.post("/tasks/cancel-all")
+async def cancel_all_user_tasks(
+    current_user=Depends(get_current_user),
+):
+    count = await task_store.cancel_user_tasks(str(current_user.id))
+    logger.info("User %s cancelled %d running tasks", current_user.id, count)
+    return {"code": 200, "msg": "success", "data": {"cancelled_count": count}}
+
+
 @router.post("/tasks/translations/cleanup")
 async def cleanup_translations(
     db: AsyncSession = Depends(get_db),

@@ -259,19 +259,23 @@ async function handleResetPassword() {
 
 <style scoped>
 .forgot-page {
+  position: relative;
   box-sizing: border-box;
   height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   background: v-bind(bgUrl) no-repeat center center;
   background-size: cover;
   padding: 20px;
-  overflow: hidden;
 }
 
 .forgot-card {
   width: 420px;
+  max-width: 100%;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -279,6 +283,7 @@ async function handleResetPassword() {
   border-radius: var(--radius-3xl);
   padding: 40px 36px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
 }
 
 .forgot-header {
@@ -415,5 +420,82 @@ async function handleResetPassword() {
 
 .back-link:hover {
   text-decoration: underline;
+}
+
+/* === Mobile Responsive === */
+@media (max-width: 640px) {
+  .forgot-page {
+    padding: 0;
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .forgot-card {
+    width: 100%;
+    border-radius: 0;
+    padding: 40px 20px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-shadow: none;
+    border: none;
+    background: rgba(255, 255, 255, 0.88);
+  }
+
+  .forgot-header {
+    margin-bottom: 20px;
+  }
+
+  .forgot-logo {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 10px;
+  }
+
+  .forgot-title {
+    font-size: 20px;
+  }
+
+  .forgot-subtitle {
+    font-size: 13px;
+  }
+
+  .forgot-btn {
+    height: 42px;
+    font-size: 15px;
+  }
+
+  .success-banner {
+    padding: 12px;
+  }
+
+  .success-text strong {
+    font-size: 13px;
+  }
+
+  .success-text span {
+    font-size: 12px;
+  }
+
+  .step-links {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .forgot-footer {
+    margin-top: 20px;
+    padding-top: 16px;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 360px) {
+  .forgot-card {
+    padding: 24px 14px;
+  }
+
+  .forgot-title {
+    font-size: 18px;
+  }
 }
 </style>

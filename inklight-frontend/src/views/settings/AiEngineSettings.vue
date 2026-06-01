@@ -119,7 +119,7 @@ const providerDefaults: Record<string, { apiBase: string; model: string }> = {
   openai: { apiBase: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
   deepseek: { apiBase: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
   qwen: { apiBase: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  glm: { apiBase: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash' },
+  glm: { apiBase: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4.7-flash' },
 }
 
 const apiBasePlaceholder = computed(() => {

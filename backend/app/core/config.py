@@ -57,8 +57,18 @@ class Settings(BaseSettings):
     # Embedding model
     EMBEDDING_MODEL_PATH: str = "E:/InkLight/code/backend/all-MiniLM-L6-v2"
 
+    # File storage
+    UPLOAD_DIR: str = "uploads"
+
     # Translation cache
     TRANSLATION_CACHE_TTL_DAYS: int = 7
+
+    # ONNX Layout analysis model
+    HF_ENDPOINT: str = "https://hf-mirror.com"
+    LAYOUT_MODEL_PATH: str = ""
+    LAYOUT_MODEL_REPO: str = "wybxc/DocLayout-YOLO-DocStructBench-onnx"
+    LAYOUT_MODEL_FILENAME: str = "doclayout_yolo_docstructbench_imgsz1024.onnx"
+    LAYOUT_MODEL_BACKEND: str = "cpu"
 
     @property
     def DATABASE_URL_FINAL(self) -> str:

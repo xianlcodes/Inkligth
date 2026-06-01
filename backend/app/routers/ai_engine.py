@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 from app.core.deps import get_current_user
+from app.core.ai_client import invalidate_user_ai_cache
 from app.models.user import User
 from app.schemas.ai_engine import (
     AIEngineCreate,
@@ -46,6 +47,7 @@ async def create_ai_engine(
     current_user: User = Depends(get_current_user),
 ):
     engine = await AIEngineService.create_engine(db, str(current_user.id), data)
+    invalidate_user_ai_cache(str(current_user.id))
     return _engine_to_response(engine)
 
 
@@ -84,6 +86,7 @@ async def update_ai_engine(
     if not engine:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="引擎不存在")
     updated = await AIEngineService.update_engine(db, engine, data)
+    invalidate_user_ai_cache(str(current_user.id))
     return _engine_to_response(updated)
 
 
@@ -97,6 +100,7 @@ async def delete_ai_engine(
     if not engine:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="引擎不存在")
     await AIEngineService.delete_engine(db, engine)
+    invalidate_user_ai_cache(str(current_user.id))
     return {"code": 200, "msg": "success", "data": None}
 
 
@@ -122,4 +126,5 @@ async def set_default_ai_engine(
     if not engine:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="引擎不存在")
     await AIEngineService.set_default_engine(db, str(current_user.id), engine_id)
+    invalidate_user_ai_cache(str(current_user.id))
     return {"code": 200, "msg": "success", "data": None}

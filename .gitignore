@@ -81,9 +81,13 @@ favicon.pub/
 羽毛笔.png
 羽毛笔.svg
 icons.svg
-api_format.md
-项目说明.md
+# 排除所有 .md 文件（除 README.md 外）
 *.md
-AI引擎添加与配置指南.md
-大模型与翻译API配置完整教程.md
-教程发布操作指南.md
+!README.md
+!**/README.md
+
+# PDFMathTranslate 构建产物
+PDFMathTranslate-main/build/
+PDFMathTranslate-main/dist/
+PDFMathTranslate-main/*.egg-info/
+PDFMathTranslate-main/__pycache__/

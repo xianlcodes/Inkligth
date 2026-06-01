@@ -7,6 +7,7 @@ from app.models.announcement import Announcement
 from app.models.folder import Folder
 from app.models.refresh_token import RefreshToken
 from app.models.translation import Translation
+from app.models.translation_cache import TranslationCache
 from app.models.user_storage import UserStorage
 from app.models.check_in import CheckIn
 from app.models.invitation import Invitation

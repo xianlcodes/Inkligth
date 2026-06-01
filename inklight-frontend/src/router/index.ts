@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { clearAuth } from '@/api/client'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -122,6 +123,12 @@ const router = createRouter({
       meta: { title: '教程详情', requiresAuth: true },
     },
     {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/auth/Register.vue'),
+      meta: { title: '注册', guestOnly: true }
+    },
+    {
       path: '/login',
       name: 'Login',
       component: () => import('@/views/auth/Login.vue'),
@@ -148,8 +155,21 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
+
+  // 如果有 token 但未加载用户信息，先验证 token 有效性
+  if (authStore.token && !authStore.user) {
+    try {
+      await authStore.fetchUser()
+    } catch {
+      // token 无效或已过期，本地清除登录状态
+      authStore.token = null
+      authStore.user = null
+      clearAuth()
+    }
+  }
+
   const isLoggedIn = authStore.isLoggedIn
 
   if (to.meta.requiresAuth && !isLoggedIn) {

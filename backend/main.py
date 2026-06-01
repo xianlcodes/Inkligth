@@ -1,7 +1,36 @@
+import logging
+import sys
+
+# 清除所有默认日志处理器，防止重复输出
+root_logger = logging.getLogger()
+for handler in root_logger.handlers[:]:
+    root_logger.removeHandler(handler)
+
+# 配置自定义日志格式（仅显示WARNING及以上）
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(levelname)s:%(name)s:%(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+# 全面抑制SQLAlchemy日志（所有子模块）
+sqlalchemy_logger = logging.getLogger("sqlalchemy")
+sqlalchemy_logger.setLevel(logging.WARNING)
+sqlalchemy_logger.propagate = False
+
+# 抑制uvicorn访问日志
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
+
+# 抑制其他日志
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("app.core.ai_providers.provider_registry").setLevel(logging.WARNING)
+logging.getLogger("app.services.layout_analysis_service").setLevel(logging.WARNING)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial
+from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -14,6 +43,19 @@ app = FastAPI(
 async def startup_event():
     from app.core.ai_providers.provider_registry import AIProviderRegistry
     AIProviderRegistry.bootstrap()
+
+    try:
+        from app.services.layout_analysis_service import layout_analysis_service
+        import logging
+        _logger = logging.getLogger(__name__)
+        _logger.info("Preloading ONNX layout model...")
+        layout_analysis_service.load_model()
+        _logger.info("ONNX layout model preloaded (backend=%s)", layout_analysis_service.backend)
+    except FileNotFoundError:
+        pass
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("ONNX layout model preload skipped", exc_info=True)
 
 
 # CORS
@@ -46,6 +88,7 @@ app.include_router(storage.router, prefix=f"{settings.API_V1_STR}/storage", tags
 app.include_router(check_in.router, prefix=f"{settings.API_V1_STR}/check-in", tags=["check-in"])
 app.include_router(invitation.router, prefix=f"{settings.API_V1_STR}/invitations", tags=["invitations"])
 app.include_router(tutorial.router, prefix=settings.API_V1_STR, tags=["tutorials"])
+app.include_router(layout_analysis.router, prefix=f"{settings.API_V1_STR}/layout-analysis", tags=["layout-analysis"])
 
 
 @app.get("/")

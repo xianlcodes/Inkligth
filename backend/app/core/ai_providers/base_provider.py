@@ -138,12 +138,15 @@ class BaseAIProvider(ABC):
                     )
                 if status == 429:
                     if attempt < DEFAULT_RETRY_COUNT:
-                        retry_after = response.headers.get("Retry-After", str(DEFAULT_RETRY_DELAY * (attempt + 1)))
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after is None:
+                            retry_after = DEFAULT_RETRY_DELAY * (2 ** attempt)
+                        retry_after = float(retry_after)
                         logger.warning(
                             f"[{self.provider_name}] rate limited (429), "
-                            f"retrying after {retry_after}s"
+                            f"retrying after {retry_after:.1f}s (attempt {attempt + 1})"
                         )
-                        await asyncio.sleep(float(retry_after))
+                        await asyncio.sleep(retry_after)
                         continue
                     return AIEngineTestResult(
                         success=False,

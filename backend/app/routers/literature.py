@@ -15,6 +15,13 @@ from app.core.ai_client import get_user_ai_client, get_user_default_model
 from app.core.ai_providers.translator import OpenAITranslator, beautify_translation_error
 from app.core.ai_providers.analyzer import OpenAIAnalyzer
 from app.core.ai_providers.outline_generator import OutlineGenerator
+from app.services.formula_protection_service import (
+    FormulaProtectionService,
+    detect_formula_features,
+    has_pdf_math_indicators,
+)
+from app.services.layout_text_filter import extract_filtered_text
+from app.core.config import settings
 from app.services.literature_service import LiteratureService
 from app.services.analysis_service import AnalysisService
 from app.services.search_service import SearchService
@@ -27,6 +34,28 @@ from app.utils.compression import compress_json
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["literatures"])
+
+
+def _resolve_file_path(file_path: str) -> str:
+    if os.path.isabs(file_path) and os.path.exists(file_path):
+        return file_path
+
+    upload_dir = os.path.abspath(settings.UPLOAD_DIR)
+
+    if not os.path.isabs(file_path):
+        candidate = os.path.join(upload_dir, os.path.basename(file_path))
+        if os.path.exists(candidate):
+            return candidate
+
+        candidate = os.path.join(upload_dir, file_path)
+        if os.path.exists(candidate):
+            return candidate
+
+    legacy_path = os.path.join("/app", file_path)
+    if os.path.exists(legacy_path):
+        return legacy_path
+
+    return os.path.join(upload_dir, os.path.basename(file_path))
 
 
 @router.post("", response_model=LiteratureResponse)
@@ -164,14 +193,17 @@ async def get_literature_file(
     literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
     if not literature:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
-    # 将相对路径转换为绝对路径（容器内工作目录为 /app）
-    absolute_path = os.path.join("/app", literature.file_path) if not os.path.isabs(literature.file_path) else literature.file_path
+
+    file_path = literature.file_path
+    absolute_path = _resolve_file_path(file_path)
+
     if not os.path.exists(absolute_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
+
     return FileResponse(
         path=absolute_path,
         media_type="application/pdf",
-        filename=os.path.basename(literature.file_path),
+        filename=os.path.basename(file_path),
     )
 
 
@@ -235,7 +267,7 @@ async def start_full_translate(
                 message="已有缓存译文",
             )
 
-        task = await task_store.create_task("full_translate")
+        task = await task_store.create_task("full_translate", user_id=str(current_user.id))
         await task_store.update_task(
             task.task_id,
             status=TaskStatus.RUNNING,
@@ -351,6 +383,38 @@ async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
                 return
 
             raw_text = literature.raw_text
+
+            # Use layout-aware text extraction to filter out figures, tables, formulas
+            # (same approach as PDFMathTranslate — DocLayout-YOLO model)
+            try:
+                file_path = _resolve_file_path(literature.file_path)
+                if os.path.exists(file_path):
+                    filtered = await extract_filtered_text(file_path)
+                    if filtered.strip():
+                        raw_text = filtered
+                        logger.info(
+                            "Layout-aware filtering applied for literature %s: "
+                            "%d chars (original %d chars)",
+                            literature_id, len(filtered), len(literature.raw_text),
+                        )
+                    else:
+                        logger.warning(
+                            "Layout-aware filtering produced empty text for %s, "
+                            "falling back to raw extracted text",
+                            literature_id,
+                        )
+                else:
+                    logger.warning(
+                        "PDF file %s not found for layout filtering, "
+                        "using raw extracted text",
+                        file_path,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Layout-aware filtering failed for %s: %s, "
+                    "falling back to raw extracted text",
+                    literature_id, e,
+                )
             paragraphs = _split_paragraphs(raw_text)
             total = len(paragraphs)
 
@@ -360,25 +424,93 @@ async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
 
             ai_client = await get_user_ai_client(db, user_id)
             model = await get_user_default_model(db, user_id)
-            translator = OpenAITranslator(client=ai_client, model=model)
+            translator = OpenAITranslator(
+                client=ai_client,
+                model=model,
+                cancel_check=lambda: task_id in _cancellation_flags,
+            )
 
-            sem = asyncio.Semaphore(MAX_CONCURRENT)
+            from app.core.ai_providers.translator import _get_max_concurrent_for_model
+            sem = asyncio.Semaphore(_get_max_concurrent_for_model(model))
             progress_lock = asyncio.Lock()
             progress_counter = {"done": 0}
 
-            coros = [
-                _translate_one(
-                    translator=translator,
-                    index=i,
-                    text=para,
-                    sem=sem,
-                    progress_lock=progress_lock,
-                    progress_counter=progress_counter,
-                    task_id=task_id,
-                    total=total,
-                )
-                for i, para in enumerate(paragraphs)
-            ]
+            has_formulas = has_pdf_math_indicators(raw_text)
+            if has_formulas:
+                logger.info("Formulas detected in literature %s, using protected translation", literature_id)
+                formula_service = FormulaProtectionService()
+                protected_paragraphs = formula_service.protect_paragraphs(paragraphs)
+                para_map = list(zip(paragraphs, protected_paragraphs))
+
+                async def _translate_protected(
+                    translator: OpenAITranslator,
+                    index: int,
+                    original: str,
+                    protected: str,
+                ) -> dict:
+                    async with sem:
+                        if _is_cancelled(task_id):
+                            return {"paragraph_index": index, "original": original, "translated": "[已取消]"}
+                        if not original.strip():
+                            return {"paragraph_index": index, "original": original, "translated": ""}
+
+                        last_error = ""
+                        for attempt in range(MAX_RETRIES + 1):
+                            try:
+                                raw = await translator._translate_with_formula_prompt(
+                                    protected, "en", "zh", PER_PARAGRAPH_TIMEOUT
+                                )
+                                break
+                            except Exception as e:
+                                last_error = str(e)
+                                err_lower = last_error.lower()
+                                is_retryable = any(k in err_lower for k in ("429", "rate limit", "timeout", "connection", "reset"))
+                                if is_retryable and attempt < MAX_RETRIES:
+                                    delay = RETRY_BACKOFF_BASE ** attempt
+                                    logger.warning(
+                                        "Protected paragraph %s attempt %s/%s failed: %s, retrying in %.1fs",
+                                        index, attempt + 1, MAX_RETRIES + 1, e, delay,
+                                    )
+                                    await asyncio.sleep(delay)
+                                else:
+                                    logger.error(
+                                        "Protected paragraph %s translation failed after %s attempts: %s",
+                                        index, attempt + 1, e,
+                                    )
+                                    break
+                        else:
+                            raw = f"[翻译失败: {beautify_translation_error(last_error)}]"
+
+                    translated = formula_service.restore_text(raw)
+                    async with progress_lock:
+                        progress_counter["done"] += 1
+                        await task_store.update_task(task_id, progress=progress_counter["done"])
+
+                    return {"paragraph_index": index, "original": original, "translated": translated}
+
+                coros = [
+                    _translate_protected(
+                        translator=translator,
+                        index=i,
+                        original=orig,
+                        protected=prot,
+                    )
+                    for i, (orig, prot) in enumerate(para_map)
+                ]
+            else:
+                coros = [
+                    _translate_one(
+                        translator=translator,
+                        index=i,
+                        text=para,
+                        sem=sem,
+                        progress_lock=progress_lock,
+                        progress_counter=progress_counter,
+                        task_id=task_id,
+                        total=total,
+                    )
+                    for i, para in enumerate(paragraphs)
+                ]
 
             translated_paragraphs: list[dict] = [{}] * total
             last_commit_count = 0
@@ -432,6 +564,13 @@ async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
                 task_id,
                 status=TaskStatus.COMPLETED,
                 result={"literature_id": literature_id, "paragraph_count": total},
+            )
+            usage = translator.get_usage_summary()
+            logger.warning(
+                "FULL_TRANSLATE_TOKEN_SUMMARY | task=%s literature=%s paragraphs=%d | "
+                "prompt_tokens=%d completion_tokens=%d total_tokens=%d",
+                task_id, literature_id, total,
+                usage["total_prompt_tokens"], usage["total_completion_tokens"], usage["total_tokens"],
             )
             logger.info(f"Full translate task completed: {task_id}, paragraphs: {total}")
             logger.info(
@@ -668,7 +807,7 @@ async def start_analyze(
             message="已有缓存分析结果",
         )
 
-    task = await task_store.create_task("analyze")
+    task = await task_store.create_task("analyze", user_id=str(current_user.id))
     await task_store.update_task(
         task.task_id,
         status=TaskStatus.RUNNING,
@@ -829,3 +968,262 @@ async def download_outline_pptx(
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
     )
+
+
+@router.post("/{literature_id}/translate-pdf")
+async def start_pdf_translate(
+    literature_id: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+    source_lang: str = Query("en"),
+    target_lang: str = Query("zh"),
+    output_mode: str = Query("mono"),
+):
+    from app.schemas.pdf_render import PdfTranslateDownloadResponse
+
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+
+    file_path = _resolve_file_path(literature.file_path)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献文件不存在")
+
+    task = await task_store.create_task("pdf_translate", user_id=str(current_user.id))
+    await task_store.update_task(task.task_id, status=TaskStatus.RUNNING, progress=0, total=100)
+
+    background_tasks.add_task(
+        _run_pdf_translate,
+        task_id=task.task_id,
+        literature_id=literature_id,
+        user_id=str(current_user.id),
+        file_path=file_path,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        output_mode=output_mode,
+        original_filename=literature.title or "translated",
+    )
+
+    logger.info("PDF translate task created: %s for literature %s", task.task_id, literature_id)
+    return PdfTranslateDownloadResponse(
+        task_id=task.task_id,
+        status="running",
+        message="PDF 原位翻译任务已启动",
+    )
+
+
+@router.get("/{literature_id}/translate-pdf/{task_id}")
+async def get_pdf_translate_status(
+    literature_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.schemas.pdf_render import PdfTranslateTaskStatus
+
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+
+    task_info = await task_store.get_task(task_id)
+    if not task_info:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+
+    download_url = None
+    preview_url = None
+    if task_info.status == TaskStatus.COMPLETED and task_info.result:
+        download_url = f"/literatures/{literature_id}/translate-pdf/{task_id}/download"
+        preview_url = f"/literatures/{literature_id}/translate-pdf/{task_id}/preview"
+
+    return PdfTranslateTaskStatus(
+        task_id=task_id,
+        status=task_info.status.value if hasattr(task_info.status, "value") else str(task_info.status),
+        progress=task_info.progress or 0,
+        message=task_info.error or "",
+        download_url=download_url,
+        preview_url=preview_url,
+    )
+
+
+@router.post("/{literature_id}/translate-pdf/{task_id}/cancel")
+async def cancel_pdf_translate(
+    literature_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+
+    task_info = await task_store.get_task(task_id)
+    if not task_info:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+
+    cancelled = await task_store.cancel_task(task_id)
+    if not cancelled:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="任务无法取消（已完成或已失败）")
+
+    logger.info("PDF translate task %s cancelled by user", task_id)
+    return {"code": 200, "msg": "翻译任务已取消"}
+
+
+@router.get("/{literature_id}/translate-pdf/{task_id}/download")
+async def download_pdf_translate(
+    literature_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+
+    task_info = await task_store.get_task(task_id)
+    if not task_info:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    if task_info.status != TaskStatus.COMPLETED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="任务尚未完成")
+
+    result = task_info.result or {}
+    output_path = result.get("output_path")
+    output_filename = result.get("output_filename")
+    if not output_path or not os.path.exists(output_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在")
+
+    safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
+    return FileResponse(
+        path=output_path,
+        media_type="application/pdf",
+        filename=safe_filename,
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+    )
+
+
+@router.get("/{literature_id}/translate-pdf/{task_id}/preview")
+async def preview_pdf_translate(
+    literature_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+
+    task_info = await task_store.get_task(task_id)
+    if not task_info:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
+    if task_info.status != TaskStatus.COMPLETED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="任务尚未完成")
+
+    result = task_info.result or {}
+    output_path = result.get("output_path")
+    output_filename = result.get("output_filename")
+    if not output_path or not os.path.exists(output_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在")
+
+    safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
+    return FileResponse(
+        path=output_path,
+        media_type="application/pdf",
+        filename=safe_filename,
+        headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
+    )
+
+
+async def _run_pdf_translate(
+    task_id: str,
+    literature_id: str,
+    user_id: str,
+    file_path: str,
+    source_lang: str,
+    target_lang: str,
+    output_mode: str,
+    original_filename: str,
+):
+    from app.db.database import async_session_factory
+    from app.services.pdf_render_service import pdf_render_service
+
+    class TaskCancelledException(Exception):
+        pass
+
+    cancel_event = await task_store.register_cancel_event(task_id)
+
+    async def report_progress(progress: int, message: str):
+        await task_store.update_task(task_id, progress=progress, error=message)
+
+    def cancel_check() -> bool:
+        return cancel_event.is_set()
+
+    def raise_if_cancelled():
+        if cancel_event.is_set():
+            raise TaskCancelledException()
+
+    try:
+        await report_progress(10, "正在初始化 AI 客户端...")
+
+        async with async_session_factory() as db:
+            ai_client = await get_user_ai_client(db, user_id)
+            model = await get_user_default_model(db, user_id)
+
+        raise_if_cancelled()
+
+        await report_progress(20, "准备翻译...")
+
+        output_bytes = await pdf_render_service.build_translated_pdf(
+            source_pdf_path=file_path,
+            ai_client=ai_client,
+            model=model,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            output_mode=output_mode,
+            progress_callback=report_progress,
+            cancel_check=cancel_check,
+        )
+
+        raise_if_cancelled()
+
+        await report_progress(90, "正在保存翻译结果...")
+
+        output_dir = os.path.join(os.path.abspath(settings.UPLOAD_DIR), "translated")
+        os.makedirs(output_dir, exist_ok=True)
+
+        suffix = "dual" if output_mode == "dual" else "mono"
+        output_filename = f"{original_filename}_{target_lang}_{suffix}.pdf"
+        output_path = os.path.join(output_dir, f"{task_id}_{output_filename}")
+
+        with open(output_path, "wb") as f:
+            f.write(output_bytes)
+
+        await task_store.update_task(
+            task_id,
+            status=TaskStatus.COMPLETED,
+            progress=100,
+            error="PDF 原位翻译完成",
+            result={"output_path": output_path, "output_filename": output_filename},
+        )
+
+        logger.info("PDF translate task completed: %s, output: %s", task_id, output_path)
+
+    except TaskCancelledException:
+        logger.info("PDF translate task cancelled: %s", task_id)
+        await task_store.update_task(
+            task_id,
+            status=TaskStatus.CANCELLED,
+            error="任务已被取消",
+        )
+    except Exception as e:
+        if cancel_event.is_set():
+            logger.info("PDF translate task cancelled after error: %s", task_id)
+            await task_store.update_task(
+                task_id,
+                status=TaskStatus.CANCELLED,
+                error="任务已被取消",
+            )
+        else:
+            logger.error("PDF translate task failed: %s, error: %s", task_id, e, exc_info=True)
+            await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+    finally:
+        await task_store.remove_cancel_event(task_id)

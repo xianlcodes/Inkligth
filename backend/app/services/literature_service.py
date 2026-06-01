@@ -23,7 +23,10 @@ from app.schemas.literature import LiteratureCreate, LiteratureUpdate
 
 logger = logging.getLogger(__name__)
 
-UPLOAD_DIR = "/app/uploads"
+import os as _os
+from app.core.config import settings
+
+UPLOAD_DIR = _os.path.abspath(settings.UPLOAD_DIR)
 
 # Metadata cache: {key: (timestamp, data)}, TTL = 24 hours
 _metadata_cache: dict[str, tuple[float, dict]] = {}

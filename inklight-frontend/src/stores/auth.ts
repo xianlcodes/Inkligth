@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import apiClient, { setApiToken, setRefreshToken, getApiToken, clearAuth } from '@/api/client'
+import { cancelAllUserTasks } from '@/api/translate'
 
 interface User {
   id: string
@@ -87,6 +88,11 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch {
       // logout 失败不阻塞本地清理
+    }
+    try {
+      await cancelAllUserTasks()
+    } catch {
+      // 取消失败不阻塞登出流程
     }
     token.value = null
     user.value = null

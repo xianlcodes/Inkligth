@@ -8,12 +8,13 @@ class GLMAdapter(BaseAIProvider):
 
     ZhipuAI OpenAI-compatible endpoint:
     - base_url: https://open.bigmodel.cn/api/paas/v4
-    - Models: glm-4-flash, glm-4-plus, etc.
+    - Models: glm-4.7-flash, glm-4.7, glm-4.6, etc.
     - Does NOT use /v1 prefix with the OpenAI SDK.
+    - glm-4.7-flash is free-tier and recommended for translation.
     """
     provider_name = "glm"
     capabilities = ProviderCapabilities(
-        supports_models_list=False,
+        supports_models_list=True,
         requires_v1_prefix=False,
         auth_header_name="Authorization",
         auth_header_value_prefix="Bearer ",
@@ -27,8 +28,8 @@ class GLMAdapter(BaseAIProvider):
         headers = self.get_auth_headers(api_key)
         api_base = self.normalize_api_base(api_base)
 
-        result = await self._try_chat_endpoint(api_base, headers, model)
-        if result.success:
+        result = await self._try_models_endpoint(api_base, headers)
+        if result and result.success:
             return result
 
-        return result
+        return await self._try_chat_endpoint(api_base, headers, model)
