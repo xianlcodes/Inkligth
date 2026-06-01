@@ -7,9 +7,9 @@
 # ============================================================
 
 # Web 框架
-fastapi==0.115.0
+fastapi>=0.115.2
 uvicorn[standard]==0.32.0
-pydantic==2.9.2
+pydantic>=2.10.6
 pydantic-settings==2.6.1
 python-multipart==0.0.27
 
