@@ -1,32 +1,26 @@
 FROM python:3.11-slim
-
 WORKDIR /app
 
-# 安装系统依赖（pdf2zh 的 opencv-python-headless 需要 libgl）
+# 1. 使用阿里云 Debian 镜像源，安装必需的图形库（libgl1 已不存在，改用替代包）
 RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libgl1 \
         libglib2.0-0 \
+        libsm6 \
+        libxrender1 \
+        libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-# 先安装项目依赖（强制 CPU 版 PyTorch，防止自动装 GPU 版）
+# 2. 安装项目依赖（全部从阿里云镜像拉取）
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    -i https://pypi.tuna.tsinghua.edu.cn/simple
+    -i https://mirrors.aliyun.com/pypi/simple/
 
-# 再安装 pdf2zh（其依赖会自动覆盖旧版本）
+# 3. 安装 pdf2zh（同样使用阿里云镜像）
 RUN pip install --no-cache-dir pdf2zh \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    -i https://pypi.tuna.tsinghua.edu.cn/simple
+    -i https://mirrors.aliyun.com/pypi/simple/
 
-# 复制后端代码
+# 4. 复制项目代码
 COPY . .
-
-# 启动时自动下载布局模型（首次运行会缓存）
-# EMBEDDING_MODEL_PATH 需在 .env 中配置或挂载外部卷
-
 EXPOSE 8000
-
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
