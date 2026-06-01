@@ -8,9 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# 先安装 PDFMathTranslate (pdf2zh)，它会自动安装 PyMuPDF、babeldoc、onnxruntime 等
-COPY PDFMathTranslate-main/ PDFMathTranslate-main/
-RUN pip install --no-cache-dir -e PDFMathTranslate-main/
+# 安装 pdf2zh（PDF 原位翻译引擎）
+RUN pip install --no-cache-dir pdf2zh
 
 # 再安装 InkLight 专属依赖（不含 pdf2zh 已覆盖的包，避免版本冲突）
 COPY requirements.txt .
