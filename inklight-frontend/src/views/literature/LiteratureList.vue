@@ -116,7 +116,7 @@
       <div class="content-area">
         <div class="stats-row">
           <div v-for="stat in stats" :key="stat.label" class="stat-card">
-            <div class="stat-icon" :style="{ background: stat.bg }">
+            <div class="stat-icon">
               <el-icon :size="20"><component :is="stat.icon" /></el-icon>
             </div>
             <div class="stat-info">
@@ -127,43 +127,55 @@
         </div>
 
         <div class="reading-stats-row" v-if="readingStats">
-          <div class="reading-stat-card">
-            <div class="reading-stat-header">
-              <span class="reading-stat-label">阅读进度</span>
-            </div>
-            <div class="progress-ring-wrapper">
-              <el-progress
-                type="circle"
-                :percentage="readingStats.read_progress"
-                :width="80"
-                :stroke-width="8"
-                color="var(--accent-primary)"
-              />
-            </div>
-            <div class="reading-stat-detail">
-              <span>已读 {{ readingStats.read_count }} / {{ readingStats.total_literatures }} 篇</span>
+          <div class="reading-stat-card reading-stat-card--progress">
+            <div class="reading-stat-accent-bar"></div>
+            <div class="reading-stat-body">
+              <div class="reading-stat-header">
+                <span class="reading-stat-label">阅读进度</span>
+              </div>
+              <div class="progress-ring-wrapper">
+                <el-progress
+                  type="circle"
+                  :percentage="readingStats.read_progress"
+                  :width="80"
+                  :stroke-width="8"
+                  color="var(--accent-primary)"
+                />
+              </div>
+              <div class="reading-stat-detail">
+                <span>已读 {{ readingStats.read_count }} / {{ readingStats.total_literatures }} 篇</span>
+              </div>
             </div>
           </div>
-          <div class="reading-stat-card">
-            <div class="reading-stat-header">
-              <span class="reading-stat-label">本周阅读</span>
+          <div class="reading-stat-card reading-stat-card--week">
+            <div class="reading-stat-accent-bar"></div>
+            <div class="reading-stat-body">
+              <div class="reading-stat-header">
+                <span class="reading-stat-label">本周阅读</span>
+              </div>
+              <div class="reading-stat-big-number">{{ readingStats.week_count }}</div>
+              <div class="reading-stat-detail">篇</div>
             </div>
-            <div class="reading-stat-big-number">{{ readingStats.week_count }}</div>
-            <div class="reading-stat-detail">篇</div>
           </div>
-          <div class="reading-stat-card">
-            <div class="reading-stat-header">
-              <span class="reading-stat-label">本月阅读</span>
+          <div class="reading-stat-card reading-stat-card--month">
+            <div class="reading-stat-accent-bar"></div>
+            <div class="reading-stat-body">
+              <div class="reading-stat-header">
+                <span class="reading-stat-label">本月阅读</span>
+              </div>
+              <div class="reading-stat-big-number">{{ readingStats.month_count }}</div>
+              <div class="reading-stat-detail">篇</div>
             </div>
-            <div class="reading-stat-big-number">{{ readingStats.month_count }}</div>
-            <div class="reading-stat-detail">篇</div>
           </div>
-          <div class="reading-stat-card">
-            <div class="reading-stat-header">
-              <span class="reading-stat-label">日均阅读</span>
+          <div class="reading-stat-card reading-stat-card--daily">
+            <div class="reading-stat-accent-bar"></div>
+            <div class="reading-stat-body">
+              <div class="reading-stat-header">
+                <span class="reading-stat-label">日均阅读</span>
+              </div>
+              <div class="reading-stat-big-number">{{ formatTime(readingStats.avg_daily_time_seconds) }}</div>
+              <div class="reading-stat-detail">分钟</div>
             </div>
-            <div class="reading-stat-big-number">{{ formatTime(readingStats.avg_daily_time_seconds) }}</div>
-            <div class="reading-stat-detail">分钟</div>
           </div>
         </div>
 
@@ -386,9 +398,9 @@ const moveFolderOptions = computed(() => {
 })
 
 const stats = computed(() => [
-  { label: '全部文献', value: allLiteratureCount.value, icon: Collection, bg: '#f0fdfa' },
-  { label: '已读', value: literatureStore.literatures.filter(p => p.status === 'read').length, icon: Checked, bg: '#f0fdf4' },
-  { label: '未读', value: literatureStore.literatures.filter(p => p.status === 'unread').length, icon: Clock, bg: '#fff7ed' },
+  { label: '全部文献', value: allLiteratureCount.value, icon: Collection },
+  { label: '已读', value: literatureStore.literatures.filter(p => p.status === 'read').length, icon: Checked },
+  { label: '未读', value: literatureStore.literatures.filter(p => p.status === 'unread').length, icon: Clock },
 ])
 
 onMounted(() => {
@@ -924,16 +936,53 @@ async function handleDeleteFolder(id: string) {
 .stat-card {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-2xl);
-  padding: 16px 20px;
+  border-radius: var(--radius-xl);
+  padding: 18px 20px;
   display: flex;
   align-items: center;
   gap: 14px;
-  transition: box-shadow 0.2s;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+.stat-card:nth-child(1)::before {
+  background: linear-gradient(90deg, #0d9488, #5eead4);
+}
+.stat-card:nth-child(2)::before {
+  background: linear-gradient(90deg, #059669, #6ee7b7);
+}
+.stat-card:nth-child(3)::before {
+  background: linear-gradient(90deg, #d97706, #fcd34d);
 }
 
 .stat-card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+  border-color: transparent;
+}
+
+.stat-card:nth-child(1):hover {
+  border-color: #0d9488;
+  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.1);
+}
+.stat-card:nth-child(2):hover {
+  border-color: #059669;
+  box-shadow: 0 4px 20px rgba(5, 150, 105, 0.1);
+}
+.stat-card:nth-child(3):hover {
+  border-color: #d97706;
+  box-shadow: 0 4px 20px rgba(217, 119, 6, 0.1);
 }
 
 .stat-icon {
@@ -943,8 +992,20 @@ async function handleDeleteFolder(id: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--teal-600);
   flex-shrink: 0;
+}
+
+.stat-card:nth-child(1) .stat-icon {
+  color: #0d9488;
+  background: linear-gradient(135deg, #f0fdfa, #ccfbf1);
+}
+.stat-card:nth-child(2) .stat-icon {
+  color: #059669;
+  background: linear-gradient(135deg, #f0fdf4, #bbf7d0);
+}
+.stat-card:nth-child(3) .stat-icon {
+  color: #d97706;
+  background: linear-gradient(135deg, #fff7ed, #fde68a);
 }
 
 .stat-info {
@@ -963,6 +1024,7 @@ async function handleDeleteFolder(id: string) {
   font-size: 12px;
   color: var(--text-tertiary);
   margin: 0;
+  font-weight: 500;
 }
 
 .reading-stats-row {
@@ -973,29 +1035,102 @@ async function handleDeleteFolder(id: string) {
 }
 
 .reading-stat-card {
-  background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-xl);
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.reading-stat-accent-bar {
+  height: 3px;
+  width: 100%;
+}
+
+.reading-stat-card--progress {
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 250, 0.8) 100%);
+}
+.reading-stat-card--progress .reading-stat-accent-bar {
+  background: linear-gradient(90deg, #0d9488, #5eead4);
+}
+
+.reading-stat-card--week {
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 249, 255, 0.8) 100%);
+}
+.reading-stat-card--week .reading-stat-accent-bar {
+  background: linear-gradient(90deg, #0ea5e9, #7dd3fc);
+}
+
+.reading-stat-card--month {
+  background: linear-gradient(180deg, #ffffff 0%, rgba(245, 243, 255, 0.8) 100%);
+}
+.reading-stat-card--month .reading-stat-accent-bar {
+  background: linear-gradient(90deg, #8b5cf6, #c4b5fd);
+}
+
+.reading-stat-card--daily {
+  background: linear-gradient(180deg, #ffffff 0%, rgba(255, 251, 235, 0.8) 100%);
+}
+.reading-stat-card--daily .reading-stat-accent-bar {
+  background: linear-gradient(90deg, #f59e0b, #fde68a);
+}
+
+.reading-stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.reading-stat-card--progress:hover {
+  border-color: #0d9488;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 253, 250, 1) 100%);
+  box-shadow: 0 6px 24px rgba(13, 148, 136, 0.12);
+}
+.reading-stat-card--week:hover {
+  border-color: #0ea5e9;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(240, 249, 255, 1) 100%);
+  box-shadow: 0 6px 24px rgba(14, 165, 233, 0.12);
+}
+.reading-stat-card--month:hover {
+  border-color: #8b5cf6;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(245, 243, 255, 1) 100%);
+  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.12);
+}
+.reading-stat-card--daily:hover {
+  border-color: #f59e0b;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(255, 251, 235, 1) 100%);
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.12);
+}
+
+.reading-stat-body {
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  transition: box-shadow 0.2s;
-}
-
-.reading-stat-card:hover {
-  box-shadow: var(--shadow-md);
 }
 
 .reading-stat-header {
   width: 100%;
+  text-align: center;
 }
 
 .reading-stat-label {
   font-size: 12px;
   color: var(--text-tertiary);
   font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.reading-stat-card--progress .reading-stat-label {
+  color: #0d9488;
+}
+.reading-stat-card--week .reading-stat-label {
+  color: #0ea5e9;
+}
+.reading-stat-card--month .reading-stat-label {
+  color: #7c3aed;
+}
+.reading-stat-card--daily .reading-stat-label {
+  color: #d97706;
 }
 
 .progress-ring-wrapper {
@@ -1009,11 +1144,26 @@ async function handleDeleteFolder(id: string) {
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1;
+  margin-top: 4px;
+}
+
+.reading-stat-card--progress .reading-stat-big-number {
+  color: #0d9488;
+}
+.reading-stat-card--week .reading-stat-big-number {
+  color: #0ea5e9;
+}
+.reading-stat-card--month .reading-stat-big-number {
+  color: #7c3aed;
+}
+.reading-stat-card--daily .reading-stat-big-number {
+  color: #d97706;
 }
 
 .reading-stat-detail {
   font-size: 12px;
   color: var(--text-muted);
+  font-weight: 500;
 }
 
 .calendar-link-row {

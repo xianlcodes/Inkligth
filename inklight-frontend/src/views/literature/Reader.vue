@@ -344,12 +344,6 @@
           </el-button>
           <el-divider direction="vertical" />
           <el-switch
-            v-model="paragraphMode"
-            active-text="逐段模式"
-            size="small"
-          />
-          <el-divider direction="vertical" />
-          <el-switch
             v-model="continuousMode"
             active-text="连续翻译"
             size="small"
@@ -619,7 +613,6 @@ watch(continuousMode, (newVal) => {
     translationHistory.value = []
   }
 })
-const paragraphMode = ref(false)
 const pdfViewerRef = ref<HTMLElement | null>(null)
 
 const resizerWidth = 6
