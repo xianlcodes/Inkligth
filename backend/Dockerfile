@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 WORKDIR /app
 
-# 1. 使用阿里云 Debian 镜像源，安装必需的图形库（libgl1 已不存在，改用替代包）
+# 1. 使用阿里云 Debian 镜像源，安装必需的图形库（opencv 需要 libgl1）
 RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
+        libgl1 \
         libglib2.0-0 \
         libsm6 \
         libxrender1 \
