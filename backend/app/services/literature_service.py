@@ -19,6 +19,7 @@ from app.models.literature_chunk import LiteratureChunk
 from app.models.reading_record import ReadingRecord
 from app.models.presentation import Presentation
 from app.models.tag import literature_tags
+from app.models.translation import Translation
 from app.schemas.literature import LiteratureCreate, LiteratureUpdate
 
 logger = logging.getLogger(__name__)
@@ -1008,6 +1009,7 @@ class LiteratureService:
         await db.execute(delete(Note).where(Note.literature_id == literature_id))
         await db.execute(delete(LiteratureChunk).where(LiteratureChunk.literature_id == literature_id))
         await db.execute(delete(ReadingRecord).where(ReadingRecord.literature_id == literature_id))
+        await db.execute(delete(Translation).where(Translation.literature_id == literature_id))
         await db.execute(
             Presentation.__table__.update()
             .where(Presentation.literature_id == literature_id)
