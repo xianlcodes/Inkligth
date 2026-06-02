@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 from app.core.deps import get_current_user
-from app.services.literature_service import LiteratureService
+from app.services.literature_service import LiteratureService, UPLOAD_DIR
 from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
@@ -156,7 +156,7 @@ async def merge_chunks(
     session_path = _session_dir(upload_id)
     LiteratureService.ensure_upload_dir()
     output_filename = f"{uuid.uuid4()}.pdf"
-    output_path = os.path.join(LiteratureService.UPLOAD_DIR, output_filename)
+    output_path = os.path.join(UPLOAD_DIR, output_filename)
 
     with open(output_path, "wb") as out:
         for i in range(total):
