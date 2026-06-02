@@ -134,15 +134,6 @@
           </div>
         </div>
         <div class="header-right">
-          <span v-if="backendOnline" class="status-badge online">
-            <span class="status-dot"></span>
-            后端已连接
-          </span>
-          <span v-else class="status-badge offline">
-            <span class="status-dot"></span>
-            后端未连接
-          </span>
-          <div class="header-divider"></div>
           <span class="user-email">{{ authStore.user?.email }}</span>
           <CheckInPopover
             :visible="checkInVisible"
@@ -200,6 +191,7 @@
       </el-main>
     </el-container>
   </el-container>
+  <FeedbackButton v-if="authStore.isLoggedIn" />
 </template>
 
 <script setup lang="ts">
@@ -212,6 +204,7 @@ import { getActiveAnnouncements, getPublicAnnouncements, type Announcement } fro
 import { getStorage } from '@/api/storage'
 import { applyTheme, findThemeByColor } from '@/utils/themes'
 import CheckInPopover from '@/components/CheckInPopover.vue'
+import FeedbackButton from '@/components/business/FeedbackButton.vue'
 import {
   Reading,
   Collection,
@@ -236,8 +229,6 @@ import {
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const backendOnline = ref(false)
-
 const searchQuery = ref('')
 const searchResults = ref<SearchResultItem[]>([])
 const searching = ref(false)
@@ -336,15 +327,6 @@ function goToResult(item: SearchResultItem) {
 }
 
 onMounted(async () => {
-  try {
-    const res = await axios.get('/api/v1/health')
-    if (res.data.status === 'ok') {
-      backendOnline.value = true
-    }
-  } catch (e) {
-    console.warn('后端未连接，请确保后端服务已启动')
-  }
-
   if (authStore.isLoggedIn && !authStore.user) {
     authStore.fetchUser().catch(() => {
       authStore.logout()
@@ -781,46 +763,6 @@ watchEffect(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 20px;
-}
-
-.status-badge.online {
-  color: var(--teal-700);
-  background: var(--teal-50);
-}
-
-.status-badge.offline {
-  color: var(--slate-500);
-  background: var(--slate-100);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.status-badge.online .status-dot {
-  background: var(--teal-500);
-}
-
-.status-badge.offline .status-dot {
-  background: var(--slate-400);
-}
-
-.header-divider {
-  width: 1px;
-  height: 24px;
-  background: var(--border-color);
 }
 
 .user-email {

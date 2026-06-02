@@ -99,25 +99,52 @@ class LiteratureService:
     # Layer 1: Identifier extraction
     # ------------------------------------------------------------------
     @staticmethod
+    def _text_before_references(text: str) -> str:
+        """Truncate text at the references section header, if present."""
+        ref_patterns = [
+            r"\n\s*REFERENCES\s*\n",
+            r"\n\s*Bibliography\s*\n",
+            r"\n\s*References\s+and\s+Notes\s*\n",
+            r"\n\s*Literature\s+Cited\s*\n",
+            r"\n\s*Works\s+Cited\s*\n",
+        ]
+        for pattern in ref_patterns:
+            m = re.search(pattern, text, re.IGNORECASE)
+            if m:
+                return text[:m.start()]
+        return text
+
+    @staticmethod
     def extract_identifiers(text: str) -> dict:
-        """Extract DOI, arXiv, PMID, PMCID from text."""
+        """Extract DOI, arXiv, PMID, PMCID from text.
+
+        Only searches before the references section (to avoid picking up
+        identifiers from cited papers) with a line-count fallback.
+        """
+        # Primary: truncate at references section
+        search_text = LiteratureService._text_before_references(text)
+        # Fallback: limit to first 100 lines if no references section found
+        if search_text is text:
+            lines = text.splitlines()[:100]
+            search_text = "\n".join(lines)
+
         result = {"doi": None, "arxiv": None, "pmid": None, "pmcid": None}
 
-        doi_match = DOI_PATTERN.search(text)
+        doi_match = DOI_PATTERN.search(search_text)
         if doi_match:
             result["doi"] = doi_match.group(0)
 
-        arxiv_match = ARXIV_URL_PATTERN.search(text)
+        arxiv_match = ARXIV_URL_PATTERN.search(search_text)
         if not arxiv_match:
-            arxiv_match = ARXIV_ID_PATTERN.search(text)
+            arxiv_match = ARXIV_ID_PATTERN.search(search_text)
         if arxiv_match:
             result["arxiv"] = arxiv_match.group(1)
 
-        pmid_match = PMID_PATTERN.search(text)
+        pmid_match = PMID_PATTERN.search(search_text)
         if pmid_match:
             result["pmid"] = pmid_match.group(1)
 
-        pmcid_match = PMCID_PATTERN.search(text)
+        pmcid_match = PMCID_PATTERN.search(search_text)
         if pmcid_match:
             result["pmcid"] = pmcid_match.group(1)
 
@@ -430,6 +457,14 @@ class LiteratureService:
             if alpha_ratio < 0.75:
                 score -= 4
 
+            # --- Lowercase-start penalty (sentence fragments are not titles) ---
+            if line and line[0].islower():
+                score -= 8
+
+            # --- Colon bonus (common in academic paper titles like "Sim4Seg: Boosting...") ---
+            if ":" in line:
+                score += 3
+
             # --- Penalize very-first-line (often journal / conference header) ---
             if i == 0 and word_count <= 8:
                 score -= 4
@@ -719,6 +754,10 @@ class LiteratureService:
                     author_lines.append(cleaned)
                 continue
 
+            # After abstract starts, only author-like lines are collected
+            if seen_abstract:
+                break
+
             # Also collect lines that are not clearly NOT authors
             # (fallback for single-name / unusual formats)
             if len(line) < 5:
@@ -732,9 +771,6 @@ class LiteratureService:
             if cleaned and 2 < len(cleaned) < 200:
                 author_lines.append(cleaned)
 
-            if seen_abstract:
-                break
-
         if author_lines:
             return ", ".join(author_lines)[:300]
         return None
@@ -743,7 +779,20 @@ class LiteratureService:
     def extract_abstract_from_text(text: str) -> Optional[str]:
         """Heuristic extraction of abstract from text."""
         # Find abstract section
-        match = re.search(r"\b(Abstract|Summary)\b[\s:]*\n?(.*?)(?=\n\s*(INTRODUCTION|KEYWORDS|1\.\s|CHAPTER|FIGURE|TABLE|REFERENCES|ACKNOWLEDGMENTS)\s*\n|$)", text, re.IGNORECASE | re.DOTALL)
+        match = re.search(
+            r"\b(Abstract|Summary)\b[\s:]*\n?"
+            r"(.*?)"
+            r"(?=\n\s*("
+            r"INTRODUCTION|RELATED\s+WORK|BACKGROUND|PRELIMINARIES|"
+            r"METHOD(?:OLOGY)?|APPROACH|FRAMEWORK|"
+            r"EXPERIMENT(?:AL)?(?:\s+(?:SETUP|RESULTS?|DESIGN|EVALUATION|STUDY))?|"
+            r"EVALUATION|RESULTS?(?:\s+AND\s+DISCUSSION)?|DISCUSSION|"
+            r"CONCLUSION|FUTURE\s+WORK|LIMITATIONS|"
+            r"KEYWORDS|\d+\.\s|CHAPTER|FIGURE|TABLE|REFERENCES?|"
+            r"ACKNOWLEDG(?:MENTS?|EMENTS?)"
+            r")\s*\n|$)",
+            text, re.IGNORECASE | re.DOTALL,
+        )
         if match:
             abstract = match.group(2).strip()
             # Truncate to ~200 words if too long
@@ -851,36 +900,44 @@ class LiteratureService:
         if not metadata.get("abstract"):
             metadata["abstract"] = LiteratureService.extract_abstract_from_text(text)
 
-        # Tier 3: AI extraction (only if still no meaningful title and AI is available)
-        if ai_client and model and (
-            not metadata.get("title")
-            or metadata.get("title") == (text.strip().splitlines()[0][:100] if text.strip() else None)
-        ):
-            logger.warning("Tier 3: Attempting AI-based metadata extraction")
-            try:
-                ai_metadata = await asyncio.wait_for(
-                    LiteratureService.extract_metadata_by_ai(text, ai_client, model),
-                    timeout=30.0,
+        # Tier 3: AI extraction (run when title looks suspicious or key fields missing)
+        if ai_client and model:
+            title = metadata.get("title") or ""
+            title_is_suspicious = (
+                not title.strip()
+                or title[0].islower()
+                or len(title) < 10
+            )
+            has_gaps = not metadata.get("abstract") or not metadata.get("journal") or not metadata.get("year")
+            if title_is_suspicious or has_gaps:
+                logger.warning(
+                    f"Tier 3: Attempting AI-based metadata extraction "
+                    f"(title_suspicious={title_is_suspicious}, gaps={has_gaps})"
                 )
-                if ai_metadata.get("title"):
-                    # Post-validation: reject AI title if it looks like an author line
-                    if not LiteratureService._is_likely_author_line(ai_metadata["title"]):
-                        metadata.update({k: v for k, v in ai_metadata.items() if v is not None})
-                        logger.warning(
-                            f"Tier 3: AI extraction successful, title: \"{ai_metadata['title'][:80]}\""
-                        )
-                    else:
-                        logger.warning(
-                            f"Tier 3: AI title rejected (likely author): \"{ai_metadata['title'][:80]}\""
-                        )
-                        # Keep AI-extracted year/journal/doi if they look sane
-                        for field in ("year", "journal", "doi"):
-                            if ai_metadata.get(field):
-                                metadata[field] = ai_metadata[field]
-            except asyncio.TimeoutError:
-                logger.warning("Tier 3: AI extraction timed out after 30s")
-            except Exception as e:
-                logger.error(f"Tier 3: AI extraction failed: {e}")
+                try:
+                    ai_metadata = await asyncio.wait_for(
+                        LiteratureService.extract_metadata_by_ai(text, ai_client, model),
+                        timeout=30.0,
+                    )
+                    if ai_metadata.get("title"):
+                        # Post-validation: reject AI title if it looks like an author line
+                        if not LiteratureService._is_likely_author_line(ai_metadata["title"]):
+                            metadata.update({k: v for k, v in ai_metadata.items() if v is not None})
+                            logger.warning(
+                                f"Tier 3: AI extraction successful, title: \"{ai_metadata['title'][:80]}\""
+                            )
+                        else:
+                            logger.warning(
+                                f"Tier 3: AI title rejected (likely author): \"{ai_metadata['title'][:80]}\""
+                            )
+                            # Keep AI-extracted year/journal/doi if they look sane
+                            for field in ("year", "journal", "doi"):
+                                if ai_metadata.get(field):
+                                    metadata[field] = ai_metadata[field]
+                except asyncio.TimeoutError:
+                    logger.warning("Tier 3: AI extraction timed out after 30s")
+                except Exception as e:
+                    logger.error(f"Tier 3: AI extraction failed: {e}")
 
         return metadata
 

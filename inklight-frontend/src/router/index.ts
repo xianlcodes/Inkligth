@@ -108,6 +108,12 @@ const router = createRouter({
           component: () => import('@/views/admin/TutorialManager.vue'),
           meta: { title: '使用教程管理', requiresAuth: true, adminOnly: true },
         },
+        {
+          path: 'feedback',
+          name: 'AdminFeedback',
+          component: () => import('@/views/admin/FeedbackManagement.vue'),
+          meta: { title: '用户反馈', requiresAuth: true, adminOnly: true },
+        },
       ],
     },
     {

@@ -30,7 +30,7 @@ logging.getLogger("app.services.layout_analysis_service").setLevel(logging.WARNI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis
+from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis, feedback
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -89,6 +89,7 @@ app.include_router(check_in.router, prefix=f"{settings.API_V1_STR}/check-in", ta
 app.include_router(invitation.router, prefix=f"{settings.API_V1_STR}/invitations", tags=["invitations"])
 app.include_router(tutorial.router, prefix=settings.API_V1_STR, tags=["tutorials"])
 app.include_router(layout_analysis.router, prefix=f"{settings.API_V1_STR}/layout-analysis", tags=["layout-analysis"])
+app.include_router(feedback.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["feedback"])
 
 
 @app.get("/")

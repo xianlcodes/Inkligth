@@ -34,6 +34,10 @@
           <el-icon><Notebook /></el-icon>
           <span>使用教程管理</span>
         </el-menu-item>
+        <el-menu-item index="/admin/feedback">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>用户反馈</span>
+        </el-menu-item>
       </el-menu>
       <div class="admin-sidebar-footer">
         <el-button text @click="router.push('/')">
@@ -50,7 +54,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import { Setting, DataAnalysis, User, Bell, Tools, Document, Notebook, Back } from '@element-plus/icons-vue'
+import { Setting, DataAnalysis, User, Bell, Tools, Document, Notebook, ChatDotRound, Back } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -20,6 +20,7 @@ from app.models.email_verification import EmailVerificationToken  # noqa: F401
 from app.models.user_storage import UserStorage  # noqa: F401
 from app.models.check_in import CheckIn  # noqa: F401
 from app.models.invitation import Invitation  # noqa: F401
+from app.models.feedback import Feedback  # noqa: F401
 
 MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false",
