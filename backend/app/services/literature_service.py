@@ -371,7 +371,7 @@ class LiteratureService:
 
         # Titles typically have function words (articles, prepositions, conjunctions).
         # Author lines have almost none.
-        if func_ratio < 0.05 and cap_ratio > 0.8 and word_count >= 3:
+        if func_ratio < 0.05 and cap_ratio > 0.8 and word_count >= 3 and ("," in stripped or " and " in stripped.lower()):
             return True
 
         # Signal 5: lines with institutional/affiliation keywords
