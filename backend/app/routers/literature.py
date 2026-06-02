@@ -615,7 +615,7 @@ async def _process_uploaded_literature(
     from app.db.database import async_session_factory
     from app.schemas.literature import LiteratureUpdate
 
-    logger.info(f"_process_uploaded_literature started for {literature_id}")
+    logger.warning(f"_process_uploaded_literature started for {literature_id}")
     try:
         # 1. Extract text from PDF
         raw_text = LiteratureService.extract_text_from_pdf(file_path)
@@ -669,7 +669,7 @@ async def _process_uploaded_literature(
                     raw_text=raw_text,
                 ),
             )
-            logger.info(f"Literature {literature_id} metadata updated: title='{metadata.get('title')}'")
+            logger.warning(f"Literature {literature_id} metadata updated: title='{metadata.get('title')}'")
 
         # 6. Trigger chunk indexing
         paragraphs = _split_paragraphs(raw_text)

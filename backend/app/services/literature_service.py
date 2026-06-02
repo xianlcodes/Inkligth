@@ -184,7 +184,7 @@ class LiteratureService:
             logger.info(f"arXiv cache hit for ID: {arxiv_id}")
             return cached
 
-        url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
+        url = f"https://export.arxiv.org/api/query?id_list={arxiv_id}"
         return await LiteratureService._fetch_with_retry(
             url=url,
             cache_key=cache_key,
@@ -825,19 +825,19 @@ class LiteratureService:
 
         # Tier 1: Identifier-based extraction
         ids = LiteratureService.extract_identifiers(text)
-        logger.info(f"Extracted identifiers: {ids}")
+        logger.warning(f"Extracted identifiers: {ids}")
 
         if ids["doi"]:
-            logger.info(f"Tier 1: Fetching Crossref metadata for DOI: {ids['doi']}")
+            logger.warning(f"Tier 1: Fetching Crossref metadata for DOI: {ids['doi']}")
             metadata = await LiteratureService.fetch_crossref_metadata(ids["doi"])
             metadata["doi"] = ids["doi"]
         elif ids["arxiv"]:
-            logger.info(f"Tier 1: Fetching arXiv metadata for ID: {ids['arxiv']}")
+            logger.warning(f"Tier 1: Fetching arXiv metadata for ID: {ids['arxiv']}")
             metadata = await LiteratureService.fetch_arxiv_metadata(ids["arxiv"])
 
         # Tier 2: Local rule-based extraction for missing fields
         if not metadata.get("title"):
-            logger.info("Tier 2: Local heuristic title extraction")
+            logger.warning("Tier 2: Local heuristic title extraction")
             title = LiteratureService.extract_title_from_text(text)
             if title:
                 metadata["title"] = title
@@ -856,7 +856,7 @@ class LiteratureService:
             not metadata.get("title")
             or metadata.get("title") == (text.strip().splitlines()[0][:100] if text.strip() else None)
         ):
-            logger.info("Tier 3: Attempting AI-based metadata extraction")
+            logger.warning("Tier 3: Attempting AI-based metadata extraction")
             try:
                 ai_metadata = await asyncio.wait_for(
                     LiteratureService.extract_metadata_by_ai(text, ai_client, model),
@@ -866,7 +866,9 @@ class LiteratureService:
                     # Post-validation: reject AI title if it looks like an author line
                     if not LiteratureService._is_likely_author_line(ai_metadata["title"]):
                         metadata.update({k: v for k, v in ai_metadata.items() if v is not None})
-                        logger.info("Tier 3: AI extraction successful")
+                        logger.warning(
+                            f"Tier 3: AI extraction successful, title: \"{ai_metadata['title'][:80]}\""
+                        )
                     else:
                         logger.warning(
                             f"Tier 3: AI title rejected (likely author): \"{ai_metadata['title'][:80]}\""

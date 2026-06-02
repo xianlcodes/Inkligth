@@ -147,6 +147,9 @@ export async function translateTextStream(
           onError(payload.slice(7).trim())
           return true
         }
+        if (payload.startsWith('[SESSION]')) {
+          continue
+        }
         if (payload.startsWith('[TIMING]')) {
           backendTiming = payload.slice(8).trim()
           continue
