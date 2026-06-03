@@ -163,6 +163,34 @@ const router = createRouter({
   ]
 })
 
+// 路由切换时更新页面标题和 meta 描述
+const siteDescriptions: Record<string, string> = {
+  Landing: '研墨InkLight - AI驱动的学术文献阅读与管理平台，支持PDF文献管理、AI翻译、AI摘要分析、笔记管理、组会汇报大纲生成。',
+  Login: '登录研墨账号，使用AI学术文献阅读与管理功能。支持DeepSeek、OpenAI、通义千问等AI引擎。',
+  Register: '注册研墨账号，免费使用AI学术文献阅读与翻译平台。支持PDF管理、AI翻译、笔记标注等功能。',
+  ForgotPassword: '找回研墨账号密码。输入注册邮箱，接收验证码重置密码。',
+  TermsOfService: '阅读研墨InkLight用户服务协议，了解平台使用规则、用户权利义务和免责声明。',
+  PrivacyPolicy: '阅读研墨InkLight隐私政策，了解个人信息收集、使用和保护规则。',
+}
+
+router.afterEach((to) => {
+  const title = (to.meta.title as string) || '研墨 - 专业文献阅读平台'
+  document.title = title + ' - 研墨'
+
+  // 动态更新 meta description
+  const name = to.name as string
+  const desc = siteDescriptions[name] || siteDescriptions.Landing
+  let meta = document.querySelector('meta[name="description"]')
+  if (meta) {
+    meta.setAttribute('content', desc)
+  } else {
+    meta = document.createElement('meta')
+    meta.setAttribute('name', 'description')
+    meta.setAttribute('content', desc)
+    document.head.appendChild(meta)
+  }
+})
+
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
