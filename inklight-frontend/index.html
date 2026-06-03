@@ -1,13 +1,100 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>研墨-专业文献阅读</title>
+    <title>研墨 - 专业文献阅读平台 | AI 辅助学术文献管理</title>
+    <meta name="description" content="研墨(InkLight)是一款面向学术研究者的专业文献阅读与管理平台，提供PDF文献管理、AI翻译、AI摘要分析、笔记管理、组会汇报大纲生成等功能，助您高效开展学术研究。" />
+    <meta name="keywords" content="文献管理,AI翻译,学术研究,PDF阅读,论文管理,文献阅读平台,文献翻译" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="研墨 - 专业文献阅读平台" />
+    <meta property="og:description" content="AI 驱动的学术文献管理与阅读工具，专为研究者打造" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.inklight.cn" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "研墨 InkLight",
+      "description": "专业文献阅读与学术管理平台，支持PDF文献管理、AI翻译、AI摘要分析",
+      "url": "https://www.inklight.cn",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web",
+      "author": {
+        "@type": "Organization",
+        "name": "InkLight"
+      }
+    }
+    </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <!-- 静态降级内容：Vue 加载前 / 爬虫访问时可见 -->
+      <div style="max-width: 1200px; margin: 0 auto; padding: 60px 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1e293b;">
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 80px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 22px; font-weight: 700; color: #0d9488;">研墨</span>
+            <span style="font-size: 14px; color: #94a3b8;">InkLight</span>
+          </div>
+          <nav style="display: flex; gap: 16px;">
+            <a href="/login" style="padding: 8px 20px; border-radius: 8px; text-decoration: none; color: #475569; font-size: 14px;">登录</a>
+            <a href="/register" style="padding: 8px 20px; border-radius: 8px; text-decoration: none; background: #0d9488; color: #fff; font-size: 14px;">注册</a>
+          </nav>
+        </header>
+
+        <main style="text-align: center; margin-bottom: 80px;">
+          <h1 style="font-size: 42px; font-weight: 800; margin: 0 0 16px; letter-spacing: -1px;">
+            AI 驱动的专业文献阅读平台
+          </h1>
+          <p style="font-size: 18px; color: #64748b; max-width: 600px; margin: 0 auto 40px; line-height: 1.6;">
+            面向学术研究者的文献管理与阅读工具，集成 AI 翻译、智能分析、笔记管理、组会汇报等功能
+          </p>
+          <div style="display: flex; gap: 16px; justify-content: center;">
+            <a href="/register" style="display: inline-block; padding: 14px 32px; background: #0d9488; color: #fff; border-radius: 12px; text-decoration: none; font-size: 16px; font-weight: 600;">免费开始使用</a>
+            <a href="/login" style="display: inline-block; padding: 14px 32px; border: 1px solid #e2e8f0; color: #475569; border-radius: 12px; text-decoration: none; font-size: 16px;">我已有账号</a>
+          </div>
+        </main>
+
+        <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 80px;">
+          <div style="background: #f8fafc; border-radius: 16px; padding: 32px; text-align: left;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #0d9488;">📄 文献管理</h3>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">上传和管理 PDF 文献，自动提取标题、作者、摘要、DOI 等元数据，支持文件夹分类和标签管理。</p>
+          </div>
+          <div style="background: #f8fafc; border-radius: 16px; padding: 32px; text-align: left;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #0d9488;">🌐 AI 翻译</h3>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">段落级和全文翻译，支持流式输出，无需手动复制粘贴到外部翻译工具。</p>
+          </div>
+          <div style="background: #f8fafc; border-radius: 16px; padding: 32px; text-align: left;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #0d9488;">📝 笔记与高亮</h3>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">在 PDF 上直接高亮标注和记笔记，支持多种笔记分类，方便复习和整理。</p>
+          </div>
+          <div style="background: #f8fafc; border-radius: 16px; padding: 32px; text-align: left;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #0d9488;">🤖 AI 智能分析</h3>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">自动生成结构化摘要、识别创新点、提取方法步骤，辅助快速理解论文核心内容。</p>
+          </div>
+          <div style="background: #f8fafc; border-radius: 16px; padding: 32px; text-align: left;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #0d9488;">📊 组会汇报</h3>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">一键生成 PPT 汇报大纲，追踪文献阅读进度，记录阅读时间和页数。</p>
+          </div>
+          <div style="background: #f8fafc; border-radius: 16px; padding: 32px; text-align: left;">
+            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 8px; color: #0d9488;">📈 阅读统计</h3>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">可视化阅读日历和统计，追踪每周每月阅读量，培养持续阅读习惯。</p>
+          </div>
+        </section>
+
+        <footer style="text-align: center; padding: 32px 0; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8;">
+          <p style="margin: 0 0 8px;">&copy; 2026 InkLight 研墨 - 专业文献阅读平台</p>
+          <p style="margin: 0;">
+            <a href="/terms-of-service" style="color: #94a3b8; text-decoration: none; margin: 0 8px;">用户协议</a>
+            <a href="/privacy-policy" style="color: #94a3b8; text-decoration: none; margin: 0 8px;">隐私政策</a>
+          </p>
+        </footer>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

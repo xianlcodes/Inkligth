@@ -7,7 +7,9 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/literature'
+      name: 'Landing',
+      component: () => import('@/views/Landing.vue'),
+      meta: { title: '研墨 - 专业文献阅读平台' }
     },
     {
       path: '/literature',

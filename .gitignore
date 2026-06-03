@@ -79,10 +79,12 @@ favicon.pub/
 羽毛笔.png
 羽毛笔.svg
 icons.svg
-# 排除所有 .txt 文件（保留 requirements.txt）
+# 排除所有 .txt 文件（保留 requirements.txt 及前端公开静态文件）
 *.txt
 !requirements.txt
 !**/requirements.txt
+!inklight-frontend/public/robots.txt
+!inklight-frontend/public/sitemap.xml
 # 排除所有 .md 文件（除 README.md 外）
 *.md
 !README.md
