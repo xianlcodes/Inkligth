@@ -187,6 +187,7 @@ const formatDate = formatDateCN
 onMounted(() => {
   fetchPresentations()
   fetchAllLiterature()
+  resumeTaskIfNeeded()
 })
 
 async function fetchPresentations() {
@@ -219,47 +220,68 @@ async function handleGeneratePPT() {
   progressMessage.value = '正在解析论文并提取图表...'
 
   try {
-    // 1. 启动后台任务
     const startResp = await startPPTGeneration(selectedLiteratureId.value)
     const taskId = startResp.data.data.task_id
     currentTaskId.value = taskId
-
-    // 2. 轮询等待完成
-    while (true) {
-      await new Promise(r => setTimeout(r, 1500))
-      const statusResp = await getPPTStatus(selectedLiteratureId.value, taskId)
-      const task = statusResp.data
-
-      if (task.status === 'completed') {
-        lastResult.value = task
-        ElMessage.success(`PPT 生成完成，共 ${task.slides?.length || 0} 页`)
-        // 自动打开预览
-        openPreview(task)
-        // 刷新历史
-        await fetchPresentations()
-        break
-      }
-
-      if (task.status === 'failed') {
-        ElMessage.error(task.error || 'PPT 生成失败')
-        break
-      }
-
-      // 更新进度提示
-      if (task.status === 'running') {
-        const pct = task.progress || 0
-        if (pct < 20) progressMessage.value = '正在解析论文并提取图表...'
-        else if (pct < 70) progressMessage.value = 'AI 正在生成大纲...'
-        else if (pct < 90) progressMessage.value = '正在渲染 PPT...'
-        else progressMessage.value = '正在保存...'
-      }
-    }
+    sessionStorage.setItem('ppt_task_id', taskId)
+    sessionStorage.setItem('ppt_literature_id', selectedLiteratureId.value)
+    await pollTask(selectedLiteratureId.value, taskId)
   } catch (error: any) {
     console.error('PPT 生成失败:', error)
     ElMessage.error(error?.response?.data?.detail || error?.message || '生成失败')
   } finally {
     generating.value = false
   }
+}
+
+async function pollTask(litId: string, taskId: string) {
+  while (true) {
+    await new Promise(r => setTimeout(r, 1500))
+    try {
+      const statusResp = await getPPTStatus(litId, taskId)
+      const task = statusResp.data
+
+      if (task.status === 'completed') {
+        lastResult.value = task
+        ElMessage.success(`PPT 生成完成，共 ${task.slides?.length || 0} 页`)
+        openPreview(task)
+        await fetchPresentations()
+        sessionStorage.removeItem('ppt_task_id')
+        sessionStorage.removeItem('ppt_literature_id')
+        generating.value = false
+        return
+      }
+
+      if (task.status === 'failed') {
+        ElMessage.error(task.error || 'PPT 生成失败')
+        sessionStorage.removeItem('ppt_task_id')
+        sessionStorage.removeItem('ppt_literature_id')
+        generating.value = false
+        return
+      }
+
+      const pct = task.progress || 0
+      if (pct < 20) progressMessage.value = '正在解析论文并提取图表...'
+      else if (pct < 70) progressMessage.value = 'AI 正在生成大纲...'
+      else if (pct < 90) progressMessage.value = '正在渲染 PPT...'
+      else progressMessage.value = '正在保存...'
+    } catch (error) {
+      // 网络错误等静默重试
+      await new Promise(r => setTimeout(r, 2000))
+    }
+  }
+}
+
+function resumeTaskIfNeeded() {
+  const savedTaskId = sessionStorage.getItem('ppt_task_id')
+  const savedLitId = sessionStorage.getItem('ppt_literature_id')
+  if (!savedTaskId || !savedLitId) return
+
+  selectedLiteratureId.value = savedLitId
+  currentTaskId.value = savedTaskId
+  generating.value = true
+  progressMessage.value = '正在恢复任务...'
+  pollTask(savedLitId, savedTaskId)
 }
 
 function openPreview(result: PPTTaskResponse) {

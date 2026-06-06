@@ -98,14 +98,21 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
-    if (!originalRequest) {
+    if (!originalRequest) return Promise.reject(error)
+
+    // 非 401 错误不处理
+    if (error.response?.status !== 401) {
       return Promise.reject(error)
     }
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    // 已经重试过一次仍然 401 → token 彻底失效，强制登录
+    if (originalRequest._retry) {
+      clearAuth()
+      redirectToLogin()
       return Promise.reject(error)
     }
 
+    // 尝试用 refresh token 续期
     const refreshToken = getRefreshToken()
     if (!refreshToken) {
       clearAuth()
@@ -113,6 +120,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 已有其他请求在刷新中，排队等待
     if (_isRefreshing) {
       return new Promise((resolve, reject) => {
         _pendingRequests.push({ resolve, reject })

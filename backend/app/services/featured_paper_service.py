@@ -140,9 +140,9 @@ async def fetch_and_store_featured_papers(
     categories: Optional[list[str]] = None,
     papers_per_category: int = 5,
 ) -> int:
-    """获取指定分类的最新论文，去重后存储到数据库。
+    """获取指定分类的最新论文，先清空旧数据再重新插入。
 
-    返回新增的论文数量。
+    返回本次插入的论文数量。
     """
     if categories is None:
         categories = ["cs.AI", "cs.CL", "eess.IV"]
@@ -157,7 +157,7 @@ async def fetch_and_store_featured_papers(
         logger.warning("No papers fetched from arXiv for any category")
         return 0
 
-    # 跨分类去重：同一篇论文可能出现在多个分类中
+    # 跨分类去重
     seen_ids: set[str] = set()
     unique_papers: list[dict] = []
     for p in all_papers:
@@ -167,19 +167,12 @@ async def fetch_and_store_featured_papers(
             unique_papers.append(p)
     all_papers = unique_papers
 
-    # 查询已有 arxiv_id，用于去重
-    existing_ids_result = await db.execute(
-        select(FeaturedPaper.arxiv_id).where(
-            FeaturedPaper.arxiv_id.in_([p["arxiv_id"] for p in all_papers])
-        )
-    )
-    existing_ids = {row[0] for row in existing_ids_result.fetchall()}
+    # 清空旧数据，只保留当天拉取的最新结果
+    await db.execute(delete(FeaturedPaper))
+    await db.flush()
 
     new_count = 0
     for paper_data in all_papers:
-        if paper_data["arxiv_id"] in existing_ids:
-            continue
-
         paper = FeaturedPaper(
             arxiv_id=paper_data["arxiv_id"],
             title=paper_data["title"],
@@ -192,9 +185,8 @@ async def fetch_and_store_featured_papers(
         db.add(paper)
         new_count += 1
 
-    if new_count > 0:
-        await db.commit()
-        logger.info("Stored %d new featured papers", new_count)
+    await db.commit()
+    logger.info("Replaced all featured papers: stored %d papers", new_count)
 
     return new_count
 
