@@ -9,6 +9,7 @@ export interface AIEngine {
   default_model: string
   fallback_models: string | null
   is_default: boolean
+  proxy_enabled: boolean
   created_at: string
   updated_at: string
 }
@@ -25,6 +26,7 @@ export interface AIEngineCreatePayload {
   default_model: string
   fallback_models?: string
   is_default?: boolean
+  proxy_enabled?: boolean
 }
 
 export interface AIEngineUpdatePayload {
@@ -34,6 +36,7 @@ export interface AIEngineUpdatePayload {
   default_model?: string
   fallback_models?: string
   is_default?: boolean
+  proxy_enabled?: boolean
 }
 
 export interface AIEngineTestResult {

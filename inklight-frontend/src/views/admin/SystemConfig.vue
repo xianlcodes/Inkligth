@@ -260,6 +260,7 @@ import {
   getSystemConfigs, createSystemConfig, updateSystemConfig, deleteSystemConfig, getConfigChangeHistory,
   type SystemConfigItem, type ConfigChangeLog,
 } from '@/api/admin'
+import { formatDateCN } from '@/utils/date'
 
 const loading = ref(false)
 const configs = ref<SystemConfigItem[]>([])
@@ -484,11 +485,7 @@ async function handleImport(event: Event) {
   }
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-  })
-}
+const formatDate = formatDateCN
 
 async function loadConfigs() {
   loading.value = true

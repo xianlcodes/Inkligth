@@ -21,6 +21,10 @@
         router
         class="sidebar-menu"
       >
+        <el-menu-item index="/dashboard">
+          <el-icon><HomeFilled /></el-icon>
+          <span>首页</span>
+        </el-menu-item>
         <el-menu-item index="/literature">
           <el-icon><Collection /></el-icon>
           <span>文献库</span>
@@ -206,6 +210,7 @@ import { applyTheme, findThemeByColor } from '@/utils/themes'
 import CheckInPopover from '@/components/CheckInPopover.vue'
 import FeedbackButton from '@/components/business/FeedbackButton.vue'
 import {
+  HomeFilled,
   Reading,
   Collection,
   Notebook,

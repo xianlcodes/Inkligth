@@ -9,6 +9,7 @@ class AIEngineBase(BaseModel):
     default_model: str = Field(..., min_length=1)
     fallback_models: Optional[str] = None
     is_default: bool = False
+    proxy_enabled: bool = False
 
     @field_validator('api_base')
     @classmethod
@@ -30,6 +31,7 @@ class AIEngineUpdate(BaseModel):
     default_model: Optional[str] = None
     fallback_models: Optional[str] = None
     is_default: Optional[bool] = None
+    proxy_enabled: Optional[bool] = None
 
 
 class AIEngineResponse(BaseModel):
@@ -41,6 +43,7 @@ class AIEngineResponse(BaseModel):
     default_model: str
     fallback_models: Optional[str] = None
     is_default: bool
+    proxy_enabled: bool
     created_at: datetime
     updated_at: datetime
 

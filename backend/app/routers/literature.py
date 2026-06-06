@@ -889,85 +889,205 @@ async def _run_analyze(task_id: str, literature_id: str, user_id: str):
         await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
 
 
-@router.post("/{literature_id}/presentation-outline")
-async def generate_outline(
+@router.post("/{literature_id}/generate-ppt")
+async def generate_ppt(
     literature_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """一键生成汇报 PPT：后台做完 视觉提取 → LLM 大纲 → 构建 PPTX，返回 task_id。"""
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=404, detail="文献不存在")
+    if not literature.raw_text:
+        raise HTTPException(status_code=400, detail="该文献暂无文本内容")
+
+    task = await task_store.create_task("ppt_generation", user_id=str(current_user.id))
+    await task_store.update_task(task.task_id, status=TaskStatus.RUNNING, progress=0, total=100)
+
+    background_tasks.add_task(
+        _run_ppt_generation,
+        task_id=task.task_id,
+        literature_id=literature_id,
+        user_id=str(current_user.id),
+    )
+
+    logger.info("PPT generation task started: %s, literature: %s", task.task_id, literature_id)
+    return {
+        "code": 200,
+        "msg": "success",
+        "data": {"task_id": task.task_id},
+    }
+
+
+@router.get("/{literature_id}/generate-ppt/{task_id}")
+async def get_ppt_task(
+    literature_id: str,
+    task_id: str,
+    current_user=Depends(get_current_user),
+):
+    """获取 PPT 生成任务状态，completed 时返回 slides 数据。"""
+    task_info = await task_store.get_task(task_id)
+    if not task_info:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    resp = task_info.to_dict()
+    # 完成后附带 slides 数据，前端可直接预览
+    if task_info.status == TaskStatus.COMPLETED and task_info.result:
+        resp["slides"] = task_info.result.get("slides", [])
+    return resp
+
+
+@router.get("/{literature_id}/generate-ppt/{task_id}/download")
+async def download_ppt(
+    literature_id: str,
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """下载已生成的 PPTX 文件。"""
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=404, detail="文献不存在")
+
+    task_info = await task_store.get_task(task_id)
+    if not task_info:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    if task_info.status != TaskStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="任务尚未完成")
+
+    result = task_info.result or {}
+    output_path = result.get("output_path")
+    output_filename = result.get("output_filename")
+    if not output_path or not os.path.exists(output_path):
+        raise HTTPException(status_code=404, detail="PPT 文件不存在")
+
+    return FileResponse(
+        path=output_path,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename=output_filename,
+        headers={"Content-Disposition": f'attachment; filename="{output_filename}"'},
+    )
+
+
+async def _run_ppt_generation(
+    task_id: str,
+    literature_id: str,
+    user_id: str,
+):
+    """后台任务：视觉提取 → LLM 大纲 → auto-match → 存 DB → 构建 PPTX → 存磁盘"""
+    from app.db.database import async_session_factory
     from app.services.presentation_service import PresentationService
     from app.schemas.presentation import PresentationCreate, SlideData
+    from app.services.visual_extractor import VisualExtractor
+    from app.core.ai_providers.outline_generator import auto_match_visual_refs
+    from app.services.pptx_builder import PptxBuilder
+    from app.services.ppt_theme import get_theme
 
-    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
-    if not literature:
-        raise HTTPException(status_code=404, detail="文献不存在")
+    t_start = asyncio.get_event_loop().time()
+    slides_data = []
+    output_path = None
 
-    if not literature.raw_text:
-        raise HTTPException(status_code=400, detail="该文献暂无文本内容，无法生成大纲")
+    async def set_progress(pct: int, msg: str = ""):
+        await task_store.update_task(task_id, progress=pct, error=msg)
 
-    ai_client = await get_user_ai_client(db, current_user.id)
-    model = await get_user_default_model(db, current_user.id)
-    generator = OutlineGenerator(client=ai_client, model=model)
+    try:
+        await set_progress(5, "准备中...")
 
-    outline = await generator.generate(
-        text=literature.raw_text,
-        title=literature.title or "",
-        authors=literature.authors or "",
-        year=str(literature.year) if literature.year else "",
-        journal=literature.journal or "",
-    )
+        async with async_session_factory() as db:
+            literature = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
+            if not literature or not literature.raw_text:
+                await task_store.update_task(task_id, status=TaskStatus.FAILED,
+                                              error="文献不存在或无文本内容")
+                return
 
-    slides_data = [SlideData(**s) for s in outline.get("slides", [])]
-    await PresentationService.create_presentation(
-        db,
-        str(current_user.id),
-        PresentationCreate(
-            literature_id=literature_id,
-            literature_title=literature.title,
-            slides=slides_data,
-        ),
-    )
+            # 1. 提取视觉资产（第一次慢，后续走缓存）
+            await set_progress(15, "提取图表...")
+            pdf_path = _resolve_file_path(literature.file_path)
+            visual_assets: dict | None = None
+            if os.path.exists(pdf_path):
+                try:
+                    cache_dir = getattr(settings, "UPLOAD_DIR", "/tmp") + "/visual_assets"
+                    extractor = VisualExtractor(cache_dir)
+                    visual_assets = await extractor.extract(pdf_path)
+                except Exception as e:
+                    logger.warning("Visual extraction failed: %s", e)
 
-    return {"code": 200, "msg": "success", "data": outline}
+            # 2. LLM 生成大纲
+            await set_progress(40, "AI 生成大纲...")
+            ai_client = await get_user_ai_client(db, user_id)
+            model = await get_user_default_model(db, user_id)
+            generator = OutlineGenerator(client=ai_client, model=model)
+            visual_summary = (visual_assets or {}).get("summary", "")
+            outline = await generator.generate(
+                text=literature.raw_text,
+                title=literature.title or "",
+                authors=literature.authors or "",
+                year=str(literature.year) if literature.year else "",
+                journal=literature.journal or "",
+                visual_summary=visual_summary,
+            )
+            slides_data = outline.get("slides", [])
 
+            # 3. Auto-match 图/表引用
+            await set_progress(75, "匹配图表...")
+            if visual_assets:
+                slides_data = auto_match_visual_refs(slides_data, visual_assets)
 
-@router.get("/{literature_id}/presentation-outline/pptx")
-async def download_outline_pptx(
-    literature_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    from app.services.pptx_service import generate_pptx
+            # 4. 保存大纲到数据库（历史记录）
+            slides_models = [SlideData(**s) for s in slides_data]
+            await PresentationService.create_presentation(
+                db, user_id,
+                PresentationCreate(
+                    literature_id=literature_id,
+                    literature_title=literature.title,
+                    slides=slides_models,
+                ),
+            )
 
-    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
-    if not literature:
-        raise HTTPException(status_code=404, detail="文献不存在")
+            # 5. 构建 PPTX
+            await set_progress(85, "渲染 PPT...")
+            theme = get_theme("cs")
+            builder = PptxBuilder(theme=theme)
+            pptx_bytes = builder.build(
+                slides_data,
+                visual_assets=visual_assets,
+                paper_title=literature.title or "",
+            )
 
-    if not literature.raw_text:
-        raise HTTPException(status_code=400, detail="该文献暂无文本内容，无法生成PPT")
+            # 6. 保存到磁盘
+            await set_progress(95, "保存文件...")
+            output_dir = os.path.join(os.path.abspath(settings.UPLOAD_DIR), "ppt_generated")
+            os.makedirs(output_dir, exist_ok=True)
+            safe_name = "".join(c for c in (literature.title or "presentation") if c.isalnum() or c in "._- ").strip()
+            output_filename = f"{safe_name}.pptx"
+            output_path = os.path.join(output_dir, f"{task_id}_{output_filename}")
+            with open(output_path, "wb") as f:
+                f.write(pptx_bytes)
 
-    ai_client = await get_user_ai_client(db, current_user.id)
-    model = await get_user_default_model(db, current_user.id)
-    generator = OutlineGenerator(client=ai_client, model=model)
+        # 7. 标记完成
+        await task_store.update_task(
+            task_id,
+            status=TaskStatus.COMPLETED,
+            progress=100,
+            error="",
+            result={
+                "output_path": output_path,
+                "output_filename": output_filename,
+                "slides": slides_data,
+            },
+        )
+        logger.info("PPT task %s done in %.1fs (%d slides)",
+                    task_id, asyncio.get_event_loop().time() - t_start, len(slides_data))
 
-    outline = await generator.generate(
-        text=literature.raw_text,
-        title=literature.title or "",
-        authors=literature.authors or "",
-        year=str(literature.year) if literature.year else "",
-        journal=literature.journal or "",
-    )
-
-    pptx_bytes = generate_pptx(outline, paper_title=literature.title or "")
-
-    filename = f"{literature.title or 'presentation'}_outline.pptx"
-    safe_filename = "".join(c for c in filename if c.isalnum() or c in "._- ").strip()
-
-    return StreamingResponse(
-        iter([pptx_bytes]),
-        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
-    )
+    except Exception as e:
+        logger.error("PPT task %s failed: %s", task_id, e, exc_info=True)
+        await task_store.update_task(
+            task_id,
+            status=TaskStatus.FAILED,
+            error=f"PPT 生成失败: {str(e)[:200]}",
+        )
 
 
 @router.post("/{literature_id}/translate-pdf")

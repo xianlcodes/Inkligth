@@ -44,3 +44,6 @@ sib-api-v3-sdk==7.6.0
 
 # 向量嵌入
 sentence-transformers>=3.0.0
+
+# 定时任务
+apscheduler>=3.10.0

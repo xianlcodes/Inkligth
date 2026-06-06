@@ -64,10 +64,6 @@
           <el-icon><MagicStick /></el-icon>
           AI 解析
         </el-button>
-        <el-button :loading="outlineGenerating" @click="handleGenerateOutline">
-          <el-icon><DataAnalysis /></el-icon>
-          生成汇报大纲
-        </el-button>
         <el-dropdown trigger="click">
           <el-button>
             <el-icon><Download /></el-icon>
@@ -262,63 +258,6 @@
       </template>
     </el-dialog>
 
-    <!-- PPT 大纲预览对话框 -->
-    <el-dialog
-      v-model="outlineDialogVisible"
-      title="汇报 PPT 大纲"
-      width="720px"
-      :close-on-click-modal="false"
-      :close-on-press-escape="!outlineGenerating"
-      :show-close="!outlineGenerating"
-    >
-      <template v-if="outlineGenerating">
-        <div class="outline-progress">
-          <el-icon class="outline-progress-icon is-loading" :size="40">
-            <Loading />
-          </el-icon>
-          <p class="outline-progress-text">AI 正在生成汇报大纲...</p>
-          <p class="outline-progress-sub">正在分析文献结构，请稍候</p>
-        </div>
-      </template>
-      <template v-else-if="outlineData && outlineData.slides && outlineData.slides.length > 0">
-        <div class="outline-container">
-          <el-collapse v-model="outlineActiveSlides" accordion>
-            <el-collapse-item
-              v-for="(slide, idx) in outlineData.slides"
-              :key="idx"
-              :name="idx"
-            >
-              <template #title>
-                <div class="slide-title-header">
-                  <span class="slide-num">{{ idx + 1 }}</span>
-                  <span class="slide-title-text">{{ slide.title }}</span>
-                </div>
-              </template>
-              <ul class="slide-bullets">
-                <li v-for="(bullet, bi) in slide.bullets" :key="bi">{{ bullet }}</li>
-              </ul>
-              <p v-if="slide.notes" class="slide-notes">
-                <el-icon><ChatLineSquare /></el-icon>
-                {{ slide.notes }}
-              </p>
-            </el-collapse-item>
-          </el-collapse>
-        </div>
-      </template>
-      <el-empty v-else description="暂无大纲数据" :image-size="80" />
-      <template #footer>
-        <el-button :disabled="outlineGenerating" @click="outlineDialogVisible = false">关闭</el-button>
-        <div v-if="outlineGenerated" class="outline-synced-hint">
-          <el-icon><CircleCheck /></el-icon>
-          <span>已同步到组会</span>
-          <el-button type="primary" text @click="goToPreMeeting">
-            在组会看板中查看/下载
-            <el-icon><ArrowRight /></el-icon>
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
-
     <PdfTranslateDialog
       v-model="showPdfTranslateDialog"
       :literature-id="route.params.id as string"
@@ -421,7 +360,10 @@
         <div class="side-panel-header">
           <div class="side-panel-title">
             <el-icon :size="18"><Document /></el-icon>
-            <span>{{ activeTab === 'translate' ? '智能翻译' : '我的笔记' }}</span>
+            <span>{{
+              activeTab === 'translate' ? '智能翻译' :
+              activeTab === 'chat' ? 'AI 对话' : '我的笔记'
+            }}</span>
           </div>
         </div>
         <el-tabs v-model="activeTab" class="side-tabs">
@@ -572,6 +514,71 @@
               </div>
             </div>
           </el-tab-pane>
+
+          <!-- AI 对话 Tab -->
+          <el-tab-pane label="AI 对话" name="chat">
+            <div class="tab-content chat-panel">
+              <div class="chat-context-bar" :title="chatContextText">
+                <el-icon><Document /></el-icon>
+                <span class="chat-context-text">{{ chatContextLabel }}</span>
+              </div>
+              <div ref="chatMessageListRef" class="chat-message-list">
+                <template v-if="chatMessages.length === 0">
+                  <el-empty description="选中论文文本后开始提问" :image-size="60" />
+                </template>
+                <div
+                  v-for="(msg, idx) in chatMessages"
+                  :key="idx"
+                  class="chat-msg"
+                  :class="msg.role === 'user' ? 'chat-msg-user' : 'chat-msg-ai'"
+                >
+                  <div class="chat-msg-bubble">
+                    <div class="chat-msg-content">{{ msg.content }}</div>
+                    <div v-if="msg.context" class="chat-msg-context" :title="msg.context">
+                      上下文: {{ msg.context.slice(0, 50) }}{{ msg.context.length > 50 ? '...' : '' }}
+                    </div>
+                  </div>
+                </div>
+                <div v-if="chatSending" class="chat-msg chat-msg-ai">
+                  <div class="chat-msg-bubble chat-msg-thinking">
+                    <el-icon class="is-loading"><Loading /></el-icon>
+                    <span>思考中...</span>
+                  </div>
+                </div>
+              </div>
+              <div class="chat-input-area">
+                <el-input
+                  v-model="chatInput"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="输入你的问题..."
+                  :disabled="chatSending"
+                  @keydown="handleChatKeydown"
+                />
+                <div class="chat-input-actions">
+                  <el-button
+                    v-if="chatConversationId"
+                    text
+                    size="small"
+                    type="warning"
+                    @click="handleClearChat"
+                  >
+                    <el-icon><Refresh /></el-icon>
+                    清除对话
+                  </el-button>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    :loading="chatSending"
+                    :disabled="!chatInput.trim() || !chatContextText"
+                    @click="handleSendChat"
+                  >
+                    发送
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </el-tab-pane>
         </el-tabs>
       </div>
     </div>
@@ -582,7 +589,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, DataAnalysis, ChatLineSquare, Plus, CircleCheck, ArrowRight, Refresh, Download, ArrowDown } from '@element-plus/icons-vue'
+import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, ChatLineSquare, Plus, Download, ArrowDown, Refresh } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
 import { getLiterature, getLiteratureFileBlob, type Literature } from '@/api/literature'
@@ -590,9 +597,9 @@ import PdfTranslateDialog from '@/components/business/PdfTranslateDialog.vue'
 import { translateText, translateTextStream, startFullTranslate, getTaskStatus, deleteFullTranslation, cancelTask, type TranslatedParagraph } from '@/api/translate'
 import { createNote, getNotes, deleteNote, type Note, type RectCoords } from '@/api/note'
 import { startAnalyze, getAnalysis, type AnalysisData } from '@/api/analysis'
-import { generateOutline, type OutlineData } from '@/api/outline'
 import { getLiteratureTags, addTagToLiterature, removeTagFromLiterature, type TagItem } from '@/api/tag'
 import { recordReading } from '@/api/stats'
+import { chatWithPaper, type ChatResponse } from '@/api/chat'
 
 const route = useRoute()
 const router = useRouter()
@@ -633,6 +640,14 @@ let pollingTimer: ReturnType<typeof setInterval> | null = null
 let cancelling = false
 let currentTaskId = ''
 const backgroundTranslatingId = ref('')
+
+// AI 对话
+const chatMessages = ref<{ role: string; content: string; context?: string }[]>([])
+const chatInput = ref('')
+const chatConversationId = ref('')
+const chatSending = ref(false)
+const chatContextText = ref('')
+const chatMessageListRef = ref<HTMLElement | null>(null)
 
 const TRANSLATION_TTL_DAYS = 7
 
@@ -699,12 +714,7 @@ const analysisProgressText = ref('')
 let analysisPollingTimer: ReturnType<typeof setInterval> | null = null
 const innovationAddingIdx = ref(-1)
 
-const outlineGenerating = ref(false)
 const showPdfTranslateDialog = ref(false)
-const outlineDialogVisible = ref(false)
-const outlineData = ref<OutlineData | null>(null)
-const outlineActiveSlides = ref<number[]>([])
-const outlineGenerated = ref(false)
 
 const searchChunkIndex = ref(-1)
 
@@ -726,7 +736,7 @@ function updateWidths() {
   if (available <= 0) return
 
   if (!sidePanelWidth.value || sidePanelWidth.value <= 0) {
-    sidePanelWidth.value = Math.round(available * 0.40)
+    sidePanelWidth.value = Math.round(available * 0.30)
   }
 
   let side = sidePanelWidth.value
@@ -1037,6 +1047,8 @@ function handleTextSelection() {
       pageNumber,
       rectCoords,
     }
+
+    chatContextText.value = text
   }, 100)
 }
 
@@ -1765,32 +1777,6 @@ async function addInnovationAsNote(text: string, idx: number) {
   }
 }
 
-async function handleGenerateOutline() {
-  if (!literature.value) return
-
-  outlineGenerating.value = true
-  outlineGenerated.value = false
-  outlineDialogVisible.value = true
-  outlineData.value = null
-
-  try {
-    const resp = await generateOutline(literature.value.id)
-    outlineData.value = resp.data.data
-    outlineGenerated.value = true
-  } catch (error: any) {
-    outlineDialogVisible.value = false
-    const detail = error.response?.data?.detail || '生成大纲失败'
-    ElMessage.error(detail)
-  } finally {
-    outlineGenerating.value = false
-  }
-}
-
-function goToPreMeeting() {
-  outlineDialogVisible.value = false
-  router.push('/presentation')
-}
-
 async function loadLiteratureTags() {
   if (!literature.value) return
   try {
@@ -1825,6 +1811,64 @@ async function handleRemoveTag(tagId: string) {
   } catch (error: any) {
     const detail = error.response?.data?.detail || '删除标签失败'
     ElMessage.error(detail)
+  }
+}
+
+// ========== AI 对话 ==========
+const chatContextLabel = computed(() => {
+  if (!chatContextText.value) return '请选中 PDF 中的文本作为上下文'
+  return chatContextText.value.length > 60
+    ? chatContextText.value.slice(0, 60) + '...'
+    : chatContextText.value
+})
+
+async function handleSendChat() {
+  const msg = chatInput.value.trim()
+  if (!msg) return
+  if (!chatContextText.value) {
+    ElMessage.warning('请先选中论文中的文本作为上下文')
+    return
+  }
+  if (!literature.value) return
+
+  chatSending.value = true
+  chatMessages.value.push({ role: 'user', content: msg, context: chatContextText.value })
+  chatInput.value = ''
+
+  try {
+    const resp = await chatWithPaper(literature.value.id, {
+      message: msg,
+      context_text: chatContextText.value,
+      conversation_id: chatConversationId.value || null,
+    })
+    const data = resp.data
+    chatMessages.value.push({ role: 'assistant', content: data.reply })
+    chatConversationId.value = data.conversation_id
+  } catch (error: any) {
+    console.error('AI 对话失败:', error)
+    const detail = error?.response?.data?.detail || error?.message || 'AI 对话失败'
+    ElMessage.error(detail)
+    chatMessages.value.pop()  // 移除刚才添加的用户消息
+  } finally {
+    chatSending.value = false
+    nextTick(() => {
+      if (chatMessageListRef.value) {
+        chatMessageListRef.value.scrollTop = chatMessageListRef.value.scrollHeight
+      }
+    })
+  }
+}
+
+function handleClearChat() {
+  chatMessages.value = []
+  chatConversationId.value = ''
+  chatInput.value = ''
+}
+
+function handleChatKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    handleSendChat()
   }
 }
 
@@ -2704,37 +2748,6 @@ function stopResize() {
   padding: 14px;
 }
 
-.outline-container {
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.outline-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 0;
-}
-
-.outline-progress-icon {
-  color: var(--accent-primary);
-  margin-bottom: 16px;
-}
-
-.outline-progress-text {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 6px 0;
-}
-
-.outline-progress-sub {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
 .slide-title-header {
   display: flex;
   align-items: center;
@@ -2805,12 +2818,112 @@ function stopResize() {
   margin-top: 2px;
 }
 
-.outline-synced-hint {
+/* ========== AI 对话 ========== */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-context-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.chat-context-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-msg {
+  display: flex;
+}
+
+.chat-msg-user {
+  justify-content: flex-end;
+}
+
+.chat-msg-ai {
+  justify-content: flex-start;
+}
+
+.chat-msg-bubble {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.chat-msg-user .chat-msg-bubble {
+  background: var(--teal-500);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-msg-ai .chat-msg-bubble {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-msg-content {
+  white-space: pre-wrap;
+}
+
+.chat-msg-context {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-msg-ai .chat-msg-context {
+  border-top-color: var(--border-color);
+}
+
+.chat-msg-thinking {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--teal-600);
-  font-size: 13px;
-  font-weight: 500;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.chat-input-area {
+  flex-shrink: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.chat-input-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
 }
 </style>

@@ -12,13 +12,23 @@ from app.services.ai_engine_service import AIEngineService, decrypt_api_key
 logger = logging.getLogger(__name__)
 
 _http_client: httpx.AsyncClient | None = None
+_http_client_proxy: httpx.AsyncClient | None = None
 
 _AI_CLIENT_CACHE_TTL = 300
 _user_ai_cache: dict[str, tuple[float, AsyncOpenAI, str]] = {}
 
 
-def _get_http_client() -> httpx.AsyncClient:
-    global _http_client
+def _get_http_client(use_proxy: bool = False) -> httpx.AsyncClient:
+    global _http_client, _http_client_proxy
+    if use_proxy:
+        if _http_client_proxy is None:
+            proxy_url = settings.PROXY_URL
+            _http_client_proxy = httpx.AsyncClient(
+                limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+                timeout=httpx.Timeout(300.0, connect=30.0),
+                proxies=proxy_url,
+            )
+        return _http_client_proxy
     if _http_client is None:
         _http_client = httpx.AsyncClient(
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
@@ -62,15 +72,16 @@ async def get_user_ai_client(db: AsyncSession, user_id: str) -> AsyncOpenAI:
         registry = AIProviderRegistry()
         adapter = registry.get_or_default(engine.provider)
         base_url = adapter.get_openai_base_url(engine.api_base)
+        use_proxy = engine.proxy_enabled and bool(settings.PROXY_URL)
         logger.debug(
-            "Using AI engine: %s, base_url: %s, model: %s",
-            engine.provider, base_url, engine.default_model
+            "Using AI engine: %s, base_url: %s, model: %s, proxy=%s",
+            engine.provider, base_url, engine.default_model, use_proxy
         )
         return AsyncOpenAI(
             base_url=base_url,
             api_key=api_key,
             timeout=300.0,
-            http_client=_get_http_client(),
+            http_client=_get_http_client(use_proxy=use_proxy),
         )
 
     if settings.DEFAULT_AI_KEY:

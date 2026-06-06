@@ -15,5 +15,6 @@ class AIEngine(Base):
     default_model = Column(String, nullable=False)
     fallback_models = Column(String, nullable=True)
     is_default = Column(Boolean, default=False, nullable=False)
+    proxy_enabled = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

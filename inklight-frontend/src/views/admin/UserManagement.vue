@@ -79,6 +79,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Edit } from '@element-plus/icons-vue'
 import { getAdminUsers, updateAdminUser, type AdminUser } from '@/api/admin'
+import { formatDateCN } from '@/utils/date'
 
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
@@ -150,12 +151,7 @@ async function handleEdit() {
   }
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
+const formatDate = formatDateCN
 
 onMounted(() => { loadUsers() })
 </script>

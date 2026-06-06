@@ -66,6 +66,7 @@
 import { ref, onMounted } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { getOperationLogs, type OperationLog } from '@/api/admin'
+import { formatDateCN } from '@/utils/date'
 
 const logs = ref<OperationLog[]>([])
 const loading = ref(false)
@@ -82,11 +83,7 @@ function actionLabel(action: string) {
   return map[action] || action
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-  })
-}
+const formatDate = formatDateCN
 
 async function loadLogs() {
   loading.value = true

@@ -91,6 +91,8 @@ class AIEngineService:
             engine.fallback_models = data.fallback_models
         if data.is_default is not None:
             engine.is_default = data.is_default
+        if data.proxy_enabled is not None:
+            engine.proxy_enabled = data.proxy_enabled
 
         await db.commit()
         await db.refresh(engine)
@@ -145,13 +147,17 @@ class AIEngineService:
     async def test_engine_connection(engine: AIEngine) -> AIEngineTestResult:
         """测试引擎连接，通过 AIProviderRegistry 自动适配不同供应商"""
         from app.core.ai_providers.provider_registry import AIProviderRegistry
+        from app.core.config import settings
 
         decrypted_key = decrypt_api_key(engine.api_key)
         registry = AIProviderRegistry()
         adapter = registry.get_or_default(engine.provider)
 
+        proxy_url = settings.PROXY_URL if engine.proxy_enabled else ""
+
         return await adapter.test_connection(
             api_base=engine.api_base,
             api_key=decrypted_key,
             model=engine.default_model,
+            proxy_url=proxy_url,
         )

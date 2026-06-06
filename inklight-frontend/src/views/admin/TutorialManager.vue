@@ -111,6 +111,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import TutorialEditor from '@/components/business/TutorialEditor.vue'
+import { formatDateCN } from '@/utils/date'
 import {
   listTutorials,
   createTutorial,
@@ -141,9 +142,9 @@ const activeTutorialId = ref('')
 const previewVisible = ref(false)
 const previewHtml = ref('')
 
-function formatDate(dateStr: string): string {
+const formatDate = (dateStr: string): string => {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleString('zh-CN')
+  return formatDateCN(dateStr)
 }
 
 async function fetchTutorials() {

@@ -21,12 +21,12 @@ class DeepSeekAdapter(BaseAIProvider):
     )
 
     async def test_connection(
-        self, api_base: str, api_key: str, model: str
+        self, api_base: str, api_key: str, model: str, proxy_url: str = ""
     ) -> AIEngineTestResult:
         headers = self.get_auth_headers(api_key)
         api_base = self.normalize_api_base(api_base)
 
-        result = await self._try_chat_endpoint(api_base, headers, model)
+        result = await self._try_chat_endpoint(api_base, headers, model, proxy_url=proxy_url)
         if result.success:
             return result
 

@@ -21,6 +21,7 @@ from app.models.user_storage import UserStorage  # noqa: F401
 from app.models.check_in import CheckIn  # noqa: F401
 from app.models.invitation import Invitation  # noqa: F401
 from app.models.feedback import Feedback  # noqa: F401
+from app.models.featured_paper import FeaturedPaper  # noqa: F401
 
 MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false",
@@ -45,6 +46,7 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR",
     "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_invite_code ON users (invite_code) WHERE invite_code IS NOT NULL",
     "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS file_size BIGINT",
+    "ALTER TABLE ai_engines ADD COLUMN IF NOT EXISTS proxy_enabled BOOLEAN NOT NULL DEFAULT false",
 ]
 
 

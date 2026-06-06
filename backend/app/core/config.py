@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # File storage
     UPLOAD_DIR: str = "uploads"
 
+    # Proxy for AI API calls (e.g., http://127.0.0.1:7890)
+    PROXY_URL: str = ""
+
     # Translation cache
     TRANSLATION_CACHE_TTL_DAYS: int = 7
 

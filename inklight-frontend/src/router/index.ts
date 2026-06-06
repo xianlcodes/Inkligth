@@ -18,6 +18,12 @@ const router = createRouter({
       meta: { title: '文献库', requiresAuth: true }
     },
     {
+      path: '/dashboard',
+      name: 'Dashboard',
+      component: () => import('@/views/dashboard/Dashboard.vue'),
+      meta: { title: '首页', requiresAuth: true }
+    },
+    {
       path: '/read/:id',
       name: 'Reading',
       component: () => import('@/views/literature/Reader.vue'),
@@ -166,6 +172,7 @@ const router = createRouter({
 // 路由切换时更新页面标题和 meta 描述
 const siteDescriptions: Record<string, string> = {
   Landing: '研墨InkLight - AI驱动的学术文献阅读与管理平台，支持PDF文献管理、AI翻译、AI摘要分析、笔记管理、组会汇报大纲生成。',
+  Dashboard: '研墨InkLight - 首页仪表板，查看阅读统计、每日精选论文和个人阅读进度。',
   Login: '登录研墨账号，使用AI学术文献阅读与管理功能。支持DeepSeek、OpenAI、通义千问等AI引擎。',
   Register: '注册研墨账号，免费使用AI学术文献阅读与翻译平台。支持PDF管理、AI翻译、笔记标注等功能。',
   ForgotPassword: '找回研墨账号密码。输入注册邮箱，接收验证码重置密码。',

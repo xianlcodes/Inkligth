@@ -91,7 +91,7 @@ const authStore = useAuthStore()
 onMounted(() => {
   // 如果已登录，直接跳转到文献库
   if (authStore.isLoggedIn) {
-    router.replace('/literature')
+    router.replace('/dashboard')
   }
 })
 </script>

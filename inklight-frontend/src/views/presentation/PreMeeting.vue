@@ -3,7 +3,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">组会看板</h1>
-        <p class="page-subtitle">管理汇报大纲，统一查看与下载</p>
+        <p class="page-subtitle">选择论文，一键生成专业学术 PPT</p>
       </div>
     </div>
 
@@ -14,7 +14,7 @@
         </div>
         <div class="new-report-info">
           <h3 class="new-report-title">准备新汇报</h3>
-          <p class="new-report-sub">选择一篇文献，生成新的组会大纲</p>
+          <p class="new-report-sub">选择论文后点击生成，稍等片刻即可预览和下载</p>
         </div>
       </div>
       <div class="new-report-actions">
@@ -39,36 +39,40 @@
           type="primary"
           :loading="generating"
           :disabled="!selectedLiteratureId"
-          @click="handleGenerate"
+          @click="handleGeneratePPT"
         >
           <el-icon><MagicStick /></el-icon>
-          生成大纲
+          生成汇报 PPT
         </el-button>
       </div>
     </div>
 
     <div v-if="generating" class="generating-bar">
       <el-icon class="is-loading"><Loading /></el-icon>
-      <span>AI 正在分析文献并生成汇报大纲...</span>
+      <span>{{ progressMessage }}</span>
     </div>
 
-    <div v-if="generatedOutline" class="fresh-outline-card">
+    <div v-if="lastResult" class="fresh-outline-card">
       <div class="fresh-outline-header">
         <el-icon :size="20" color="var(--teal-600)"><CircleCheck /></el-icon>
-        <span>大纲已生成并保存</span>
+        <span>PPT 已生成，共 {{ lastResult.slides?.length || 0 }} 页</span>
       </div>
       <div class="fresh-outline-preview">
         <div
-          v-for="(slide, idx) in generatedOutline.slides.slice(0, 3)"
+          v-for="(slide, idx) in lastResult.slides.slice(0, 4)"
           :key="idx"
           class="fresh-slide-chip"
         >
           <span class="fresh-slide-num">{{ idx + 1 }}</span>
+          <span class="fresh-slide-type">{{ slide.page_type || 'text' }}</span>
           {{ slide.title }}
         </div>
-        <span v-if="generatedOutline.slides.length > 3" class="fresh-slide-more">
-          +{{ generatedOutline.slides.length - 3 }} 张
+        <span v-if="lastResult.slides.length > 4" class="fresh-slide-more">
+          +{{ lastResult.slides.length - 4 }} 张
         </span>
+        <el-button type="primary" size="small" @click="openPreview(lastResult)" style="margin-left: auto">
+          预览并下载
+        </el-button>
       </div>
     </div>
 
@@ -84,7 +88,7 @@
           :key="pres.id"
           class="history-card"
           shadow="hover"
-          @click="openPreview(pres)"
+          @click="openPreviewFromHistory(pres)"
         >
           <div class="history-card-top">
             <div class="history-card-icon">
@@ -100,19 +104,12 @@
             </div>
           </div>
           <div class="history-card-actions" @click.stop>
-            <el-button text type="primary" size="small" @click="openPreview(pres)">
-              预览
-            </el-button>
-            <el-button text type="primary" size="small" @click="handleRegenerate(pres)">
-              重新生成
-            </el-button>
-            <el-button text type="danger" size="small" @click="handleDelete(pres)">
-              删除
-            </el-button>
+            <el-button text type="primary" size="small" @click="openPreviewFromHistory(pres)">预览</el-button>
+            <el-button text type="danger" size="small" @click="handleDelete(pres)">删除</el-button>
           </div>
         </el-card>
 
-        <el-empty v-if="!loading && presentations.length === 0" description="暂无汇报记录，在上方选择文献生成第一条大纲" />
+        <el-empty v-if="!loading && presentations.length === 0" description="暂无汇报记录" />
       </div>
     </div>
 
@@ -133,13 +130,14 @@
             <div class="preview-slide-header">
               <span class="preview-slide-num">{{ idx + 1 }}</span>
               <span class="preview-slide-title">{{ slide.title }}</span>
+              <el-tag v-if="slide.page_type" size="small" class="slide-type-tag">{{ slide.page_type }}</el-tag>
             </div>
             <ul class="preview-slide-bullets">
               <li v-for="(bullet, bi) in slide.bullets" :key="bi">{{ bullet }}</li>
             </ul>
-            <div v-if="slide.notes" class="preview-slide-notes">
+            <div v-if="slide.notes || slide.speaker_notes" class="preview-slide-notes">
               <el-icon><ChatLineSquare /></el-icon>
-              <span>{{ slide.notes }}</span>
+              <span>{{ slide.notes || slide.speaker_notes }}</span>
             </div>
           </div>
         </div>
@@ -147,11 +145,13 @@
       <el-empty v-else description="暂无幻灯片" />
 
       <template #footer>
-        <el-button @click="previewVisible = false">关闭</el-button>
-        <el-button type="primary" :loading="downloading" @click="handleDownload">
-          <el-icon><Download /></el-icon>
-          下载 PPT
-        </el-button>
+        <div class="preview-footer-actions">
+          <span class="preview-slide-count">共 {{ previewSlides.length }} 页</span>
+          <el-button type="primary" :loading="downloading" @click="handleDownload" :disabled="!previewTaskId">
+            <el-icon><Download /></el-icon>
+            下载 PPT
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -163,7 +163,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { DataAnalysis, MagicStick, Loading, CircleCheck, ChatLineSquare, Download } from '@element-plus/icons-vue'
 import { getPresentations, deletePresentation, type PresentationItem } from '@/api/presentation'
 import { getLiteratures, type Literature } from '@/api/literature'
-import { generateOutline, downloadOutlinePptx, type OutlineData } from '@/api/outline'
+import { startPPTGeneration, getPPTStatus, downloadPPT, type SlideData, type PPTTaskResponse } from '@/api/outline'
+import { formatDateCN } from '@/utils/date'
 
 const loading = ref(false)
 const generating = ref(false)
@@ -171,12 +172,17 @@ const downloading = ref(false)
 const presentations = ref<PresentationItem[]>([])
 const selectedLiteratureId = ref('')
 const literatureOptions = ref<Literature[]>([])
-const generatedOutline = ref<OutlineData | null>(null)
+
+const progressMessage = ref('正在准备...')
+const lastResult = ref<PPTTaskResponse | null>(null)
+const currentTaskId = ref('')
 
 const previewVisible = ref(false)
 const previewTitle = ref('')
-const previewSlides = ref<OutlineData['slides']>([])
-const previewLiteratureId = ref('')
+const previewSlides = ref<SlideData[]>([])
+const previewTaskId = ref('')
+
+const formatDate = formatDateCN
 
 onMounted(() => {
   fetchPresentations()
@@ -204,59 +210,71 @@ async function fetchAllLiterature() {
   }
 }
 
-async function handleGenerate() {
+async function handleGeneratePPT() {
   if (!selectedLiteratureId.value) return
 
   generating.value = true
-  generatedOutline.value = null
+  lastResult.value = null
+  currentTaskId.value = ''
+  progressMessage.value = '正在解析论文并提取图表...'
+
   try {
-    const resp = await generateOutline(selectedLiteratureId.value)
-    generatedOutline.value = resp.data.data
-    ElMessage.success('大纲已生成并保存')
-    await fetchPresentations()
+    // 1. 启动后台任务
+    const startResp = await startPPTGeneration(selectedLiteratureId.value)
+    const taskId = startResp.data.data.task_id
+    currentTaskId.value = taskId
+
+    // 2. 轮询等待完成
+    while (true) {
+      await new Promise(r => setTimeout(r, 1500))
+      const statusResp = await getPPTStatus(selectedLiteratureId.value, taskId)
+      const task = statusResp.data
+
+      if (task.status === 'completed') {
+        lastResult.value = task
+        ElMessage.success(`PPT 生成完成，共 ${task.slides?.length || 0} 页`)
+        // 自动打开预览
+        openPreview(task)
+        // 刷新历史
+        await fetchPresentations()
+        break
+      }
+
+      if (task.status === 'failed') {
+        ElMessage.error(task.error || 'PPT 生成失败')
+        break
+      }
+
+      // 更新进度提示
+      if (task.status === 'running') {
+        const pct = task.progress || 0
+        if (pct < 20) progressMessage.value = '正在解析论文并提取图表...'
+        else if (pct < 70) progressMessage.value = 'AI 正在生成大纲...'
+        else if (pct < 90) progressMessage.value = '正在渲染 PPT...'
+        else progressMessage.value = '正在保存...'
+      }
+    }
   } catch (error: any) {
-    const detail = error.response?.data?.detail || '生成失败'
-    ElMessage.error(detail)
+    console.error('PPT 生成失败:', error)
+    ElMessage.error(error?.response?.data?.detail || error?.message || '生成失败')
   } finally {
     generating.value = false
   }
 }
 
-function openPreview(pres: PresentationItem) {
-  previewTitle.value = pres.literature_title || '汇报大纲'
-  previewSlides.value = pres.slides || []
-  previewLiteratureId.value = pres.literature_id || ''
+function openPreview(result: PPTTaskResponse) {
+  const lit = literatureOptions.value.find(l => l.id === selectedLiteratureId.value)
+  previewTitle.value = lit?.title || '汇报 PPT'
+  previewSlides.value = result.slides || []
+  previewTaskId.value = currentTaskId.value
   previewVisible.value = true
 }
 
-async function handleRegenerate(pres: PresentationItem) {
-  if (!pres.literature_id) {
-    ElMessage.warning('该汇报未关联文献，无法重新生成')
-    return
-  }
-  try {
-    await ElMessageBox.confirm('重新生成将覆盖当前大纲，是否继续？', '确认', {
-      confirmButtonText: '重新生成',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-  } catch {
-    return
-  }
-
-  generating.value = true
-  generatedOutline.value = null
-  try {
-    const resp = await generateOutline(pres.literature_id)
-    generatedOutline.value = resp.data.data
-    ElMessage.success('大纲已重新生成')
-    await fetchPresentations()
-  } catch (error: any) {
-    const detail = error.response?.data?.detail || '重新生成失败'
-    ElMessage.error(detail)
-  } finally {
-    generating.value = false
-  }
+function openPreviewFromHistory(pres: PresentationItem) {
+  previewTitle.value = pres.literature_title || '汇报大纲'
+  previewSlides.value = (pres.slides || []) as SlideData[]
+  previewTaskId.value = ''  // 历史记录的 PPT 文件可能已不存在
+  previewVisible.value = true
 }
 
 async function handleDelete(pres: PresentationItem) {
@@ -280,37 +298,32 @@ async function handleDelete(pres: PresentationItem) {
 }
 
 async function handleDownload() {
-  if (!previewLiteratureId.value) {
-    ElMessage.warning('该汇报未关联文献，无法下载 PPT')
+  if (!previewTaskId.value) {
+    ElMessage.warning('请先生成 PPT')
     return
   }
 
   downloading.value = true
   try {
-    const resp = await downloadOutlinePptx(previewLiteratureId.value)
+    const resp = await downloadPPT(selectedLiteratureId.value || '', previewTaskId.value)
     const blob = new Blob([resp.data], {
       type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${previewTitle.value || 'presentation'}_outline.pptx`
+    a.download = `${previewTitle.value || 'presentation'}.pptx`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    ElMessage.success('PPT 下载成功')
+    ElMessage.success('下载成功')
   } catch (error: any) {
-    const detail = error.response?.data?.detail || '下载失败'
-    ElMessage.error(detail)
+    console.error('下载失败:', error)
+    ElMessage.error(error?.response?.data?.detail || error?.message || '下载失败')
   } finally {
     downloading.value = false
   }
-}
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
 }
 </script>
 
@@ -385,12 +398,13 @@ function formatDate(dateStr: string) {
 .new-report-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .literature-select {
-  width: 280px;
+  width: 240px;
 }
 
 .lit-option-author {
@@ -445,6 +459,10 @@ function formatDate(dateStr: string) {
   border-radius: 20px;
   font-size: 13px;
   color: var(--text-secondary);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fresh-slide-num {
@@ -458,6 +476,15 @@ function formatDate(dateStr: string) {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.fresh-slide-type {
+  font-size: 10px;
+  color: var(--teal-600);
+  background: var(--teal-100);
+  padding: 1px 5px;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 
@@ -605,6 +632,12 @@ function formatDate(dateStr: string) {
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.4;
+  flex: 1;
+}
+
+.slide-type-tag {
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .preview-slide-bullets {
@@ -647,5 +680,17 @@ function formatDate(dateStr: string) {
 .preview-slide-notes .el-icon {
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+.preview-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.preview-slide-count {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 </style>

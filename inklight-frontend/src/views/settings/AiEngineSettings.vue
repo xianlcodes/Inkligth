@@ -32,6 +32,12 @@
           <p><strong>API 地址：</strong>{{ engine.api_base }}</p>
           <p><strong>Key：</strong>{{ engine.api_key_mask }}</p>
           <p v-if="engine.fallback_models"><strong>备用模型：</strong>{{ engine.fallback_models }}</p>
+          <p>
+            <strong>代理：</strong>
+            <el-tag :type="engine.proxy_enabled ? 'warning' : 'info'" size="small">
+              {{ engine.proxy_enabled ? '已开启' : '未开启' }}
+            </el-tag>
+          </p>
         </div>
       </el-card>
     </div>
@@ -68,6 +74,11 @@
 
         <el-form-item label="备用模型">
           <el-input v-model="form.fallback_models" placeholder="多个模型用逗号分隔，可选" />
+        </el-form-item>
+
+        <el-form-item label="启用代理">
+          <el-switch v-model="form.proxy_enabled" />
+          <span class="proxy-hint">通过服务器代理访问 AI 服务（如 OpenAI 需要）</span>
         </el-form-item>
 
         <el-form-item label="设为默认">
@@ -140,6 +151,7 @@ const form = reactive({
   default_model: '',
   fallback_models: '',
   is_default: false,
+  proxy_enabled: false,
 })
 
 const rules: FormRules = {
@@ -169,6 +181,7 @@ function resetForm() {
   form.default_model = ''
   form.fallback_models = ''
   form.is_default = false
+  form.proxy_enabled = false
   testResult.value = null
 }
 
@@ -199,6 +212,7 @@ function openEditDialog(engine: AIEngine) {
   form.default_model = engine.default_model
   form.fallback_models = engine.fallback_models || ''
   form.is_default = engine.is_default
+  form.proxy_enabled = engine.proxy_enabled
   testResult.value = null
   dialogVisible.value = true
 }
@@ -240,6 +254,7 @@ async function handleSave() {
       default_model: form.default_model,
       fallback_models: form.fallback_models || undefined,
       is_default: form.is_default,
+      proxy_enabled: form.proxy_enabled,
     }
 
     if (isEdit.value && editingId.value) {
@@ -250,6 +265,7 @@ async function handleSave() {
       if (form.default_model) updatePayload.default_model = form.default_model
       if (form.fallback_models !== undefined) updatePayload.fallback_models = form.fallback_models || null
       if (form.is_default !== undefined) updatePayload.is_default = form.is_default
+      if (form.proxy_enabled !== undefined) updatePayload.proxy_enabled = form.proxy_enabled
       await store.editEngine(editingId.value, updatePayload)
       ElMessage.success('更新成功')
     } else {
@@ -344,6 +360,16 @@ async function handleDelete(engineId: string) {
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 4px;
+}
+
+.proxy-hint {
+  font-size: 12px;
+  color: var(--text-tertiary, #94a3b8);
+  margin-left: 8px;
+}
+
+.proxy-hint:hover {
+  color: var(--accent-primary, #0d9488);
 }
 
 .tutorial-hint {

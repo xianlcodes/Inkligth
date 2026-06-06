@@ -30,7 +30,7 @@ logging.getLogger("app.services.layout_analysis_service").setLevel(logging.WARNI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis, feedback
+from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis, feedback, featured_paper, paper_chat
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -56,6 +56,14 @@ async def startup_event():
     except Exception:
         import logging
         logging.getLogger(__name__).warning("ONNX layout model preload skipped", exc_info=True)
+
+    # 启动每日精选论文定时任务
+    try:
+        from app.tasks.scheduler import start_scheduler
+        start_scheduler()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("Featured papers scheduler failed to start", exc_info=True)
 
 
 # CORS
@@ -90,6 +98,8 @@ app.include_router(invitation.router, prefix=f"{settings.API_V1_STR}/invitations
 app.include_router(tutorial.router, prefix=settings.API_V1_STR, tags=["tutorials"])
 app.include_router(layout_analysis.router, prefix=f"{settings.API_V1_STR}/layout-analysis", tags=["layout-analysis"])
 app.include_router(feedback.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["feedback"])
+app.include_router(featured_paper.router, prefix=settings.API_V1_STR, tags=["featured"])
+app.include_router(paper_chat.router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

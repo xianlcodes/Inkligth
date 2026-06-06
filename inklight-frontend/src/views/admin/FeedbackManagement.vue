@@ -37,7 +37,7 @@
       </el-table-column>
       <el-table-column prop="created_at" label="提交时间" width="180">
         <template #default="{ row }">
-          {{ new Date(row.created_at).toLocaleString() }}
+          {{ formatDateCN(row.created_at) }}
         </template>
       </el-table-column>
       <el-table-column label="操作" width="100" fixed="right">
@@ -68,6 +68,7 @@
 import { ref, onMounted } from 'vue'
 import { listFeedback, resolveFeedback, type FeedbackItem } from '@/api/feedback'
 import { ElMessage } from 'element-plus'
+import { formatDateCN } from '@/utils/date'
 
 const items = ref<FeedbackItem[]>([])
 const total = ref(0)

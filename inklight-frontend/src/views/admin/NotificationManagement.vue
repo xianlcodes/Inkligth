@@ -137,6 +137,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Top } from '@element-plus/icons-vue'
+import { formatDateCN } from '@/utils/date'
 import {
   getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement,
   type Announcement,
@@ -167,11 +168,7 @@ function levelLabel(level: string) {
   return { info: '通知', warning: '提醒', success: '好消息' }[level] || level
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-  })
-}
+const formatDate = formatDateCN
 
 async function loadAnnouncements() {
   loading.value = true

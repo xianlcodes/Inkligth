@@ -35,6 +35,7 @@ def _engine_to_response(engine) -> AIEngineResponse:
         default_model=engine.default_model,
         fallback_models=engine.fallback_models,
         is_default=engine.is_default,
+        proxy_enabled=engine.proxy_enabled,
         created_at=engine.created_at,
         updated_at=engine.updated_at,
     )

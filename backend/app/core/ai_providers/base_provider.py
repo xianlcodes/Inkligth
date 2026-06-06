@@ -59,7 +59,7 @@ class BaseAIProvider(ABC):
         return f"{base}/{path}"
 
     async def _try_models_endpoint(
-        self, api_base: str, headers: dict
+        self, api_base: str, headers: dict, proxy_url: str = ""
     ) -> Optional[AIEngineTestResult]:
         if not self.capabilities.supports_models_list:
             return None
@@ -67,7 +67,10 @@ class BaseAIProvider(ABC):
         last_error = None
         for attempt in range(DEFAULT_RETRY_COUNT + 1):
             try:
-                async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+                client_kwargs = {"timeout": DEFAULT_TIMEOUT}
+                if proxy_url:
+                    client_kwargs["proxies"] = proxy_url
+                async with httpx.AsyncClient(**client_kwargs) as client:
                     response = await client.get(url, headers=headers)
                 if response.status_code == 200:
                     data = response.json()
@@ -96,7 +99,7 @@ class BaseAIProvider(ABC):
         return None
 
     async def _try_chat_endpoint(
-        self, api_base: str, headers: dict, model: str
+        self, api_base: str, headers: dict, model: str, proxy_url: str = ""
     ) -> AIEngineTestResult:
         test_payload = {
             "model": model,
@@ -108,7 +111,10 @@ class BaseAIProvider(ABC):
 
         for attempt in range(DEFAULT_RETRY_COUNT + 1):
             try:
-                async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+                client_kwargs = {"timeout": DEFAULT_TIMEOUT}
+                if proxy_url:
+                    client_kwargs["proxies"] = proxy_url
+                async with httpx.AsyncClient(**client_kwargs) as client:
                     response = await client.post(url, json=test_payload, headers=headers)
                 status = response.status_code
 
@@ -201,7 +207,7 @@ class BaseAIProvider(ABC):
 
     @abstractmethod
     async def test_connection(
-        self, api_base: str, api_key: str, model: str
+        self, api_base: str, api_key: str, model: str, proxy_url: str = ""
     ) -> AIEngineTestResult:
         ...
 
