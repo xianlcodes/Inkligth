@@ -24,8 +24,15 @@
           <span class="streak-num">{{ status?.streak_days || 0 }}</span>
           <span class="streak-label">连续签到天数</span>
         </div>
-        <div v-if="!status?.checked_in_today && status?.today_reward" class="today-reward">
-          今日签到可得 <strong>{{ formatBytes(status.today_reward) }}</strong>
+        <div v-if="status?.next_milestone_day" class="today-reward">
+          下一个里程碑：连续 {{ status.next_milestone_day }} 天 —
+          <strong>{{ formatBytes(status.next_milestone_reward) }}</strong>
+          <span v-if="(status.streak_days ?? 0) > 0" class="milestone-progress">
+            （还差 {{ status.next_milestone_day - (status.streak_days ?? 0) }} 天）
+          </span>
+        </div>
+        <div v-else class="today-reward all-claimed">
+          已获得所有里程碑奖励
         </div>
       </div>
 
@@ -58,11 +65,16 @@
       </div>
 
       <div class="reward-rules">
-        <div class="rules-title">奖励规则</div>
+        <div class="rules-title">里程碑奖励（每人仅限一次）</div>
         <div class="rule-item">连续 3 天：+10MB</div>
         <div class="rule-item">连续 7 天：+20MB</div>
-        <div class="rule-item">连续 30 天：+100MB</div>
-        <div class="rule-item">连续 90 天：+500MB</div>
+        <div class="rule-item">连续 14 天：+25MB</div>
+        <div class="rule-item">连续 30 天：+30MB</div>
+        <div class="rule-item">连续 60 天：+35MB</div>
+        <div class="rule-item">连续 90 天：+50MB</div>
+        <div class="rule-item">连续 180 天：+60MB</div>
+        <div class="rule-item">连续 365 天：+70MB</div>
+        <div class="rule-item rule-total">总计最多可获得 300MB 空间</div>
       </div>
     </div>
   </el-popover>
@@ -128,7 +140,8 @@ async function handleCheckIn() {
   checkingIn.value = true
   try {
     const result = await doCheckIn()
-    ElMessage.success(`签到成功！连续 ${result.streak_days} 天，获得 ${formatBytes(result.reward_bytes)} 空间`)
+    const rewardText = result.reward_bytes > 0 ? `，获得 ${formatBytes(result.reward_bytes)} 空间` : ''
+    ElMessage.success(`签到成功！连续 ${result.streak_days} 天${rewardText}`)
     await fetchStatus()
     emit('checked-in')
   } catch (e: any) {
@@ -225,6 +238,15 @@ watch(() => props.visible, (val) => {
   color: var(--el-color-primary);
 }
 
+.today-reward.all-claimed {
+  color: #67c23a;
+}
+
+.milestone-progress {
+  color: var(--text-muted, #999);
+  font-size: 12px;
+}
+
 .check-in-btn {
   width: 100%;
   margin-bottom: 16px;
@@ -289,5 +311,11 @@ watch(() => props.visible, (val) => {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.8;
+}
+
+.rule-total {
+  margin-top: 4px;
+  color: var(--text-muted, #999);
+  font-size: 11px;
 }
 </style>

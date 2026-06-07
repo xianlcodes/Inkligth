@@ -19,6 +19,8 @@ class CheckInStatusResponse(BaseModel):
     streak_days: int
     today_reward: int
     checked_dates: list[date]
+    next_milestone_reward: int = 0
+    next_milestone_day: int | None = None
 
 
 class CheckInResponse(BaseModel):

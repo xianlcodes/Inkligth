@@ -5,6 +5,8 @@ export interface CheckInStatus {
   streak_days: number
   today_reward: number
   checked_dates: string[]
+  next_milestone_reward: number
+  next_milestone_day: number | null
 }
 
 export interface CheckInResult {

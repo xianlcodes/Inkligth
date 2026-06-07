@@ -39,4 +39,6 @@ async def get_check_in_status(
         streak_days=result["streak_days"],
         today_reward=result["today_reward"],
         checked_dates=result["checked_dates"],
+        next_milestone_reward=result["next_milestone_reward"],
+        next_milestone_day=result["next_milestone_day"],
     )

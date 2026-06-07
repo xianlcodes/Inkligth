@@ -1,5 +1,6 @@
 import logging
 from datetime import date, timedelta
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.models.check_in import CheckIn
@@ -7,25 +8,58 @@ from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
 
-
-def get_check_in_reward(streak_days: int) -> int:
-    mb = 0
-    if streak_days >= 90:
-        mb = 500
-    elif streak_days >= 30:
-        mb = 100
-    elif streak_days >= 7:
-        mb = 20
-    elif streak_days >= 3:
-        mb = 10
-    else:
-        mb = 5
-    return mb * 1024 * 1024
+# Milestone rewards in MB — each milestone is awarded only once per user lifetime.
+MILESTONES: dict[int, int] = {
+    3: 10,
+    7: 20,
+    14: 25,
+    30: 30,
+    60: 35,
+    90: 50,
+    180: 60,
+    365: 70,
+}
 
 
 class CheckInService:
     @staticmethod
-    async def get_today_check_in(db: AsyncSession, user_id: str) -> CheckIn | None:
+    async def _get_max_streak(db: AsyncSession, user_id: str) -> int:
+        """Return the user's all-time maximum streak_days from check-in records."""
+        result = await db.execute(
+            select(func.max(CheckIn.streak_days)).where(CheckIn.user_id == user_id)
+        )
+        return result.scalar() or 0
+
+    @staticmethod
+    async def _get_milestone_reward(db: AsyncSession, user_id: str, streak_days: int) -> int:
+        """Return the reward in bytes if *streak_days* is a milestone not yet claimed, else 0."""
+        if streak_days not in MILESTONES:
+            return 0
+        max_streak = await CheckInService._get_max_streak(db, user_id)
+        if max_streak >= streak_days:
+            return 0  # already claimed this milestone
+        return MILESTONES[streak_days] * 1024 * 1024
+
+    @staticmethod
+    async def _get_next_milestone_reward(db: AsyncSession, user_id: str) -> int:
+        """Return the reward (bytes) of the next unclaimed milestone, or 0 if all are claimed."""
+        max_streak = await CheckInService._get_max_streak(db, user_id)
+        for day in sorted(MILESTONES):
+            if day > max_streak:
+                return MILESTONES[day] * 1024 * 1024
+        return 0
+
+    @staticmethod
+    async def _get_next_milestone_day(db: AsyncSession, user_id: str) -> Optional[int]:
+        """Return the day-number of the next unclaimed milestone, or None if all are claimed."""
+        max_streak = await CheckInService._get_max_streak(db, user_id)
+        for day in sorted(MILESTONES):
+            if day > max_streak:
+                return day
+        return None
+
+    @staticmethod
+    async def get_today_check_in(db: AsyncSession, user_id: str) -> Optional[CheckIn]:
         today = date.today()
         result = await db.execute(
             select(CheckIn).where(
@@ -36,7 +70,7 @@ class CheckInService:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_last_check_in(db: AsyncSession, user_id: str) -> CheckIn | None:
+    async def get_last_check_in(db: AsyncSession, user_id: str) -> Optional[CheckIn]:
         result = await db.execute(
             select(CheckIn)
             .where(CheckIn.user_id == user_id)
@@ -63,7 +97,7 @@ class CheckInService:
         else:
             streak = 1
 
-        reward = get_check_in_reward(streak)
+        reward = await CheckInService._get_milestone_reward(db, user_id, streak)
 
         check_in_record = CheckIn(
             user_id=user_id,
@@ -111,9 +145,14 @@ class CheckInService:
         if last and last.check_in_date < today - timedelta(days=1):
             streak = 0
 
+        next_reward = await CheckInService._get_next_milestone_reward(db, user_id)
+        next_day = await CheckInService._get_next_milestone_day(db, user_id)
+
         return {
             "checked_in_today": today_check is not None,
             "streak_days": streak,
-            "today_reward": get_check_in_reward(streak + 1) if not today_check else 0,
+            "today_reward": 0 if today_check else next_reward,
             "checked_dates": checked_dates,
+            "next_milestone_reward": next_reward,
+            "next_milestone_day": next_day,
         }

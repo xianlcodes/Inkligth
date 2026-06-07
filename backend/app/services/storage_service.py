@@ -7,7 +7,7 @@ from app.models.literature import Literature
 logger = logging.getLogger(__name__)
 
 BASE_STORAGE = 200 * 1024 * 1024
-MAX_STORAGE = 1024 * 1024 * 1024
+MAX_STORAGE = 500 * 1024 * 1024
 
 
 class StorageService:
