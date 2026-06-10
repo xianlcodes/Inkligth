@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,11 +26,13 @@ class Settings(BaseSettings):
             self.SECRET_KEY = self.JWT_SECRET
         return self
 
-    # 数据库和缓存的完整 URL（可选，如果 .env 中直接提供了则优先使用）
+    # 数据库和缓存的完整 URL（可选，由 OS 环境变量直接提供时最高优先）
+    # 注意：.env 文件中的 DATABASE_URL / REDIS_URL 不会覆盖分散字段，
+    # 因为分散字段可被 docker-compose / docker -e 逐个覆盖，更灵活。
     DATABASE_URL: Optional[str] = None
     REDIS_URL: Optional[str] = None
 
-    # PostgreSQL 分散字段（仅当 DATABASE_URL 为空时使用）
+    # PostgreSQL 分散字段（可通过 env var 逐个覆盖）
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: str = "5432"
     POSTGRES_USER: str = "inklight"
@@ -75,9 +78,11 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL_FINAL(self) -> str:
-        """返回实际使用的数据库 URL"""
-        if self.DATABASE_URL:
-            return self.DATABASE_URL
+        """返回实际使用的数据库 URL
+
+        始终从分散字段构建 URL；docker-compose / docker -e 可通过
+        POSTGRES_SERVER 等字段逐个覆盖，比整段 URL 更灵活。
+        """
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
@@ -85,9 +90,11 @@ class Settings(BaseSettings):
 
     @property
     def REDIS_URL_FINAL(self) -> str:
-        """返回实际使用的 Redis URL"""
-        if self.REDIS_URL:
-            return self.REDIS_URL
+        """返回实际使用的 Redis URL
+
+        始终从分散字段构建 URL；docker-compose / docker -e 可通过
+        REDIS_HOST 等字段逐个覆盖，比整段 URL 更灵活。
+        """
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
 

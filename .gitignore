@@ -71,6 +71,8 @@ backend/all-MiniLM-L6-v2/
 backend/uploads/
 backend/migrations/
 backend/doc/
+backend/tests/
+backend/export_files/
 
 # Frontend
 
@@ -92,8 +94,13 @@ icons.svg
 !README.md
 !**/README.md
 
-# PDFMathTranslate 构建产物
-PDFMathTranslate-main/build/
-PDFMathTranslate-main/dist/
-PDFMathTranslate-main/*.egg-info/
-PDFMathTranslate-main/__pycache__/
+# PDFMathTranslate 整个项目（仅作为依赖安装，无需纳入版本控制）
+PDFMathTranslate-main/
+
+# 专家文件目录
+expert_files/
+
+# 配置文件备份（已通过 *.txt 排除，这里显式声明）
+配置文件备份.txt
+配置文件备份2.txt
+服务器地址密码.txt

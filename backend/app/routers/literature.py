@@ -609,8 +609,8 @@ async def _process_uploaded_literature(
     user_id: str,
 ):
     """
-    Background task: extract text, run multi-tier metadata extraction,
-    update literature record, and trigger chunk indexing.
+    Background task: extract text, save text immediately, then
+    run multi-tier metadata extraction (slow), and trigger chunk indexing.
     """
     from app.db.database import async_session_factory
     from app.schemas.literature import LiteratureUpdate
@@ -623,7 +623,24 @@ async def _process_uploaded_literature(
             logger.error(f"Failed to extract text from PDF: {file_path}")
             return
 
-        # 2. Get AI client if available
+        # ---------------------------------------------------------------
+        # 2. Save raw_text FIRST, so the paper is immediately usable
+        #    (metadata extraction below can be slow due to Crossref API)
+        # ---------------------------------------------------------------
+        async with async_session_factory() as db:
+            existing = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
+            if not existing:
+                logger.error(f"Literature {literature_id} not found in DB during async processing")
+                return
+            await LiteratureService.update_literature(
+                db, existing,
+                LiteratureUpdate(
+                    raw_text=raw_text,
+                ),
+            )
+            logger.warning(f"Literature {literature_id} raw_text saved ({len(raw_text)} chars)")
+
+        # 3. Get AI client if available
         ai_client = None
         model = None
         try:
@@ -643,18 +660,14 @@ async def _process_uploaded_literature(
         except Exception as e:
             logger.warning(f"Failed to initialize AI client for metadata extraction: {e}")
 
-        # 3. Multi-tier metadata extraction
+        # 4. Multi-tier metadata extraction (may be slow — Crossref API calls)
         metadata = await LiteratureService.extract_metadata(raw_text, ai_client=ai_client, model=model)
 
-        # 4. Check if title is still the fallback (raw_filename) and log
-        if metadata.get("title") == raw_filename or not metadata.get("title"):
-            logger.warning(f"Metadata extraction yielded no better title than filename for {literature_id}")
-
-        # 5. Update literature record
+        # 5. Update literature metadata (title, authors, etc.)
         async with async_session_factory() as db:
             existing = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
             if not existing:
-                logger.error(f"Literature {literature_id} not found in DB during async processing")
+                logger.error(f"Literature {literature_id} not found in DB during metadata update")
                 return
 
             await LiteratureService.update_literature(
@@ -666,7 +679,6 @@ async def _process_uploaded_literature(
                     year=metadata.get("year"),
                     journal=metadata.get("journal"),
                     doi=metadata.get("doi"),
-                    raw_text=raw_text,
                 ),
             )
             logger.warning(f"Literature {literature_id} metadata updated: title='{metadata.get('title')}'")
