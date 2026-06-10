@@ -5,3 +5,7 @@
 
 # 向量嵌入（自动拉取 PyTorch CPU 版）
 sentence-transformers>=3.0.0
+
+# 大型且很少变化的包
+openai>=1.59.3,<3.0.0
+pdf2zh==1.9.11
