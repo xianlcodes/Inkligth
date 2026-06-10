@@ -13,6 +13,7 @@ export interface PdfTranslateTaskStatus {
   message: string
   download_url: string | null
   preview_url: string | null
+  expires_at: string | null
 }
 
 export function startPdfTranslate(

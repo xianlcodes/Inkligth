@@ -225,14 +225,16 @@ const expiresAtMsg = ref('')
 
 function formatExpiryMsg(isoStr: string): string {
   try {
-    const ageDays = getBeijingAgeDays(isoStr)
-    if (ageDays >= 3) return '已过期'
-    const remainingMs = 3 * 24 * 60 * 60 * 1000 - ageDays * 24 * 60 * 60 * 1000
+    const expiresDate = new Date(isoStr)
+    if (isNaN(expiresDate.getTime())) return '3 天后自动删除'
+    const remainingMs = expiresDate.getTime() - Date.now()
     if (remainingMs <= 0) return '已过期'
-    const days = Math.floor(remainingMs / (1000 * 60 * 60 * 24))
-    const hours = Math.floor((remainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const totalHours = remainingMs / (1000 * 60 * 60)
+    if (totalHours < 1) return '即将过期'
+    const days = Math.floor(totalHours / 24)
+    const hours = Math.floor(totalHours % 24)
     if (days > 0) return `还有 ${days} 天 ${hours} 小时后过期`
-    return `还有 ${hours} 小时后过期`
+    return `还有 ${Math.round(totalHours)} 小时后过期`
   } catch {
     return '3 天后自动删除'
   }
@@ -359,6 +361,7 @@ function startPolling() {
         previewUrl.value = data.preview_url || ''
         progress.value = 100
         currentMessage.value = '翻译完成，请下载文件'
+        expiresAtMsg.value = formatExpiryMsg(data.expires_at || '')
         stopPolling()
         setStoredTask(null)
         if (runningInBackground.value) {

@@ -1211,9 +1211,25 @@ async def get_pdf_translate_status(
 
     download_url = None
     preview_url = None
+    expires_at = None
     if task_info.status == TaskStatus.COMPLETED and task_info.result:
         download_url = f"/literatures/{literature_id}/translate-pdf/{task_id}/download"
         preview_url = f"/literatures/{literature_id}/translate-pdf/{task_id}/preview"
+        try:
+            from sqlalchemy import select
+            from app.utils.timezone import utc_to_bjt
+            from app.models.pdf_translation import PdfTranslation
+            result = await db.execute(
+                select(PdfTranslation).where(
+                    PdfTranslation.literature_id == literature_id,
+                    PdfTranslation.user_id == current_user.id,
+                ).order_by(PdfTranslation.created_at.desc()).limit(1)
+            )
+            record = result.scalar_one_or_none()
+            if record and record.expires_at:
+                expires_at = utc_to_bjt(record.expires_at).isoformat()
+        except Exception:
+            pass
 
     return PdfTranslateTaskStatus(
         task_id=task_id,
@@ -1222,6 +1238,7 @@ async def get_pdf_translate_status(
         message=task_info.error or "",
         download_url=download_url,
         preview_url=preview_url,
+        expires_at=expires_at,
     )
 
 

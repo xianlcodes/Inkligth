@@ -16,3 +16,4 @@ class PdfTranslateTaskStatus(BaseModel):
     message: str = ""
     download_url: Optional[str] = None
     preview_url: Optional[str] = None
+    expires_at: Optional[str] = None
