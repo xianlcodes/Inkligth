@@ -116,7 +116,7 @@ watch(
 }
 
 .style-card:hover {
-  border-color: var(--teal-300);
+  border-color: var(--sky-300);
   background: var(--bg-primary);
 }
 

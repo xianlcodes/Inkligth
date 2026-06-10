@@ -127,7 +127,7 @@ export async function translateTextStream(
         if (payload === '[DONE]') {
           const totalMs = performance.now() - t0
           console.groupCollapsed(
-            `📝 翻译性能 [${new Date().toLocaleTimeString()}] ${totalMs < 5000 ? '✅' : totalMs < 15000 ? '⚠️' : '❌'} ${(totalMs / 1000).toFixed(1)}s`
+            `📝 翻译性能 [${new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}] ${totalMs < 5000 ? '✅' : totalMs < 15000 ? '⚠️' : '❌'} ${(totalMs / 1000).toFixed(1)}s`
           )
           console.log('输入文本长度:', data.text.length, '字符')
           console.log('网络延迟 (fetch):', fetchMs.toFixed(0), 'ms')

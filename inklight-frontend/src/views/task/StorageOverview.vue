@@ -1,71 +1,73 @@
 <template>
-  <div class="storage-overview">
-    <h2 class="page-title">个人空间</h2>
+  <div class="mx-auto" style="max-width:1100px">
+    <div class="page-header">
+      <h2 class="text-xl font-bold text-slate-800 m-0">个人空间</h2>
+    </div>
 
     <el-row :gutter="20">
       <el-col :span="16">
-        <el-card class="storage-card" shadow="never">
+        <el-card shadow="never">
           <template #header>
-            <span class="card-title">存储空间概览</span>
+            <span class="text-base font-semibold text-slate-800">存储空间概览</span>
           </template>
-          <div class="storage-summary">
-            <div class="storage-numbers">
-              <div class="storage-item">
-                <span class="storage-label">总空间</span>
-                <span class="storage-value">{{ formatBytes(storage?.total_space) }}</span>
+          <div class="mb-5">
+            <div class="flex gap-10 mb-4">
+              <div class="flex flex-col gap-1">
+                <span class="text-sm text-slate-500">总空间</span>
+                <span class="text-2xl font-bold text-slate-800">{{ formatBytes(storage?.total_space) }}</span>
               </div>
-              <div class="storage-item">
-                <span class="storage-label">已用空间</span>
-                <span class="storage-value used">{{ formatBytes(storage?.used_space) }}</span>
+              <div class="flex flex-col gap-1">
+                <span class="text-sm text-slate-500">已用空间</span>
+                <span class="text-2xl font-bold text-amber-500">{{ formatBytes(storage?.used_space) }}</span>
               </div>
-              <div class="storage-item">
-                <span class="storage-label">剩余空间</span>
-                <span class="storage-value remaining">{{ formatBytes(storage?.remaining_space) }}</span>
+              <div class="flex flex-col gap-1">
+                <span class="text-sm text-slate-500">剩余空间</span>
+                <span class="text-2xl font-bold text-emerald-600">{{ formatBytes(storage?.remaining_space) }}</span>
               </div>
             </div>
             <el-progress
               :percentage="usagePercent"
               :stroke-width="16"
               :color="progressColor"
-              class="storage-progress"
+              class="mb-2"
             />
           </div>
 
-          <div class="space-details">
-            <div class="detail-title">空间来源明细</div>
-            <div class="detail-item">
-              <span class="detail-label">基础空间</span>
-              <span class="detail-value">{{ formatBytes(storage?.base_space) }}</span>
+          <div class="border-t pt-4">
+            <div class="text-sm font-medium mb-2_5 text-slate-800">空间来源明细</div>
+            <div class="flex justify-between py-1_5 text-sm">
+              <span class="text-slate-500">基础空间</span>
+              <span class="text-slate-800 font-medium">{{ formatBytes(storage?.base_space) }}</span>
             </div>
-            <div class="detail-item">
-              <span class="detail-label">签到奖励</span>
-              <span class="detail-value">{{ formatBytes(storage?.check_in_bonus) }}</span>
+            <div class="flex justify-between py-1_5 text-sm">
+              <span class="text-slate-500">签到奖励</span>
+              <span class="text-slate-800 font-medium">{{ formatBytes(storage?.check_in_bonus) }}</span>
             </div>
-            <div class="detail-item">
-              <span class="detail-label">邀请奖励</span>
-              <span class="detail-value">{{ formatBytes(storage?.invitation_bonus) }}</span>
+            <div class="flex justify-between py-1_5 text-sm">
+              <span class="text-slate-500">邀请奖励</span>
+              <span class="text-slate-800 font-medium">{{ formatBytes(storage?.invitation_bonus) }}</span>
             </div>
           </div>
         </el-card>
       </el-col>
 
       <el-col :span="8">
-        <el-card class="invite-card" shadow="never">
+        <el-card shadow="never">
           <template #header>
-            <span class="card-title">我的邀请</span>
+            <span class="text-base font-semibold text-slate-800">我的邀请</span>
           </template>
-          <div class="invite-section">
-            <div v-if="invitations?.codes.length" class="invite-code-area">
-              <div class="invite-code-label">邀请码</div>
-              <div class="invite-code-row">
-                <code class="invite-code">{{ invitations.codes[0].code }}</code>
+          <div class="mb-4">
+            <div v-if="invitations?.codes.length" class="mb-3">
+              <div class="text-sm text-slate-500 mb-1_5">邀请码</div>
+              <div class="flex items-center gap-2">
+                <code class="text-lg font-bold tracking-wider text-sky-600 bg-sky-50 px-3 py-1 rounded-md">{{ invitations.codes[0].code }}</code>
                 <el-button size="small" type="primary" @click="copyCode">
                   <el-icon><CopyDocument /></el-icon>
                   复制
                 </el-button>
               </div>
             </div>
-            <div v-else class="no-invite">
+            <div v-else class="text-center py-4 text-slate-400 text-sm">
               <p>暂无邀请码</p>
             </div>
             <el-button
@@ -73,23 +75,23 @@
               type="primary"
               :disabled="(invitations?.codes.length || 0) >= 5"
               :loading="generating"
-              class="generate-btn"
+              class="w-full"
               @click="handleGenerate"
             >
               生成邀请码
             </el-button>
           </div>
 
-          <div v-if="invitations?.invited_users.length" class="invited-users">
-            <div class="invited-title">已邀请用户</div>
+          <div v-if="invitations?.invited_users.length" class="border-t pt-3">
+            <div class="text-sm font-medium mb-2 text-slate-800">已邀请用户</div>
             <div
               v-for="user in invitations.invited_users"
               :key="user.email"
-              class="invited-user-item"
+              class="py-2 border-b last:border-b-0"
             >
-              <div class="invited-email">{{ user.email }}</div>
-              <div class="invited-meta">
-                <span>{{ formatDate(user.registered_at) }}</span>
+              <div class="text-sm text-slate-800 mb-1">{{ user.email }}</div>
+              <div class="flex items-center justify-between text-xs text-slate-400">
+                <span>{{ formatDateFull(user.registered_at) }}</span>
                 <el-tag :type="user.reward_granted ? 'success' : 'warning'" size="small">
                   {{ user.reward_granted ? '已发放' : '待发放' }}
                 </el-tag>
@@ -100,9 +102,9 @@
       </el-col>
     </el-row>
 
-    <el-card class="recent-card" shadow="never">
+    <el-card class="mb-5" shadow="never">
       <template #header>
-        <span class="card-title">最近上传文献</span>
+        <span class="text-base font-semibold text-slate-800">最近上传文献</span>
       </template>
       <el-table :data="recentLiteratures" style="width: 100%" v-loading="loadingRecent">
         <el-table-column prop="title" label="文献标题" min-width="200" />
@@ -113,7 +115,7 @@
         </el-table-column>
         <el-table-column prop="created_at" label="上传时间" width="180">
           <template #default="{ row }">
-            {{ formatDate(row.created_at) }}
+            {{ formatDateFull(row.created_at) }}
           </template>
         </el-table-column>
       </el-table>
@@ -129,6 +131,7 @@ import { CopyDocument } from '@element-plus/icons-vue'
 import { getStorage, type StorageInfo } from '@/api/storage'
 import { getInvitations, generateInvitationCode, type InvitationList } from '@/api/invitation'
 import { getLiteratures } from '@/api/literature'
+import { formatDateFull } from '@/utils/time'
 
 const storage = ref<StorageInfo | null>(null)
 const invitations = ref<InvitationList | null>(null)
@@ -153,11 +156,6 @@ function formatBytes(bytes: number | undefined): string {
     return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
   }
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
-}
-
-function formatDate(dateStr: string | undefined): string {
-  if (!dateStr) return '-'
-  return new Date(dateStr).toLocaleDateString('zh-CN')
 }
 
 async function copyCode() {
@@ -215,176 +213,4 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.storage-overview {
-  max-width: 1100px;
-  margin: 0 auto;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 600;
-  margin: 0 0 20px;
-  color: var(--text-primary);
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.storage-card {
-  margin-bottom: 20px;
-}
-
-.storage-summary {
-  margin-bottom: 20px;
-}
-
-.storage-numbers {
-  display: flex;
-  gap: 40px;
-  margin-bottom: 16px;
-}
-
-.storage-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.storage-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.storage-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.storage-value.used {
-  color: #e6a23c;
-}
-
-.storage-value.remaining {
-  color: #67c23a;
-}
-
-.storage-progress {
-  margin-bottom: 8px;
-}
-
-.space-details {
-  border-top: 1px solid var(--border-light);
-  padding-top: 16px;
-}
-
-.detail-title {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 10px;
-  color: var(--text-primary);
-}
-
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  font-size: 13px;
-}
-
-.detail-label {
-  color: var(--text-secondary);
-}
-
-.detail-value {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.invite-card {
-  margin-bottom: 20px;
-}
-
-.invite-section {
-  margin-bottom: 16px;
-}
-
-.invite-code-area {
-  margin-bottom: 12px;
-}
-
-.invite-code-label {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-
-.invite-code-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.invite-code {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--el-color-primary);
-  background: var(--bg-hover);
-  padding: 4px 12px;
-  border-radius: 6px;
-}
-
-.generate-btn {
-  width: 100%;
-}
-
-.no-invite {
-  text-align: center;
-  padding: 16px 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.invited-users {
-  border-top: 1px solid var(--border-light);
-  padding-top: 12px;
-}
-
-.invited-title {
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: var(--text-primary);
-}
-
-.invited-user-item {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.invited-user-item:last-child {
-  border-bottom: none;
-}
-
-.invited-email {
-  font-size: 13px;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.invited-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.recent-card {
-  margin-bottom: 20px;
-}
 </style>

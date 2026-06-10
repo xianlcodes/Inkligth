@@ -1,9 +1,9 @@
 <template>
-  <div class="announcement-list-page">
+  <div class="max-w-4xl mx-auto px-8 py-6">
     <div class="page-header">
       <div>
-        <h1 class="page-title">系统公告</h1>
-        <p class="page-subtitle">查看平台最新通知和公告</p>
+        <h1 class="text-2xl font-bold text-slate-800 m-0 mb-1">系统公告</h1>
+        <p class="text-sm text-slate-400 m-0">查看平台最新通知和公告</p>
       </div>
       <el-button
         v-if="authStore.user?.is_admin"
@@ -15,53 +15,44 @@
       </el-button>
     </div>
 
-    <div v-loading="loading" class="announcement-list">
+    <div v-loading="loading" class="flex flex-col gap-3">
       <el-empty v-if="!loading && announcements.length === 0" description="暂无公告" :image-size="80" />
       <div
         v-for="item in announcements"
         :key="item.id"
-        class="announcement-card"
+        class="bg-white border rounded-xl overflow-hidden transition-all duration-200 hover:shadow-md"
         :class="{
-          'is-pinned': item.is_pinned,
-          [`level-${item.level}`]: true,
+          'border-sky-500 bg-sky-50': item.is_pinned,
+          'border-l-3 border-l-amber-500': item.level === 'warning',
+          'border-l-3 border-l-emerald-500': item.level === 'success',
         }"
+        :style="item.is_pinned ? { borderLeftColor: 'var(--accent-primary)' } : {}"
       >
-        <div class="card-header" @click="toggleExpand(item.id)">
-          <div class="card-header-left">
-            <el-icon v-if="item.is_pinned" class="pin-icon"><Top /></el-icon>
-            <el-tag
-              :type="levelTagType(item.level)"
-              size="small"
-              effect="plain"
-              class="level-tag"
-            >
+        <div class="flex items-center justify-between px-5 py-4 cursor-pointer select-none" @click="toggleExpand(item.id)">
+          <div class="flex items-center gap-2 min-w-0">
+            <el-icon v-if="item.is_pinned" class="text-sky-600 flex-shrink-0"><Top /></el-icon>
+            <el-tag :type="levelTagType(item.level)" size="small" effect="plain" class="flex-shrink-0">
               {{ levelLabel(item.level) }}
             </el-tag>
-            <el-tag
-              v-if="item.scope === 'site_wide'"
-              type="danger"
-              size="small"
-              effect="plain"
-              class="scope-tag"
-            >
+            <el-tag v-if="item.scope === 'site_wide'" type="danger" size="small" effect="plain" class="flex-shrink-0">
               全站
             </el-tag>
-            <span class="card-title">{{ item.title }}</span>
+            <span class="text-base font-semibold text-slate-800 truncate">{{ item.title }}</span>
           </div>
-          <div class="card-header-right">
-            <span v-if="!item.is_published" class="draft-badge">草稿</span>
-            <span class="card-time">{{ formatDate(item.created_at) }}</span>
-            <el-icon class="expand-icon" :class="{ expanded: expandedIds.has(item.id) }">
+          <div class="flex items-center gap-3 flex-shrink-0">
+            <span v-if="!item.is_published" class="text-xs text-slate-400 bg-slate-100 px-2 py-0_5 rounded-xs">草稿</span>
+            <span class="text-sm text-slate-400">{{ formatDateOnly(item.created_at) }}</span>
+            <el-icon class="transition-all duration-200" :class="{ 'rotate-180': expandedIds.has(item.id) }">
               <ArrowDown />
             </el-icon>
           </div>
         </div>
-        <div v-if="expandedIds.has(item.id)" class="card-body">
-          <div class="card-content">{{ item.content }}</div>
-          <div v-if="item.expires_at" class="card-expiry">
+        <div v-if="expandedIds.has(item.id)" class="px-5 pb-5 pt-4 border-t">
+          <div class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap break-words">{{ item.content }}</div>
+          <div v-if="item.expires_at" class="text-xs text-slate-400 mt-3">
             有效期至：{{ formatDateTime(item.expires_at) }}
           </div>
-          <div v-if="authStore.user?.is_admin" class="card-actions">
+          <div v-if="authStore.user?.is_admin" class="flex gap-2 mt-3 pt-3 border-t">
             <el-button text size="small" type="primary" @click="openEditDialog(item)">
               <el-icon><Edit /></el-icon>
               编辑
@@ -89,7 +80,7 @@
       :title="editingId ? '编辑公告' : '发布公告'"
       size="480px"
     >
-      <el-form :model="form" label-position="top" class="announcement-form">
+      <el-form :model="form" label-position="top" class="py-2">
         <el-form-item label="标题" required>
           <el-input v-model="form.title" placeholder="输入公告标题" maxlength="200" show-word-limit />
         </el-form-item>
@@ -145,6 +136,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Top, ArrowDown, Edit, Delete } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { formatDateOnly, formatDateTime } from '@/utils/time'
 import {
   getAnnouncements,
   createAnnouncement,
@@ -262,11 +254,11 @@ async function handleDelete(id: string) {
 
 function levelTagType(level: string) {
   const map: Record<string, string> = {
-    info: '',
+    info: 'info',
     warning: 'warning',
     success: 'success',
   }
-  return map[level] || ''
+  return map[level] || 'info'
 }
 
 function levelLabel(level: string) {
@@ -278,167 +270,9 @@ function levelLabel(level: string) {
   return map[level] || level
 }
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return `${d.getMonth() + 1}月${d.getDate()}日`
-}
-
-function formatDateTime(dateStr: string) {
-  const d = new Date(dateStr)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
 </script>
 
 <style scoped>
-.announcement-list-page {
-  padding: 32px;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 28px;
-}
-
-.page-title {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 4px 0;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
-.announcement-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.announcement-card {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-  transition: all 0.2s;
-}
-
-.announcement-card:hover {
-  box-shadow: var(--shadow-md);
-}
-
-.announcement-card.is-pinned {
-  border-color: var(--accent-primary);
-  background: var(--teal-50);
-}
-
-.announcement-card.level-warning {
-  border-left: 3px solid var(--warning, #e6a23c);
-}
-
-.announcement-card.level-success {
-  border-left: 3px solid var(--success, #67c23a);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.card-header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.pin-icon {
-  color: var(--accent-primary);
-  flex-shrink: 0;
-}
-
-.level-tag {
-  flex-shrink: 0;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.draft-badge {
-  font-size: 12px;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.card-time {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.expand-icon {
-  transition: transform 0.2s;
-}
-
-.expand-icon.expanded {
-  transform: rotate(180deg);
-}
-
-.card-body {
-  padding: 0 20px 20px;
-  border-top: 1px solid var(--border-color);
-  padding-top: 16px;
-}
-
-.card-content {
-  font-size: 14px;
-  line-height: 1.8;
-  color: var(--text-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.card-expiry {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 12px;
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
-}
-
-.announcement-form {
-  padding: 8px 0;
-}
+.border-l-3 { border-left-width: 3px; }
+.rotate-180 { transform: rotate(180deg); }
 </style>

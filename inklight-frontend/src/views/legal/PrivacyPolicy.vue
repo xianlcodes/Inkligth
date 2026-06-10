@@ -1,9 +1,9 @@
 <template>
-  <div class="legal-page">
-    <div class="legal-container">
-      <h1 class="legal-title">InkLight 研墨 — 隐私政策</h1>
-      <p class="legal-meta">更新日期：2026年6月3日 &nbsp;|&nbsp; 生效日期：2026年6月3日</p>
-      <div class="legal-content">
+  <div class="min-h-screen bg-slate-50 px-5 py-10" style="box-sizing:border-box">
+    <div class="max-w-3xl mx-auto bg-white rounded-xl px-12 py-10 shadow-sm">
+      <h1 class="text-2xl font-bold text-slate-800 m-0 mb-2 text-center">InkLight 研墨 — 隐私政策</h1>
+      <p class="text-sm text-slate-400 text-center m-0 mb-8">更新日期：2026年6月3日 &nbsp;|&nbsp; 生效日期：2026年6月3日</p>
+      <div class="legal-content text-sm leading-relaxed text-slate-600" style="max-height:65vh;overflow-y:auto;padding-right:8px">
         <p><strong>引言</strong></p>
         <p>InkLight 研墨（以下简称"本平台"或"我们"）深知个人信息对您的重要性，并会尽全力保护您的个人信息安全。我们致力于严格遵守《中华人民共和国个人信息保护法》《中华人民共和国网络安全法》《中华人民共和国数据安全法》《生成式人工智能服务管理暂行办法》等法律法规，采取相应的安全保护措施来保护您的个人信息。</p>
         <p>请您在使用本平台服务前，仔细阅读并充分理解本隐私政策的全部内容，特别是以加粗方式提示您注意的条款。如您对本隐私政策有任何疑问，请通过文末的联系方式与我们联系。</p>
@@ -243,59 +243,19 @@
 </script>
 
 <style scoped>
-.legal-page {
-  min-height: 100vh;
-  background: var(--bg-secondary, #f5f7fa);
-  padding: 40px 20px;
-  box-sizing: border-box;
-}
-
-.legal-container {
-  max-width: 800px;
-  margin: 0 auto;
-  background: #fff;
-  border-radius: 12px;
-  padding: 40px 48px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}
-
-.legal-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary, #1a1a2e);
-  margin: 0 0 8px;
-  text-align: center;
-}
-
-.legal-meta {
-  font-size: 13px;
-  color: var(--text-tertiary, #999);
-  text-align: center;
-  margin: 0 0 32px;
-}
-
-.legal-content {
-  font-size: 14px;
-  line-height: 1.9;
-  color: var(--text-secondary, #555);
-  max-height: 65vh;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
 .legal-content h2 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary);
   margin: 28px 0 12px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-color, #eee);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .legal-content h3 {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary);
   margin: 20px 0 10px;
 }
 
@@ -313,7 +273,7 @@
 }
 
 .legal-content a {
-  color: #0d9488;
+  color: var(--accent-secondary);
   text-decoration: none;
 }
 
@@ -334,19 +294,19 @@
 
 .legal-content th,
 .legal-content td {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   padding: 8px 10px;
   text-align: left;
   vertical-align: top;
 }
 
 .legal-content th {
-  background-color: #f8fafc;
+  background-color: var(--slate-50);
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .legal-content td {
-  color: #475569;
+  color: var(--text-secondary);
 }
 </style>

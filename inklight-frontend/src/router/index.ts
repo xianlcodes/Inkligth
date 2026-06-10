@@ -30,10 +30,22 @@ const router = createRouter({
       meta: { title: '阅读', requiresAuth: true }
     },
     {
+      path: '/argument/:id',
+      name: 'ArgumentReview',
+      component: () => import('@/views/literature/ArgumentReview.vue'),
+      meta: { title: '论文评审', requiresAuth: true }
+    },
+    {
       path: '/notes',
       name: 'Notes',
       component: () => import('@/views/notes/NoteList.vue'),
       meta: { title: '笔记', requiresAuth: true }
+    },
+    {
+      path: '/writing',
+      name: 'WritingAssistant',
+      component: () => import('@/views/writing/WritingAssistant.vue'),
+      meta: { title: '学术写作助手', requiresAuth: true }
     },
     {
       path: '/presentation',
@@ -41,13 +53,7 @@ const router = createRouter({
       component: () => import('@/views/presentation/PreMeeting.vue'),
       meta: { title: '组会', requiresAuth: true }
     },
-    {
-      path: '/calendar',
-      name: 'Calendar',
-      component: () => import('@/views/stats/ReadingCalendar.vue'),
-      meta: { title: '阅读日历', requiresAuth: true }
-    },
-    {
+{
       path: '/task/storage',
       name: 'StorageOverview',
       component: () => import('@/views/task/StorageOverview.vue'),
@@ -58,6 +64,12 @@ const router = createRouter({
       name: 'AiEngineSettings',
       component: () => import('@/views/settings/AiEngineSettings.vue'),
       meta: { title: 'AI 引擎设置', requiresAuth: true }
+    },
+    {
+      path: '/settings/skills',
+      name: 'SkillsSettings',
+      component: () => import('@/views/settings/SkillsSettings.vue'),
+      meta: { title: '技能管理', requiresAuth: true }
     },
     {
       path: '/settings/profile',
@@ -176,6 +188,7 @@ const siteDescriptions: Record<string, string> = {
   Login: '登录研墨账号，使用AI学术文献阅读与管理功能。支持DeepSeek、OpenAI、通义千问等AI引擎。',
   Register: '注册研墨账号，免费使用AI学术文献阅读与翻译平台。支持PDF管理、AI翻译、笔记标注等功能。',
   ForgotPassword: '找回研墨账号密码。输入注册邮箱，接收验证码重置密码。',
+  WritingAssistant: '研墨学术写作助手 - 选择写作技能，AI按技能规则辅助你的论文写作。',
   TermsOfService: '阅读研墨InkLight用户服务协议，了解平台使用规则、用户权利义务和免责声明。',
   PrivacyPolicy: '阅读研墨InkLight隐私政策，了解个人信息收集、使用和保护规则。',
 }

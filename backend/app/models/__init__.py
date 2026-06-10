@@ -14,3 +14,5 @@ from app.models.check_in import CheckIn
 from app.models.invitation import Invitation
 from app.models.tutorial import Tutorial, TutorialVersion
 from app.models.featured_paper import FeaturedPaper
+from app.models.conversation import Conversation, ConversationMessage
+from app.models.pdf_translation import PdfTranslation

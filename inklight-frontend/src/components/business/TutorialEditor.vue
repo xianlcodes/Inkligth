@@ -77,7 +77,6 @@
 import { ref, onBeforeUnmount, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
-import { Underline } from '@tiptap/extension-underline'
 import { TextAlign } from '@tiptap/extension-text-align'
 import { Link as LinkExtension } from '@tiptap/extension-link'
 import { Image as ImageExtension } from '@tiptap/extension-image'
@@ -102,7 +101,6 @@ const editor = useEditor({
     StarterKit.configure({
       heading: { levels: [1, 2, 3] },
     }),
-    Underline,
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     LinkExtension.configure({
       openOnClick: false,

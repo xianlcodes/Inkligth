@@ -1,8 +1,8 @@
 <template>
-  <div class="feedback-page">
+  <div style="max-width:1200px">
     <div class="page-header">
-      <h2>用户反馈</h2>
-      <div class="header-actions">
+      <h2 class="text-xl font-bold text-slate-800 m-0">用户反馈</h2>
+      <div class="flex gap-2">
         <el-select v-model="filterResolved" placeholder="筛选状态" clearable style="width: 120px" @change="loadData">
           <el-option label="未处理" :value="false" />
           <el-option label="已处理" :value="true" />
@@ -16,7 +16,7 @@
       <el-table-column prop="user_email" label="邮箱" width="200" />
       <el-table-column prop="user_id" label="用户ID" width="100" show-overflow-tooltip>
         <template #default="{ row }">
-          <code class="id-cell">{{ row.user_id.slice(0, 8) }}...</code>
+          <code style="font-size:12px;color:var(--text-secondary)">{{ row.user_id.slice(0, 8) }}...</code>
         </template>
       </el-table-column>
       <el-table-column prop="content" label="反馈内容" min-width="300" show-overflow-tooltip />
@@ -45,12 +45,12 @@
           <el-button v-if="!row.is_resolved" type="primary" link size="small" @click="handleResolve(row)">
             标记已处理
           </el-button>
-          <span v-else class="resolved-text">已处理</span>
+          <span v-else style="color:var(--text-secondary);font-size:13px">已处理</span>
         </template>
       </el-table-column>
     </el-table>
 
-    <div class="pagination-wrap" v-if="total > 0">
+    <div v-if="total > 0" class="flex justify-center mt-5">
       <el-pagination
         v-model:current-page="page"
         :page-size="pageSize"
@@ -116,42 +116,12 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.feedback-page {
-  max-width: 1200px;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.page-header h2 {
-  margin: 0;
-  font-size: 20px;
-}
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-.id-cell {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
 .page-link {
-  color: var(--el-color-primary);
+  color: var(--accent-primary);
   text-decoration: none;
   font-size: 13px;
 }
 .page-link:hover {
   text-decoration: underline;
-}
-.resolved-text {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-.pagination-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
-  <div class="admin-config">
-    <div class="page-header">
-      <h2 class="page-title">系统配置</h2>
-      <div class="header-actions">
+  <div style="max-width:1200px">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-slate-800 m-0">系统配置</h2>
+      <div class="flex gap-2">
         <el-button @click="exportConfigs">
           <el-icon><Download /></el-icon>
           导出
@@ -18,12 +18,12 @@
       </div>
     </div>
 
-    <div class="toolbar">
+    <div class="flex gap-2_5 mb-5">
       <el-input
         v-model="searchQuery"
         placeholder="搜索配置项..."
         clearable
-        class="search-input"
+        style="width:320px"
       >
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
@@ -32,7 +32,7 @@
       </el-button>
     </div>
 
-    <div v-loading="loading" class="config-content">
+    <div v-loading="loading">
       <el-empty v-if="filteredGroups.length === 0 && !loading" description="暂无配置项" />
 
       <el-collapse v-model="expandedCategories" v-else class="config-collapse">
@@ -42,43 +42,44 @@
           :name="group.category"
         >
           <template #title>
-            <div class="category-title">
-              <span class="category-name">{{ categoryLabel(group.category) }}</span>
-              <el-tag size="small" effect="plain" class="category-count">{{ group.items.length }}</el-tag>
+            <div class="flex items-center gap-2_5">
+              <span class="text-base font-semibold text-slate-800">{{ categoryLabel(group.category) }}</span>
+              <el-tag size="small" effect="plain">{{ group.items.length }}</el-tag>
             </div>
           </template>
 
-          <div class="config-cards">
+          <div class="flex flex-col gap-0">
             <div
               v-for="cfg in group.items"
               :key="cfg.key"
-              :class="['config-card', { editing: editingKey === cfg.key, critical: cfg.is_critical }]"
+              :class="['border-t first:border-t-0 transition-colors duration-fast', { 'bg-slate-50': editingKey === cfg.key }]"
+              :style="cfg.is_critical ? { borderLeft: '3px solid #dc2626' } : {}"
             >
-              <div class="config-card-header" @click="startEdit(cfg)" v-if="editingKey !== cfg.key">
-                <div class="config-card-left">
-                  <el-tag :type="typeTagType(cfg.config_type)" size="small" class="type-tag">
+              <div class="flex items-center justify-between px-5 py-3_5 cursor-pointer gap-3" @click="startEdit(cfg)" v-if="editingKey !== cfg.key">
+                <div class="flex items-center gap-2 flex-wrap min-w-0">
+                  <el-tag :type="typeTagType(cfg.config_type)" size="small">
                     {{ typeLabel(cfg.config_type) }}
                   </el-tag>
-                  <span class="config-label">{{ cfg.label || cfg.key }}</span>
-                  <code class="config-key">({{ cfg.key }})</code>
+                  <span class="text-sm font-medium text-slate-800">{{ cfg.label || cfg.key }}</span>
+                  <code class="text-xs text-slate-400 bg-slate-100 px-1_5 py-0_5 rounded-xs">({{ cfg.key }})</code>
                   <el-tag v-if="cfg.is_critical" type="danger" size="small" effect="dark">关键</el-tag>
                   <el-tag v-if="cfg.requires_restart" type="warning" size="small" effect="plain">需重启</el-tag>
                 </div>
-                <div class="config-card-right">
-                  <span class="config-current-value">{{ truncate(cfg.value, 40) || '（未设置）' }}</span>
+                <div class="flex items-center gap-3 flex-shrink-0">
+                  <span class="text-sm text-slate-600 truncate" style="max-width:200px">{{ truncate(cfg.value, 40) || '（未设置）' }}</span>
                   <el-button size="small" text type="primary" @click.stop="showHistory(cfg)">历史</el-button>
                 </div>
               </div>
 
-              <div v-else class="config-edit-form">
-                <div class="edit-header">
-                  <span class="edit-title">{{ cfg.label || cfg.key }}</span>
-                  <code class="edit-key">{{ cfg.key }}</code>
+              <div v-else class="px-5 py-3_5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="text-base font-semibold text-slate-800">{{ cfg.label || cfg.key }}</span>
+                  <code class="text-xs text-slate-400">{{ cfg.key }}</code>
                 </div>
 
-                <div class="edit-body">
+                <div class="flex flex-col gap-2_5">
                   <div class="edit-field">
-                    <label>值</label>
+                    <label class="block text-sm text-slate-500 mb-1">值</label>
                     <el-select
                       v-if="cfg.config_type === 'select'"
                       v-model="editValue"
@@ -500,111 +501,21 @@ onMounted(() => { loadConfigs() })
 </script>
 
 <style scoped>
-.admin-config { max-width: 1200px; }
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+.config-collapse {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
 }
 
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
+.edit-field :deep(.el-input),
+.edit-field :deep(.el-select) {
+  max-width: 480px;
 }
 
-.header-actions { display: flex; gap: 8px; }
-
-.toolbar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.search-input { width: 320px; }
-
-.config-collapse { background: var(--bg-primary); border-radius: var(--radius-lg); }
-
-.category-title { display: flex; align-items: center; gap: 10px; }
-
-.category-name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
-
-.category-count { font-size: 12px; }
-
-.config-cards { display: flex; flex-direction: column; gap: 0; }
-
-.config-card {
-  border-top: 1px solid var(--border-color);
-  transition: background 0.15s;
-}
-
-.config-card:first-child { border-top: none; }
-
-.config-card:hover { background: var(--bg-secondary); }
-
-.config-card.editing { background: #f8fafc; }
-
-.config-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 20px;
-  cursor: pointer;
-  gap: 12px;
-}
-
-.config-card-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-
-.config-label { font-size: 14px; font-weight: 500; color: var(--text-primary); }
-
-.config-key {
+.edit-meta {
   font-size: 12px;
   color: var(--text-muted);
-  background: var(--bg-secondary);
-  padding: 1px 6px;
-  border-radius: 4px;
+  line-height: 1.6;
 }
-
-.config-current-value {
-  font-size: 13px;
-  color: var(--text-secondary);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.config-card-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-
-.config-edit-form { padding: 14px 20px; }
-
-.edit-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-
-.edit-title { font-size: 15px; font-weight: 600; }
-
-.edit-key { font-size: 12px; color: var(--text-muted); }
-
-.edit-body { display: flex; flex-direction: column; gap: 10px; }
-
-.edit-field label {
-  display: block;
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-
-.edit-field :deep(.el-input), .edit-field :deep(.el-select) { max-width: 480px; }
-
-.edit-meta { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
 
 .edit-meta code {
   background: var(--bg-secondary);
@@ -613,9 +524,14 @@ onMounted(() => { loadConfigs() })
   font-size: 12px;
 }
 
-.edit-meta .warning { color: #dc2626; }
+.edit-meta .warning {
+  color: #dc2626;
+}
 
-.edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
-
-.config-card.critical { border-left: 3px solid #dc2626; }
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
 </style>

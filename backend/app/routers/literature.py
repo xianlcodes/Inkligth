@@ -1133,6 +1133,51 @@ async def start_pdf_translate(
     )
 
 
+@router.get("/{literature_id}/translate-pdf/check")
+async def check_pdf_translation(
+    literature_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """检查文献是否存在有效的原位翻译（未过期），返回下载/预览地址"""
+    from datetime import datetime as dt
+    from app.utils.timezone import utc_to_bjt
+    from app.models.pdf_translation import PdfTranslation
+    from sqlalchemy import select
+
+    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+    if not literature:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+
+    result = await db.execute(
+        select(PdfTranslation).where(
+            PdfTranslation.literature_id == literature_id,
+            PdfTranslation.user_id == str(current_user.id),
+            PdfTranslation.expires_at > dt.utcnow(),
+        ).order_by(PdfTranslation.created_at.desc()).limit(1)
+    )
+    record = result.scalar_one_or_none()
+
+    if not record:
+        return {"has_translation": False, "download_url": None, "preview_url": None, "expires_at": None}
+
+    file_exists = record.file_path and os.path.exists(record.file_path)
+    if not file_exists:
+        return {"has_translation": False, "download_url": None, "preview_url": None, "expires_at": None}
+
+    download_url = f"/literatures/{literature_id}/translate-pdf/{record.task_id}/download"
+    preview_url = f"/literatures/{literature_id}/translate-pdf/{record.task_id}/preview"
+    return {
+        "has_translation": True,
+        "download_url": download_url,
+        "preview_url": preview_url,
+        "expires_at": utc_to_bjt(record.expires_at).isoformat() if record.expires_at else None,
+        "source_lang": record.source_lang,
+        "target_lang": record.target_lang,
+        "output_mode": record.output_mode,
+    }
+
+
 @router.get("/{literature_id}/translate-pdf/{task_id}")
 async def get_pdf_translate_status(
     literature_id: str,
@@ -1189,6 +1234,34 @@ async def cancel_pdf_translate(
     return {"code": 200, "msg": "翻译任务已取消"}
 
 
+async def _resolve_translate_file(db, task_id: str, literature_id: str, user_id: str):
+    """从 task_store 或 PdfTranslation 表解析翻译文件路径，返回 (path, filename) 或 None"""
+    task_info = await task_store.get_task(task_id)
+    if task_info and task_info.status == TaskStatus.COMPLETED:
+        result = task_info.result or {}
+        path = result.get("output_path")
+        fname = result.get("output_filename")
+        if path and os.path.exists(path):
+            return path, fname or "translated.pdf"
+
+    # Fallback: 从数据库查找
+    from datetime import datetime as dt
+    from app.models.pdf_translation import PdfTranslation
+    from sqlalchemy import select
+    result = await db.execute(
+        select(PdfTranslation).where(
+            PdfTranslation.task_id == task_id,
+            PdfTranslation.literature_id == literature_id,
+            PdfTranslation.user_id == str(user_id),
+            PdfTranslation.expires_at > dt.utcnow(),
+        ).limit(1)
+    )
+    rec = result.scalar_one_or_none()
+    if rec and rec.file_path and os.path.exists(rec.file_path):
+        return rec.file_path, f"translated.pdf"
+    return None, None
+
+
 @router.get("/{literature_id}/translate-pdf/{task_id}/download")
 async def download_pdf_translate(
     literature_id: str,
@@ -1200,17 +1273,11 @@ async def download_pdf_translate(
     if not literature:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
 
-    task_info = await task_store.get_task(task_id)
-    if not task_info:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-    if task_info.status != TaskStatus.COMPLETED:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="任务尚未完成")
-
-    result = task_info.result or {}
-    output_path = result.get("output_path")
-    output_filename = result.get("output_filename")
-    if not output_path or not os.path.exists(output_path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在")
+    output_path, output_filename = await _resolve_translate_file(
+        db, task_id, literature_id, str(current_user.id)
+    )
+    if not output_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
 
     safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
     return FileResponse(
@@ -1232,17 +1299,11 @@ async def preview_pdf_translate(
     if not literature:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
 
-    task_info = await task_store.get_task(task_id)
-    if not task_info:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="任务不存在")
-    if task_info.status != TaskStatus.COMPLETED:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="任务尚未完成")
-
-    result = task_info.result or {}
-    output_path = result.get("output_path")
-    output_filename = result.get("output_filename")
-    if not output_path or not os.path.exists(output_path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在")
+    output_path, output_filename = await _resolve_translate_file(
+        db, task_id, literature_id, str(current_user.id)
+    )
+    if not output_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
 
     safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
     return FileResponse(
@@ -1325,6 +1386,26 @@ async def _run_pdf_translate(
             result={"output_path": output_path, "output_filename": output_filename},
         )
 
+        # 保存翻译记录到数据库（持久化）
+        try:
+            from app.models.pdf_translation import PdfTranslation
+            async with async_session_factory() as save_db:
+                record = PdfTranslation(
+                    literature_id=literature_id,
+                    user_id=user_id,
+                    task_id=task_id,
+                    source_lang=source_lang,
+                    target_lang=target_lang,
+                    output_mode=output_mode,
+                    file_path=output_path,
+                    file_size=os.path.getsize(output_path) if os.path.exists(output_path) else None,
+                    expires_at=PdfTranslation.compute_expiry(),
+                )
+                save_db.add(record)
+                await save_db.commit()
+        except Exception as save_err:
+            logger.error("Failed to save PdfTranslation record: %s", save_err, exc_info=True)
+
         logger.info("PDF translate task completed: %s, output: %s", task_id, output_path)
 
     except TaskCancelledException:
@@ -1345,5 +1426,4 @@ async def _run_pdf_translate(
         else:
             logger.error("PDF translate task failed: %s, error: %s", task_id, e, exc_info=True)
             await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
-    finally:
-        await task_store.remove_cancel_event(task_id)
+    final

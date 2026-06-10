@@ -1,8 +1,8 @@
 <template>
-  <div class="admin-notifications">
-    <div class="page-header">
-      <h2 class="page-title">通知管理</h2>
-      <div class="header-actions">
+  <div style="max-width:1200px">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-slate-800 m-0">通知管理</h2>
+      <div class="flex gap-2">
         <el-button type="danger" plain size="small" :disabled="selectedIds.length === 0" @click="batchDelete">
           批量删除 ({{ selectedIds.length }})
         </el-button>
@@ -13,12 +13,12 @@
       </div>
     </div>
 
-    <div class="filter-bar">
-      <el-select v-model="filterScope" placeholder="可见范围" clearable class="filter-select" @change="loadAnnouncements">
+    <div class="flex gap-3 mb-4">
+      <el-select v-model="filterScope" placeholder="可见范围" clearable style="width:140px" @change="loadAnnouncements">
         <el-option label="全站可见" value="site_wide" />
         <el-option label="登录后可见" value="authenticated" />
       </el-select>
-      <el-select v-model="filterPublished" placeholder="发布状态" clearable class="filter-select" @change="loadAnnouncements">
+      <el-select v-model="filterPublished" placeholder="发布状态" clearable style="width:140px" @change="loadAnnouncements">
         <el-option label="已发布" :value="true" />
         <el-option label="草稿" :value="false" />
       </el-select>
@@ -27,7 +27,6 @@
     <el-table
       :data="announcements"
       v-loading="loading"
-      class="notif-table"
       stripe
       @selection-change="(rows: any[]) => selectedIds = rows.map((r: any) => r.id)"
     >
@@ -256,40 +255,6 @@ onMounted(() => { loadAnnouncements() })
 </script>
 
 <style scoped>
-.admin-notifications { max-width: 1200px; }
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.filter-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.filter-select { width: 140px; }
-
-.notif-table {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-}
-
 .status-badge {
   font-size: 12px;
   padding: 2px 8px;

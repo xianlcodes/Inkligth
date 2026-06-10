@@ -52,11 +52,26 @@
         </div>
       </div>
       <div class="toolbar-actions">
-        <el-button :loading="fullTranslating" @click="handleFullTranslate">
-          <el-icon><Document /></el-icon>
-          全文翻译
-        </el-button>
-        <span v-if="backgroundTranslatingId" class="toolbar-translating-hint">
+        <el-dropdown trigger="click">
+          <el-button :loading="fullTranslating">
+            <el-icon><Document /></el-icon>
+            全文翻译
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="handleFullTranslate">
+                <el-icon><Document /></el-icon>
+                右侧显示译文
+              </el-dropdown-item>
+              <el-dropdown-item @click="showPdfTranslateDialog = true">
+                <el-icon><Notebook /></el-icon>
+                原位翻译 PDF
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <span v-if="backgroundTranslatingId && !translateProgressStatus" class="toolbar-translating-hint">
           <el-icon class="is-loading"><Loading /></el-icon>
           翻译中 {{ translateProgress }}%
         </span>
@@ -64,25 +79,15 @@
           <el-icon><MagicStick /></el-icon>
           AI 解析
         </el-button>
-        <el-dropdown trigger="click">
-          <el-button>
-            <el-icon><Download /></el-icon>
-            下载
-            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="handleDownloadOriginal">
-                <el-icon><Document /></el-icon>
-                下载原文 PDF
-              </el-dropdown-item>
-              <el-dropdown-item @click="showPdfTranslateDialog = true">
-                <el-icon><Notebook /></el-icon>
-                下载原位翻译 PDF
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+        <el-button @click="goToReview">
+          <el-icon><ChatDotSquare /></el-icon>
+          论文评审
+        </el-button>
+        <el-button @click="handleDownloadOriginal">
+          <el-icon><Download /></el-icon>
+          下载原文 PDF
+        </el-button>
+        <!-- 导出功能 (Word/LaTeX/PDF) 暂隐藏，后续写作模块复用 -->
       </div>
     </div>
 
@@ -362,7 +367,7 @@
             <el-icon :size="18"><Document /></el-icon>
             <span>{{
               activeTab === 'translate' ? '智能翻译' :
-              activeTab === 'chat' ? 'AI 对话' : '我的笔记'
+              activeTab === 'chat' ? '边看边问' : '我的笔记'
             }}</span>
           </div>
         </div>
@@ -516,7 +521,7 @@
           </el-tab-pane>
 
           <!-- AI 对话 Tab -->
-          <el-tab-pane label="AI 对话" name="chat">
+          <el-tab-pane label="边看边问" name="chat">
             <div class="tab-content chat-panel">
               <div class="chat-context-bar" :title="chatContextText">
                 <el-icon><Document /></el-icon>
@@ -547,17 +552,29 @@
                 </div>
               </div>
               <div class="chat-input-area">
-                <el-input
-                  v-model="chatInput"
-                  type="textarea"
-                  :rows="2"
-                  placeholder="输入你的问题..."
-                  :disabled="chatSending"
-                  @keydown="handleChatKeydown"
-                />
-                <div class="chat-input-actions">
+                <div class="chat-input-wrapper">
+                  <el-input
+                    v-model="chatInput"
+                    type="textarea"
+                    :rows="2"
+                    placeholder="输入你的问题..."
+                    :disabled="chatSending"
+                    @keydown="handleChatKeydown"
+                  />
                   <el-button
-                    v-if="chatConversationId"
+                    class="send-inner-btn"
+                    type="primary"
+                    size="small"
+                    circle
+                    :loading="chatSending"
+                    :disabled="!chatInput.trim() || !chatContextText"
+                    @click="handleSendChat"
+                  >
+                    <el-icon><Promotion /></el-icon>
+                  </el-button>
+                </div>
+                <div v-if="chatConversationId" class="chat-input-actions">
+                  <el-button
                     text
                     size="small"
                     type="warning"
@@ -565,15 +582,6 @@
                   >
                     <el-icon><Refresh /></el-icon>
                     清除对话
-                  </el-button>
-                  <el-button
-                    type="primary"
-                    size="small"
-                    :loading="chatSending"
-                    :disabled="!chatInput.trim() || !chatContextText"
-                    @click="handleSendChat"
-                  >
-                    发送
                   </el-button>
                 </div>
               </div>
@@ -589,17 +597,18 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, ChatLineSquare, Plus, Download, ArrowDown, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, Plus, Download, ArrowDown, Refresh, ChatDotSquare, Promotion } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
 import { getLiterature, getLiteratureFileBlob, type Literature } from '@/api/literature'
 import PdfTranslateDialog from '@/components/business/PdfTranslateDialog.vue'
-import { translateText, translateTextStream, startFullTranslate, getTaskStatus, deleteFullTranslation, cancelTask, type TranslatedParagraph } from '@/api/translate'
+import { translateTextStream, startFullTranslate, getTaskStatus, deleteFullTranslation, cancelTask, type TranslatedParagraph } from '@/api/translate'
 import { createNote, getNotes, deleteNote, type Note, type RectCoords } from '@/api/note'
 import { startAnalyze, getAnalysis, type AnalysisData } from '@/api/analysis'
 import { getLiteratureTags, addTagToLiterature, removeTagFromLiterature, type TagItem } from '@/api/tag'
 import { recordReading } from '@/api/stats'
-import { chatWithPaper, type ChatResponse } from '@/api/chat'
+import { chatWithPaper, type SkillChatResponse } from '@/api/skills'
+import { getBeijingAgeDays } from '@/utils/time'
 
 const route = useRoute()
 const router = useRouter()
@@ -653,9 +662,7 @@ const TRANSLATION_TTL_DAYS = 7
 
 const translationAgeInfo = computed(() => {
   if (!literature.value?.translated_at || !literature.value?.translated_text) return null
-  const translatedAt = new Date(literature.value.translated_at)
-  const now = new Date()
-  const ageDays = (now.getTime() - translatedAt.getTime()) / (1000 * 60 * 60 * 24)
+  const ageDays = getBeijingAgeDays(literature.value.translated_at)
   const remainingDays = TRANSLATION_TTL_DAYS - ageDays
   return {
     ageDays: Math.round(ageDays * 10) / 10,
@@ -973,6 +980,13 @@ function goBack() {
   router.push('/literature')
 }
 
+function goToReview() {
+  const id = route.params.id as string
+  if (id) {
+    router.push(`/argument/${id}`)
+  }
+}
+
 function handleDownloadOriginal() {
   const id = route.params.id as string
   if (!id) return
@@ -1277,13 +1291,13 @@ function handleEditHighlightNote() {
 }
 
 function noteTypeTag(type: string) {
-  const map: Record<string, string> = {
-    general: '',
+  const map: Record<string, string | undefined> = {
+    general: undefined,
     innovation: 'success',
     method: 'warning',
     question: 'danger',
   }
-  return map[type] || ''
+  return map[type]
 }
 
 function noteTypeLabel(type: string) {
@@ -1349,7 +1363,7 @@ function clearHighlights() {
 
 async function doTranslate(text: string, sourceText: string) {
   const tStart = performance.now()
-  console.log(`🔄 doTranslate 开始 | 文本长度: ${text.length} 字符 | ${new Date().toLocaleTimeString()}`)
+  console.log(`🔄 doTranslate 开始 | 文本长度: ${text.length} 字符 | ${new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' })}`)
   activeTab.value = 'translate'
   fullTranslationParagraphs.value = []
   translating.value = true
@@ -1398,22 +1412,6 @@ function copyTranslation() {
   navigator.clipboard.writeText(text).then(() => {
     ElMessage.success('译文已复制到剪贴板')
   })
-}
-
-function copySource() {
-  const text = translationHistory.value.map(h => h.source).join('\n\n')
-  if (!text) return
-  navigator.clipboard.writeText(text).then(() => {
-    ElMessage.success('原文已复制到剪贴板')
-  })
-}
-
-function editSource() {
-  ElMessage.info('修改功能即将上线')
-}
-
-function handleAIExplain() {
-  ElMessage.info('AI 解读功能即将上线')
 }
 
 async function handleFullTranslate() {
@@ -1534,6 +1532,15 @@ function startPolling(taskId: string) {
         translateProgressText.value = '登录已过期，请刷新页面后重新登录'
         return
       }
+      if (err?.response?.status === 404) {
+        stopPolling()
+        fullTranslating.value = false
+        backgroundTranslatingId.value = ''
+        translateProgressStatus.value = 'exception'
+        translateProgressText.value = '翻译任务状态丢失，请重新点击全文翻译'
+        ElMessage.warning('翻译任务状态丢失，可能因服务器重启导致，请重新开始翻译')
+        return
+      }
     }
   }, 1500)
 }
@@ -1548,8 +1555,11 @@ function stopPolling() {
 function onProgressDialogClose() {
   progressDialogVisible.value = false
   fullTranslating.value = false
-  backgroundTranslatingId.value = currentTaskId
-  ElMessage.info('翻译在后台继续，结果将实时更新')
+  // 只在任务仍在进行中时设置后台翻译提示（防止已完成/已失败后被误设）
+  if (!translateProgressStatus.value) {
+    backgroundTranslatingId.value = currentTaskId
+    ElMessage.info('翻译在后台继续，结果将实时更新')
+  }
 }
 
 function onTranslateComplete() {
@@ -1577,13 +1587,17 @@ async function handleStopTranslation() {
     translateProgressStatus.value = 'exception'
     translateProgressText.value = '翻译已停止'
     ElMessage.success('翻译已停止，已完成的部分已保留')
-  } catch {
+  } catch (err: any) {
     stopPolling()
     fullTranslating.value = false
     backgroundTranslatingId.value = ''
     translateProgressStatus.value = 'exception'
     translateProgressText.value = '翻译已停止'
-    ElMessage.warning('翻译已停止（部分结果可能未完整保存）')
+    if (err?.response?.status === 404) {
+      ElMessage.info('翻译任务此前已结束或状态丢失，已退出翻译状态')
+    } else {
+      ElMessage.warning('翻译已停止（部分结果可能未完整保存）')
+    }
   } finally {
     cancelling = false
   }
@@ -1836,12 +1850,11 @@ async function handleSendChat() {
   chatInput.value = ''
 
   try {
-    const resp = await chatWithPaper(literature.value.id, {
+    const data = await chatWithPaper(literature.value.id, {
       message: msg,
       context_text: chatContextText.value,
-      conversation_id: chatConversationId.value || null,
+      conversation_id: chatConversationId.value || undefined,
     })
-    const data = resp.data
     chatMessages.value.push({ role: 'assistant', content: data.reply })
     chatConversationId.value = data.conversation_id
   } catch (error: any) {
@@ -1962,7 +1975,7 @@ function stopResize() {
 
 .add-tag-btn:hover {
   color: var(--accent-primary);
-  background: var(--teal-50);
+  background: var(--sky-50);
 }
 
 .tag-popover-content {
@@ -2036,6 +2049,11 @@ function stopResize() {
 .pdf-viewer :deep(.vue-pdf-embed__page) {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
   border-radius: 4px;
+}
+
+/* 确保 PDF 文本层与 Canvas 对齐（移除可能的干扰） */
+.pdf-viewer :deep(.vue-pdf-embed__page) {
+  position: relative;
 }
 
 .resizer {
@@ -2180,8 +2198,8 @@ function stopResize() {
 }
 
 .trans-block {
-  background: var(--teal-50);
-  border-color: var(--teal-100);
+  background: var(--sky-50);
+  border-color: var(--sky-100);
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2239,7 +2257,7 @@ function stopResize() {
 }
 
 .block-label.trans-label {
-  color: var(--teal-600);
+  color: var(--sky-600);
 }
 
 .block-label:not(.trans-label) {
@@ -2403,11 +2421,11 @@ function stopResize() {
 }
 
 .full-trans-item.has-translation:hover {
-  background: var(--teal-50);
+  background: var(--sky-50);
 }
 
 .full-trans-item.is-active {
-  background: var(--teal-50);
+  background: var(--sky-50);
   border-left: 3px solid var(--accent-primary);
   padding-left: 5px;
 }
@@ -2428,8 +2446,8 @@ function stopResize() {
 }
 
 .has-translation .full-trans-index {
-  background: var(--teal-100);
-  color: var(--teal-700);
+  background: var(--sky-100);
+  color: var(--sky-700);
 }
 
 .full-trans-content {
@@ -2497,17 +2515,17 @@ function stopResize() {
 
 .highlight-btn:hover {
   color: var(--accent-primary);
-  background: var(--teal-50);
+  background: var(--sky-50);
 }
 
 .note-btn:hover {
   color: var(--accent-primary);
-  background: var(--teal-50);
+  background: var(--sky-50);
 }
 
 .translate-btn:hover {
   color: var(--accent-primary);
-  background: var(--teal-50);
+  background: var(--sky-50);
 }
 
 .notes-panel {
@@ -2545,12 +2563,12 @@ function stopResize() {
 
 .note-card:hover {
   border-color: var(--accent-primary);
-  background: var(--teal-50);
+  background: var(--sky-50);
 }
 
 .note-card--active {
   border-color: var(--accent-primary);
-  background: var(--teal-50);
+  background: var(--sky-50);
   box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
 }
 
@@ -2682,7 +2700,7 @@ function stopResize() {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 6px;
-  background: var(--teal-50);
+  background: var(--sky-50);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
 }
@@ -2808,7 +2826,7 @@ function stopResize() {
   font-size: 12px;
   color: var(--accent-primary);
   font-style: italic;
-  background: var(--teal-50);
+  background: var(--sky-50);
   padding: 8px 12px;
   border-radius: var(--radius-md);
 }
@@ -2876,7 +2894,7 @@ function stopResize() {
 }
 
 .chat-msg-user .chat-msg-bubble {
-  background: var(--teal-500);
+  background: var(--sky-500);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -2920,9 +2938,24 @@ function stopResize() {
   border-top: 1px solid var(--border-light);
 }
 
+.chat-input-wrapper {
+  position: relative;
+}
+
+.send-inner-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  z-index: 1;
+}
+
+.send-inner-btn.is-loading {
+  /* loading 状态下保持位置 */
+}
+
 .chat-input-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   margin-top: 6px;
 }

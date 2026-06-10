@@ -1,81 +1,57 @@
 <template>
-  <div class="profile-settings">
+  <div class="mx-auto pt-6 pb-6" style="max-width:640px">
     <div class="page-header">
-      <h2 class="page-title">个人设置</h2>
+      <h2 class="text-xl font-bold text-slate-800 m-0">个人设置</h2>
     </div>
 
-    <div class="settings-content">
-      <el-card class="settings-card" shadow="never">
+    <div class="flex flex-col gap-5">
+      <el-card shadow="never">
         <template #header>
-          <span class="card-title">修改头像</span>
+          <span class="text-base font-semibold text-slate-800">修改头像</span>
         </template>
         <AvatarPicker
           v-model="avatarStyle"
           :username="authStore.user?.username || ''"
           :email="authStore.user?.email || ''"
         />
-        <div class="avatar-actions">
-          <el-button type="primary" :loading="savingAvatar" @click="saveAvatar">
-            保存头像
-          </el-button>
+        <div class="flex justify-center mt-5">
+          <el-button type="primary" :loading="savingAvatar" @click="saveAvatar">保存头像</el-button>
         </div>
       </el-card>
 
-      <el-card class="settings-card" shadow="never">
+      <el-card shadow="never">
         <template #header>
-          <span class="card-title">修改密码</span>
+          <span class="text-base font-semibold text-slate-800">修改密码</span>
         </template>
-        <el-form :model="passwordForm" label-width="100px" class="profile-form">
+        <el-form :model="passwordForm" label-width="100px" class="max-w-[400px]">
           <el-form-item label="当前邮箱">
             <el-input :model-value="authStore.user?.email" disabled />
           </el-form-item>
           <el-form-item label="验证码" required>
-            <div class="code-row">
-              <el-input
-                v-model="passwordForm.code"
-                placeholder="6位验证码"
-                maxlength="6"
-                class="code-input"
-              />
-              <el-button
-                type="primary"
-                :disabled="codeCountdown > 0"
-                :loading="sendingCode"
-                @click="sendCode"
-              >
+            <div class="flex gap-2_5 w-full">
+              <el-input v-model="passwordForm.code" placeholder="6位验证码" maxlength="6" class="flex-1" />
+              <el-button type="primary" :disabled="codeCountdown > 0" :loading="sendingCode" @click="sendCode">
                 {{ codeCountdown > 0 ? `${codeCountdown}s` : '发送验证码' }}
               </el-button>
             </div>
           </el-form-item>
           <el-form-item label="新密码" required>
-            <el-input
-              v-model="passwordForm.newPassword"
-              type="password"
-              show-password
-              placeholder="至少8位，包含大小写字母和数字"
-            />
+            <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="至少8位，包含大小写字母和数字" />
           </el-form-item>
           <el-form-item label="确认密码" required>
-            <el-input
-              v-model="passwordForm.confirmPassword"
-              type="password"
-              show-password
-              placeholder="再次输入新密码"
-            />
+            <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="再次输入新密码" />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="savingPassword" @click="savePassword">
-              修改密码
-            </el-button>
+            <el-button type="primary" :loading="savingPassword" @click="savePassword">修改密码</el-button>
           </el-form-item>
         </el-form>
       </el-card>
 
-      <el-card class="settings-card" shadow="never">
+      <el-card shadow="never">
         <template #header>
-          <span class="card-title">基本信息</span>
+          <span class="text-base font-semibold text-slate-800">基本信息</span>
         </template>
-        <el-form :model="profileForm" label-width="80px" class="profile-form">
+        <el-form :model="profileForm" label-width="80px" class="max-w-[400px]">
           <el-form-item label="邮箱">
             <el-input :model-value="authStore.user?.email" disabled />
           </el-form-item>
@@ -83,33 +59,46 @@
             <el-input v-model="profileForm.username" placeholder="设置用户名" maxlength="30" show-word-limit />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="savingProfile" @click="saveProfile">
-              保存信息
-            </el-button>
+            <el-button type="primary" :loading="savingProfile" @click="saveProfile">保存信息</el-button>
           </el-form-item>
         </el-form>
       </el-card>
-    <el-card class="settings-card" shadow="never">
+
+      <el-card shadow="never">
         <template #header>
-          <span class="card-title">主题背景</span>
+          <span class="text-base font-semibold text-slate-800">主题背景</span>
         </template>
-        <div class="theme-preset-grid">
+        <div class="grid grid-cols-4 gap-4">
           <div
             v-for="preset in themePresets"
             :key="preset.name"
-            class="theme-preset-item"
-            :class="{ active: currentThemeColor === preset.variables['--bg-color'] }"
+            class="flex flex-col items-center gap-1.5 cursor-pointer py-3 px-2 rounded-xl border-2 transition-all duration-200"
+            :class="{
+              '!border-sky-500 !bg-sky-50': currentThemeColor === preset.variables['--bg-color'],
+              'border-transparent hover:bg-slate-100 hover:border-slate-200': currentThemeColor !== preset.variables['--bg-color']
+            }"
             @click="selectTheme(preset)"
           >
             <div
-              class="theme-preset-swatch"
-              :style="{ backgroundColor: preset.variables['--bg-color'] }"
+              class="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center"
+              :style="{
+                backgroundColor: preset.variables['--bg-color'],
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                outline: '1px solid ' + (preset.variables['--bg-color'] === '#ffffff' ? '#d1d5db' : '#e5e7eb')
+              }"
             >
-              <el-icon v-if="currentThemeColor === preset.variables['--bg-color']" class="theme-preset-check">
+              <el-icon
+                v-if="currentThemeColor === preset.variables['--bg-color']"
+                :size="24"
+                :color="preset.isDark ? '#67c23a' : '#0284c7'"
+              >
                 <Check />
               </el-icon>
             </div>
-            <span class="theme-preset-name">{{ preset.label }}</span>
+            <span
+              class="text-xs font-medium whitespace-nowrap transition-colors"
+              :class="currentThemeColor === preset.variables['--bg-color'] ? 'text-sky-600' : 'text-slate-500'"
+            >{{ preset.label }}</span>
           </div>
         </div>
       </el-card>
@@ -246,111 +235,8 @@ async function savePassword() {
 </script>
 
 <style scoped>
-.profile-settings {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 24px 0;
-}
-
+/* Page header space */
 .page-header {
   margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.settings-content {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.settings-card {
-  border-radius: var(--radius-lg);
-}
-
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.avatar-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-}
-
-.profile-form {
-  max-width: 400px;
-}
-
-.code-row {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-}
-
-.code-input {
-  flex: 1;
-}
-
-.theme-preset-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-
-.theme-preset-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 12px 8px;
-  border-radius: var(--radius-lg);
-  border: 2px solid transparent;
-  transition: all 0.2s;
-}
-
-.theme-preset-item:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-color);
-}
-
-.theme-preset-item.active {
-  border-color: var(--accent-primary);
-  background: var(--teal-50);
-}
-
-.theme-preset-swatch {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.theme-preset-check {
-  font-size: 22px;
-  color: var(--accent-primary);
-}
-
-.theme-preset-name {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.theme-preset-item.active .theme-preset-name {
-  color: var(--accent-primary);
-  font-weight: 600;
 }
 </style>

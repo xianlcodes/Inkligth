@@ -80,21 +80,30 @@ export const themePresets: ThemePreset[] = [
     },
   },
   {
-    name: '极淡绿',
-    label: '极淡绿',
+    name: '暖白',
+    label: '暖白',
     isDark: false,
     variables: {
       ...LIGHT_SEMANTIC_DEFAULTS,
-      '--bg-color': '#e8f2e2',
+      '--bg-color': '#f7f3ee',
     },
   },
   {
-    name: '淡蓝',
-    label: '淡蓝',
+    name: '薄荷',
+    label: '薄荷',
     isDark: false,
     variables: {
       ...LIGHT_SEMANTIC_DEFAULTS,
-      '--bg-color': '#e2ecf2',
+      '--bg-color': '#e8f3ec',
+    },
+  },
+  {
+    name: '雾蓝',
+    label: '雾蓝',
+    isDark: false,
+    variables: {
+      ...LIGHT_SEMANTIC_DEFAULTS,
+      '--bg-color': '#e3eef7',
     },
   },
   {
@@ -103,34 +112,25 @@ export const themePresets: ThemePreset[] = [
     isDark: false,
     variables: {
       ...LIGHT_SEMANTIC_DEFAULTS,
-      '--bg-color': '#e8e2f0',
+      '--bg-color': '#ede5f2',
     },
   },
   {
-    name: '淡粉',
-    label: '淡粉',
+    name: '杏粉',
+    label: '杏粉',
     isDark: false,
     variables: {
       ...LIGHT_SEMANTIC_DEFAULTS,
-      '--bg-color': '#f2e6e8',
+      '--bg-color': '#f5eae3',
     },
   },
   {
-    name: '米白',
-    label: '米白',
+    name: '烟灰',
+    label: '烟灰',
     isDark: false,
     variables: {
       ...LIGHT_SEMANTIC_DEFAULTS,
-      '--bg-color': '#f0e8e2',
-    },
-  },
-  {
-    name: '浅灰',
-    label: '浅灰',
-    isDark: false,
-    variables: {
-      ...LIGHT_SEMANTIC_DEFAULTS,
-      '--bg-color': '#e8e8e8',
+      '--bg-color': '#edeeef',
     },
   },
   {

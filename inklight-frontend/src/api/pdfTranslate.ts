@@ -42,3 +42,19 @@ export function cancelPdfTranslate(literatureId: string, taskId: string) {
   )
 }
 
+export interface ExistingTranslation {
+  has_translation: boolean
+  download_url: string | null
+  preview_url: string | null
+  expires_at: string | null
+  source_lang?: string
+  target_lang?: string
+  output_mode?: string
+}
+
+export function checkExistingTranslation(literatureId: string) {
+  return apiClient.get<ExistingTranslation>(
+    `/literatures/${literatureId}/translate-pdf/check`
+  )
+}
+

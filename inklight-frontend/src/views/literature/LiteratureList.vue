@@ -1,17 +1,17 @@
 <template>
-  <div class="literature-list-page">
+  <div class="page-container">
     <div class="page-header">
-      <div>
+      <div class="page-header-content">
         <h1 class="page-title">我的文献库</h1>
         <p class="page-subtitle">管理和阅读您的学术资料</p>
       </div>
-      <div class="header-upload">
+      <div class="flex items-center gap-2">
         <el-select
           v-model="uploadFolderId"
           placeholder="选择文件夹"
           clearable
           size="default"
-          style="width: 160px; margin-right: 8px"
+          style="width: 160px"
         >
           <el-option label="无文件夹" value="" />
           <el-option
@@ -26,29 +26,29 @@
           type="file"
           accept=".pdf"
           multiple
-          style="display: none"
+          class="hidden"
           @change="onFilesSelected"
         />
-        <el-button type="primary" :loading="uploadQueue.isUploading" class="upload-btn" @click="triggerFileSelect">
+        <el-button type="primary" :loading="uploadQueue.isUploading" @click="triggerFileSelect">
           <el-icon><Upload /></el-icon>
           上传文献
           <el-badge
             v-if="uploadQueue.items.length > 0"
             :value="uploadQueue.items.length"
             :max="99"
-            class="upload-badge"
+            class="ml-1_5"
           />
         </el-button>
       </div>
     </div>
 
-    <div class="main-layout">
+    <div class="flex gap-6 min-h-0">
       <div class="folder-sidebar">
-        <div class="folder-sidebar-header">
-          <el-icon><FolderOpened /></el-icon>
+        <div class="flex items-center gap-2 px-4 pb-3 text-sm font-semibold text-slate-800 border-b border-slate-200">
+          <el-icon class="text-sky-600"><FolderOpened /></el-icon>
           <span>文件夹</span>
         </div>
-        <div class="folder-list">
+        <div class="flex-1 overflow-y-auto px-2 py-1">
           <div
             class="folder-item"
             :class="{ active: selectedFolderId === null }"
@@ -77,7 +77,7 @@
             <el-icon><Folder /></el-icon>
             <span class="folder-name">{{ f.name }}</span>
             <el-dropdown trigger="click" @click.stop>
-              <span class="folder-actions-trigger" @click.stop>
+              <span class="flex items-center justify-center w-5 h-5 rounded-xs flex-shrink-0 hover:bg-slate-100" @click.stop>
                 <el-icon><MoreFilled /></el-icon>
               </span>
               <template #dropdown>
@@ -96,7 +96,7 @@
             <span class="folder-count">{{ f.literature_count }}</span>
           </div>
         </div>
-        <div class="folder-sidebar-footer">
+        <div class="px-3 py-2 border-t border-slate-200">
           <el-input
             v-if="newFolderInputVisible"
             v-model="newFolderName"
@@ -106,15 +106,15 @@
             @blur="cancelNewFolder"
             ref="newFolderInputRef"
           />
-          <el-button v-else text size="small" class="new-folder-btn" @click="showNewFolderInput">
+          <el-button v-else text size="small" class="w-full justify-center text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-md py-2" @click="showNewFolderInput">
             <el-icon><Plus /></el-icon>
             新建文件夹
           </el-button>
         </div>
       </div>
 
-      <div class="content-area">
-        <div class="filters">
+      <div class="flex-1 min-w-0">
+        <div class="flex gap-3 mb-5">
           <el-input
             v-model="searchTitle"
             placeholder="搜索文献标题或作者..."
@@ -137,15 +137,15 @@
           </el-select>
         </div>
 
-        <div v-loading="literatureStore.loading" class="card-list">
+        <div v-loading="literatureStore.loading" class="grid gap-4 mb-6" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))">
           <el-card
             v-for="lit in literatureStore.literatures"
             :key="lit.id"
-            class="literature-card"
             shadow="hover"
+            class="cursor-pointer"
             @click="openReader(lit.id)"
           >
-            <div class="card-top">
+            <div class="flex items-start justify-between mb-2_5 flex-wrap gap-1">
               <div class="card-icon">
                 <el-icon :size="20"><Document /></el-icon>
               </div>
@@ -155,7 +155,7 @@
                 type="warning"
                 size="small"
                 effect="dark"
-                class="processing-tag"
+                class="ml-auto"
               >
                 <el-icon class="is-loading"><Loading /></el-icon>
                 处理中
@@ -163,17 +163,13 @@
             </div>
             <h3 class="card-title">{{ lit.title || '未识别标题' }}</h3>
             <p class="card-authors">{{ lit.authors || '未知作者' }}</p>
-            <div class="card-meta">
-              <span v-if="lit.journal" class="meta-item">
-                {{ lit.journal }}
-              </span>
-              <span v-if="lit.year" class="meta-item">
-                {{ lit.year }}
-              </span>
+            <div class="flex gap-3 mb-3 text-xs text-slate-400">
+              <span v-if="lit.journal">{{ lit.journal }}</span>
+              <span v-if="lit.year">{{ lit.year }}</span>
             </div>
-            <div class="card-footer">
-              <span class="upload-time">{{ formatDate(lit.created_at) }}</span>
-              <div class="card-actions">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400">{{ formatDateOnly(lit.created_at) }}</span>
+              <div class="flex items-center gap-2">
                 <el-button size="small" type="primary" text @click.stop="openDetail(lit.id)">
                   <el-icon><Reading /></el-icon>
                   详情
@@ -181,7 +177,7 @@
                 <el-dropdown trigger="click" @click.stop>
                   <el-button size="small" text @click.stop>
                     <el-icon><Folder /></el-icon>
-                    <el-icon class="dropdown-arrow"><ArrowDown /></el-icon>
+                    <el-icon style="font-size:10px;color:var(--text-muted)"><ArrowDown /></el-icon>
                   </el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -237,8 +233,8 @@
     </div>
 
     <el-drawer v-model="drawerVisible" title="文献详情" size="500px">
-      <div v-if="currentLit" class="detail-content">
-        <h3>{{ currentLit.title || '未识别标题' }}</h3>
+      <div v-if="currentLit">
+        <h3 class="mt-0">{{ currentLit.title || '未识别标题' }}</h3>
         <p><strong>作者：</strong>{{ currentLit.authors || '-' }}</p>
         <p><strong>期刊：</strong>{{ currentLit.journal || '-' }}</p>
         <p><strong>年份：</strong>{{ currentLit.year || '-' }}</p>
@@ -248,7 +244,7 @@
         </p>
         <el-divider />
         <p><strong>摘要：</strong></p>
-        <p class="abstract">{{ currentLit.abstract || '暂无摘要' }}</p>
+        <p class="whitespace-pre-wrap leading-relaxed text-slate-600">{{ currentLit.abstract || '暂无摘要' }}</p>
       </div>
     </el-drawer>
 
@@ -287,6 +283,7 @@ import { getFolders, createFolder, renameFolder, deleteFolder, type FolderItem }
 import { getStorage } from '@/api/storage'
 import { useUploadQueue } from '@/composables/useUploadQueue'
 import UploadProgressPanel from '@/components/business/UploadProgressPanel.vue'
+import { formatDateOnly } from '@/utils/time'
 
 const literatureStore = useLiteratureStore()
 const router = useRouter()
@@ -583,11 +580,6 @@ function statusText(status: string) {
   return map[status] || status
 }
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return `${d.getMonth() + 1}月${d.getDate()}日`
-}
-
 function showNewFolderInput() {
   newFolderInputVisible.value = true
   newFolderName.value = ''
@@ -665,54 +657,13 @@ async function handleDeleteFolder(id: string) {
 </script>
 
 <style scoped>
-.literature-list-page {
-  padding: 24px 32px;
-  max-width: 1600px;
-  margin: 0 auto;
+/* ── 贴近左侧侧边栏 ── */
+.page-container {
+  padding-left: 20px;
+  margin-left: 0;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.page-title {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 4px 0;
-  letter-spacing: -0.5px;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
-.header-upload {
-  display: flex;
-  align-items: center;
-}
-
-.upload-btn {
-  height: 42px;
-  padding: 0 20px;
-  font-size: 14px;
-}
-
-.upload-badge {
-  margin-left: 6px;
-}
-
-.main-layout {
-  display: flex;
-  gap: 0;
-  min-height: 0;
-}
-
+/* ── Folder sidebar ── */
 .folder-sidebar {
   width: 210px;
   flex-shrink: 0;
@@ -727,28 +678,6 @@ async function handleDeleteFolder(id: string) {
   top: 20px;
 }
 
-.folder-sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 16px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 4px;
-}
-
-.folder-sidebar-header .el-icon {
-  color: var(--accent-primary);
-}
-
-.folder-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 8px;
-}
-
 .folder-item {
   display: flex;
   align-items: center;
@@ -760,21 +689,13 @@ async function handleDeleteFolder(id: string) {
   color: var(--text-secondary);
   transition: all 0.15s;
 }
-
-.folder-item:hover {
-  background: var(--bg-tertiary);
-}
-
+.folder-item:hover { background: var(--bg-tertiary); }
 .folder-item.active {
-  background: var(--teal-50);
+  background: var(--sky-50);
   color: var(--accent-primary);
   font-weight: 600;
 }
-
-.folder-item .el-icon {
-  font-size: 15px;
-  flex-shrink: 0;
-}
+.folder-item .el-icon { font-size: 15px; flex-shrink: 0; }
 
 .folder-name {
   flex: 1;
@@ -782,20 +703,6 @@ async function handleDeleteFolder(id: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.folder-actions-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-}
-
-.folder-actions-trigger:hover {
-  background: var(--bg-tertiary);
 }
 
 .folder-count {
@@ -807,106 +714,19 @@ async function handleDeleteFolder(id: string) {
   flex-shrink: 0;
 }
 
-.folder-sidebar-footer {
-  padding: 8px 12px;
-  border-top: 1px solid var(--border-color);
-}
-
-.new-folder-btn {
-  width: 100%;
-  justify-content: center;
-  color: var(--text-muted);
-  border-radius: var(--radius-md);
-  padding: 8px 0;
-}
-
-.new-folder-btn:hover {
-  color: var(--accent-primary);
-  background: var(--teal-50);
-}
-
-.content-area {
-  flex: 1;
-  min-width: 0;
-  margin-left: 20px;
-}
-
-.filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.search-input {
-  width: 320px;
-}
-
-.search-input :deep(.el-input__wrapper) {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-color);
-}
-
-.filter-select {
-  width: 140px;
-}
-
-.filter-select :deep(.el-input__wrapper) {
-  border-radius: var(--radius-lg);
-}
-
-.card-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.literature-card {
-  cursor: pointer;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
-  transition: all 0.2s;
-}
-
-.literature-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.processing-tag {
-  margin-left: auto;
-}
-
-.processing-tag .is-loading {
-  animation: spin 1.5s linear infinite;
-  margin-right: 2px;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
+/* ── Card icon ── */
 .card-icon {
   width: 36px;
   height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--teal-50);
+  background: var(--sky-50);
   border-radius: var(--radius-md);
   color: var(--accent-primary);
 }
 
+/* ── Card title with line-clamp ── */
 .card-title {
   font-size: 15px;
   font-weight: 600;
@@ -928,51 +748,33 @@ async function handleDeleteFolder(id: string) {
   text-overflow: ellipsis;
 }
 
-.card-meta {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-  font-size: 12px;
-  color: var(--text-muted);
+/* ── Processing animation (仅限标签内的图标，不波及 el-button) ── */
+.el-icon.is-loading {
+  animation: spin 1.5s linear infinite;
+  margin-right: 2px;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+/* ── Filters ── */
+.search-input { width: 320px; }
+.search-input :deep(.el-input__wrapper) {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
 }
+.filter-select { width: 140px; }
+.filter-select :deep(.el-input__wrapper) { border-radius: var(--radius-lg); }
 
-.upload-time {
-  font-size: 12px;
-  color: var(--text-muted);
-}
+/* ── Small status select ── */
+.status-select { width: 80px; }
+.status-select :deep(.el-input__wrapper) { border-radius: var(--radius-md); }
 
-.card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dropdown-arrow {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.status-select {
-  width: 80px;
-}
-
-.status-select :deep(.el-input__wrapper) {
-  border-radius: var(--radius-md);
-}
-
-.abstract {
-  white-space: pre-wrap;
-  line-height: 1.7;
-  color: var(--text-secondary);
-}
-
-.detail-content h3 {
-  margin-top: 0;
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+  .folder-sidebar { display: none; }
+  .search-input { width: 100%; }
+  .filter-select { flex: 1; min-width: 0; }
 }
 </style>

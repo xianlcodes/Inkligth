@@ -1,9 +1,9 @@
 <template>
-  <div class="legal-page">
-    <div class="legal-container">
-      <h1 class="legal-title">InkLight 研墨 — 用户服务协议</h1>
-      <p class="legal-meta">更新日期：2026年6月3日 &nbsp;|&nbsp; 生效日期：2026年6月3日</p>
-      <div class="legal-content">
+  <div class="min-h-screen bg-slate-50 px-5 py-10" style="box-sizing:border-box">
+    <div class="max-w-3xl mx-auto bg-white rounded-xl px-12 py-10 shadow-sm">
+      <h1 class="text-2xl font-bold text-slate-800 m-0 mb-2 text-center">InkLight 研墨 — 用户服务协议</h1>
+      <p class="text-sm text-slate-400 text-center m-0 mb-8">更新日期：2026年6月3日 &nbsp;|&nbsp; 生效日期：2026年6月3日</p>
+      <div class="legal-content text-sm leading-relaxed text-slate-600" style="max-height:65vh;overflow-y:auto;padding-right:8px">
         <p><strong>欢迎使用 InkLight 研墨（以下简称"本平台"或"我们"）！</strong></p>
         <p>本协议是您（以下简称"用户"或"您"）与本平台之间关于使用本平台服务的法律协议。请您仔细阅读并充分理解本协议各条款，特别是以加粗或下划线方式提示您注意的条款。您通过注册页面勾选"我已阅读并同意"即视为您已阅读、理解并接受本协议的全部内容。如果您不同意本协议的任何条款，请立即停止注册或使用本平台服务。</p>
 
@@ -138,53 +138,20 @@
 </script>
 
 <style scoped>
-.legal-page {
-  min-height: 100vh;
-  background: var(--bg-secondary, #f5f7fa);
-  padding: 40px 20px;
-  box-sizing: border-box;
-}
-
-.legal-container {
-  max-width: 800px;
-  margin: 0 auto;
-  background: #fff;
-  border-radius: 12px;
-  padding: 40px 48px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-}
-
-.legal-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary, #1a1a2e);
-  margin: 0 0 8px;
-  text-align: center;
-}
-
-.legal-meta {
-  font-size: 13px;
-  color: var(--text-tertiary, #999);
-  text-align: center;
-  margin: 0 0 32px;
-}
-
-.legal-content {
-  font-size: 14px;
-  line-height: 1.9;
-  color: var(--text-secondary, #555);
-  max-height: 65vh;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
 .legal-content h2 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary);
   margin: 28px 0 12px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-color, #eee);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.legal-content h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 20px 0 10px;
 }
 
 .legal-content ol {
@@ -201,7 +168,7 @@
 }
 
 .legal-content a {
-  color: #0d9488;
+  color: var(--accent-secondary);
   text-decoration: none;
 }
 

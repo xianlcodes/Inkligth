@@ -1,9 +1,11 @@
 <template>
-  <div class="admin-logs">
-    <h2 class="page-title">操作日志</h2>
+  <div style="max-width:1200px">
+    <div class="page-header">
+      <h2 class="text-xl font-bold text-slate-800 m-0">操作日志</h2>
+    </div>
 
-    <div class="filter-bar">
-      <el-select v-model="filterAction" placeholder="操作类型" clearable class="filter-select" @change="loadLogs">
+    <div class="flex gap-3 mb-4">
+      <el-select v-model="filterAction" placeholder="操作类型" clearable style="width:150px" @change="loadLogs">
         <el-option label="更新用户" value="update_user" />
         <el-option label="修改配置" value="update_config" />
         <el-option label="所有操作" value="" />
@@ -12,14 +14,14 @@
         v-model="filterUser"
         placeholder="搜索用户邮箱..."
         clearable
-        class="filter-input"
+        style="width:260px"
         @change="loadLogs"
       >
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
     </div>
 
-    <el-table :data="logs" v-loading="loading" class="logs-table" stripe>
+    <el-table :data="logs" v-loading="loading" stripe>
       <el-table-column prop="created_at" label="时间" width="160">
         <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
       </el-table-column>
@@ -51,14 +53,15 @@
 
     <el-empty v-if="!loading && logs.length === 0" description="暂无日志" />
 
-    <el-pagination
-      v-model:current-page="currentPage"
-      :page-size="pageSize"
-      :total="total"
-      layout="total, prev, pager, next"
-      class="pagination"
-      @current-change="loadLogs"
-    />
+    <div class="flex justify-end mt-4">
+      <el-pagination
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="total"
+        layout="total, prev, pager, next"
+        @current-change="loadLogs"
+      />
+    </div>
   </div>
 </template>
 
@@ -104,28 +107,4 @@ onMounted(() => { loadLogs() })
 </script>
 
 <style scoped>
-.admin-logs { max-width: 1200px; }
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 20px 0;
-}
-
-.filter-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.filter-select { width: 150px; }
-.filter-input { width: 260px; }
-
-.logs-table {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-}
-
-.pagination { margin-top: 16px; justify-content: flex-end; }
 </style>

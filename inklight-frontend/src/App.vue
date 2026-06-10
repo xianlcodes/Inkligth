@@ -3,16 +3,18 @@
     <!-- 侧边栏 -->
     <el-aside
       v-if="authStore.isLoggedIn"
-      :width="sidebarCollapsed ? '0' : '240px'"
+      :width="sidebarCollapsed ? '0' : '220px'"
       class="app-sidebar"
       :class="{ collapsed: sidebarCollapsed }"
     >
-      <div class="sidebar-header">
-        <div class="sidebar-logo">
-          <el-icon :size="22" class="logo-icon"><Reading /></el-icon>
+      <div class="sidebar-header flex items-center gap-3 px-6 py-5">
+        <div class="sidebar-logo flex items-center justify-center rounded-md flex-shrink-0"
+             style="background: linear-gradient(135deg, #0284c7, #0ea5e9); box-shadow: 0 4px 8px -2px rgba(2,132,199,0.35)">
+          <img :src="quillLogo" alt="InkLight" class="sidebar-logo-img" />
         </div>
-        <span class="logo-text">ScholarFocus</span>
-        <button class="sidebar-toggle-btn" @click="toggleSidebar" :title="sidebarCollapsed ? '展开菜单' : '折叠菜单'">
+        <span class="sidebar-logo-text font-bold whitespace-nowrap">InkLight</span>
+        <button class="sidebar-toggle-btn flex items-center justify-center w-[30px] h-[30px] border rounded-md ml-auto flex-shrink-0 cursor-pointer"
+                @click="toggleSidebar" :title="sidebarCollapsed ? '展开菜单' : '折叠菜单'">
           <el-icon><component :is="sidebarCollapsed ? Expand : Fold" /></el-icon>
         </button>
       </div>
@@ -33,17 +35,21 @@
           <el-icon><Notebook /></el-icon>
           <span>文献笔记</span>
         </el-menu-item>
+        <el-menu-item index="/writing">
+          <el-icon><EditPen /></el-icon>
+          <span>学术写作</span>
+        </el-menu-item>
         <el-menu-item index="/presentation">
           <el-icon><DataAnalysis /></el-icon>
           <span>组会</span>
         </el-menu-item>
-        <el-menu-item index="/calendar">
-          <el-icon><Calendar /></el-icon>
-          <span>阅读日历</span>
-        </el-menu-item>
         <el-menu-item index="/settings/ai">
           <el-icon><Setting /></el-icon>
           <span>AI 设置</span>
+        </el-menu-item>
+        <el-menu-item index="/settings/skills">
+          <el-icon><Tools /></el-icon>
+          <span>技能管理</span>
         </el-menu-item>
         <el-menu-item index="/announcements">
           <el-icon><Bell /></el-icon>
@@ -60,28 +66,28 @@
       </el-menu>
 
       <div class="sidebar-storage" v-if="storageInfo">
-        <div class="sidebar-storage-header">
+        <div class="sidebar-storage-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide mb-2">
           <el-icon :size="14"><FolderOpened /></el-icon>
           <span>存储空间</span>
         </div>
-        <div class="sidebar-storage-bar">
+        <div class="sidebar-storage-bar h-[5px] rounded-full overflow-hidden">
           <div
-            class="sidebar-storage-fill"
+            class="sidebar-storage-fill h-full rounded-full transition-all duration-500"
             :class="{ warning: storageWarning }"
             :style="{ width: storagePercent + '%' }"
           ></div>
         </div>
-        <div class="sidebar-storage-text">
-          <span class="sidebar-storage-used">{{ formatBytes(storageInfo.used_space) }}</span>
-          <span class="sidebar-storage-total">/ {{ formatBytes(storageInfo.total_space) }}</span>
+        <div class="sidebar-storage-text flex items-baseline gap-0_5 mt-1_5">
+          <span class="text-sm font-semibold">{{ formatBytes(storageInfo.used_space) }}</span>
+          <span class="text-xs">/ {{ formatBytes(storageInfo.total_space) }}</span>
         </div>
-        <div class="sidebar-storage-remaining" :class="{ warning: storageWarning }">
+        <div class="sidebar-storage-remaining text-xs mt-0_5" :class="{ warning: storageWarning }">
           剩余 {{ formatBytes(storageInfo.remaining_space) }}
         </div>
       </div>
     </el-aside>
 
-    <!-- 侧边栏展开按钮（折叠时显示） -->
+    <!-- 侧边栏展开按钮 -->
     <div v-if="authStore.isLoggedIn && sidebarCollapsed" class="sidebar-expand-fab">
       <el-button class="expand-fab-btn" @click="toggleSidebar">
         <el-icon :size="20"><Expand /></el-icon>
@@ -89,15 +95,15 @@
     </div>
 
     <!-- 右侧主区域 -->
-    <el-container class="main-container">
+    <el-container class="main-container flex flex-col">
       <!-- 顶部导航 -->
-      <el-header v-if="authStore.isLoggedIn" class="app-header">
-        <div class="header-left">
-          <h2 class="page-brand">InkLight 研墨</h2>
-          <div class="header-search" ref="searchRef">
+      <el-header v-if="authStore.isLoggedIn" class="app-header flex items-center justify-between h-14 px-6 flex-shrink-0">
+        <div class="header-left flex items-center gap-4 flex-1 min-w-0">
+          <h2 class="page-brand text-base font-bold flex-shrink-0 m-0">InkLight 研墨</h2>
+          <div v-if="showSearchBar" class="header-search relative w-[300px]" ref="searchRef">
             <el-input
               v-model="searchQuery"
-              placeholder="搜索文献内容..."
+              placeholder="搜索本地文献内容..."
               :prefix-icon="Search"
               size="default"
               class="search-input"
@@ -107,38 +113,38 @@
               @clear="clearSearch"
             />
             <div v-if="searchFocused && (searching || searchResults.length > 0 || searchQuery)" class="search-dropdown" @mousedown.prevent>
-              <div class="search-dropdown-header">
-                <span class="search-dropdown-title">搜索结果</span>
+              <div class="search-dropdown-header flex items-center justify-between px-4 py-2_5 border-b sticky top-0 z-10">
+                <span class="text-xs font-semibold uppercase tracking-wider">搜索结果</span>
                 <el-button text size="small" @click="clearSearch">
                   <el-icon><Close /></el-icon>
                 </el-button>
               </div>
-              <div v-if="searching" class="search-loading">
+              <div v-if="searching" class="search-loading flex items-center justify-center gap-2 py-6">
                 <el-icon class="is-loading"><Loading /></el-icon>
-                <span>搜索中...</span>
+                <span class="text-sm">搜索中...</span>
               </div>
               <template v-else>
                 <el-empty v-if="searchResults.length === 0 && searchQuery" description="未找到相关结果" :image-size="48" />
                 <div
                   v-for="item in searchResults"
                   :key="item.id"
-                  class="search-result-item"
+                  class="search-result-item px-4 py-3 border-b last:border-b-0 cursor-pointer transition-colors duration-150"
                   @click="goToResult(item)"
                 >
-                  <div class="result-header">
+                  <div class="result-header flex items-center gap-1_5 mb-1_5">
                     <el-icon><Document /></el-icon>
-                    <span class="result-title">{{ item.literature_title }}</span>
-                    <span class="result-page" v-if="item.page_number">第{{ item.page_number }}页</span>
-                    <span class="result-sim">{{ (item.similarity * 100).toFixed(0) }}%</span>
+                    <span class="result-title flex-1 text-sm font-semibold truncate">{{ item.literature_title }}</span>
+                    <span class="result-page text-xs px-1_5 py-0_5 rounded-sm flex-shrink-0" v-if="item.page_number">第{{ item.page_number }}页</span>
+                    <span class="result-sim text-xs font-semibold flex-shrink-0">{{ (item.similarity * 100).toFixed(0) }}%</span>
                   </div>
-                  <p class="result-text">{{ item.chunk_text }}</p>
+                  <p class="result-text text-xs leading-normal m-0 line-clamp-2">{{ item.chunk_text }}</p>
                 </div>
               </template>
             </div>
           </div>
         </div>
-        <div class="header-right">
-          <span class="user-email">{{ authStore.user?.email }}</span>
+        <div class="header-right flex items-center gap-4">
+          <span class="user-email text-sm font-medium">{{ authStore.user?.username || authStore.user?.email }}</span>
           <CheckInPopover
             :visible="checkInVisible"
             @update:visible="checkInVisible = $event"
@@ -148,7 +154,7 @@
             <img
               :src="authStore.avatarUrl"
               alt="头像"
-              class="user-avatar-img"
+              class="user-avatar-img rounded-full object-cover cursor-pointer"
               @error="onAvatarError"
             />
             <template #dropdown>
@@ -172,7 +178,7 @@
       </el-header>
 
       <!-- 公告栏 -->
-      <div v-if="headerAnnouncements.length > 0" class="announcement-bar">
+      <div v-if="headerAnnouncements.length > 0" class="flex-shrink-0">
         <el-alert
           v-for="ann in headerAnnouncements"
           :key="ann.id"
@@ -180,17 +186,17 @@
           :type="ann.level as any"
           :closable="true"
           show-icon
-          class="announcement-alert"
+          class="rounded-none border-b"
           @close="dismissAlert(ann.id)"
         >
           <template #default>
-            <span class="alert-content">{{ ann.content }}</span>
+            <span class="alert-content text-sm max-w-[600px] block truncate">{{ ann.content }}</span>
           </template>
         </el-alert>
       </div>
 
       <!-- 内容区 -->
-      <el-main class="app-main">
+      <el-main class="app-main flex-1 overflow-auto p-0">
         <router-view />
       </el-main>
     </el-container>
@@ -207,6 +213,7 @@ import { searchLiterature, type SearchResultItem } from '@/api/search'
 import { getActiveAnnouncements, getPublicAnnouncements, type Announcement } from '@/api/announcement'
 import { getStorage } from '@/api/storage'
 import { applyTheme, findThemeByColor } from '@/utils/themes'
+import quillLogo from '@/assets/quill.png'
 import CheckInPopover from '@/components/CheckInPopover.vue'
 import FeedbackButton from '@/components/business/FeedbackButton.vue'
 import {
@@ -214,6 +221,7 @@ import {
   Reading,
   Collection,
   Notebook,
+  EditPen,
   DataAnalysis,
   Setting,
   SwitchButton,
@@ -222,13 +230,13 @@ import {
   Document,
   Loading,
   Close,
-  Calendar,
   Bell,
   Fold,
   Expand,
   FolderOpened,
   Management,
   Help,
+  Tools,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -239,6 +247,11 @@ const searchResults = ref<SearchResultItem[]>([])
 const searching = ref(false)
 const searchFocused = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+const showSearchBar = computed(() => {
+  const path = route.path
+  return path.startsWith('/dashboard') || path.startsWith('/literature')
+})
 
 const sidebarCollapsed = ref(localStorage.getItem('sidebar_collapsed') === '1')
 const checkInVisible = ref(false)
@@ -387,7 +400,7 @@ watchEffect(() => {
 <style scoped>
 .app-container {
   height: 100%;
-  background: var(--bg-color);
+  background: var(--bg-secondary);
 }
 
 .app-sidebar {
@@ -396,43 +409,59 @@ watchEffect(() => {
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: width 0.3s ease;
+  transition: width var(--transition-slow);
   overflow: hidden;
   flex-shrink: 0;
+  z-index: 100;
 }
 
-.app-sidebar.collapsed {
-  border-right: none;
-}
+.app-sidebar.collapsed { border-right: none; }
 
 .sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 20px;
   border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.sidebar-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: var(--gradient-primary);
+  opacity: 0.2;
+}
+
+.sidebar-logo {
+  width: 44px;
+  height: 44px;
+}
+
+.sidebar-logo-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.sidebar-logo-text {
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  font-size: 20px;
 }
 
 .sidebar-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-color: var(--border-color);
   background: var(--bg-primary);
   color: var(--text-muted);
-  cursor: pointer;
-  margin-left: auto;
-  flex-shrink: 0;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 }
 
 .sidebar-toggle-btn:hover {
   color: var(--accent-primary);
   border-color: var(--accent-primary);
-  background: var(--teal-50);
+  background: var(--sky-50);
 }
 
 .sidebar-expand-fab {
@@ -440,53 +469,35 @@ watchEffect(() => {
   left: 8px;
   top: 12px;
   z-index: 1000;
+  animation: fadeIn var(--transition-slow) ease;
 }
 
 .expand-fab-btn {
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
+  transition: all var(--transition-base);
 }
 
 .expand-fab-btn:hover {
   color: var(--accent-primary);
   border-color: var(--accent-primary);
-}
-
-.sidebar-logo {
-  width: 36px;
-  height: 36px;
-  background: var(--accent-primary);
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 6px -1px rgba(13, 148, 136, 0.3);
-}
-
-.logo-icon {
-  color: #ffffff;
-}
-
-.logo-text {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
+  box-shadow: var(--shadow-lg);
+  transform: scale(1.05);
 }
 
 .sidebar-menu {
+  flex: 1;
   border-right: none;
   padding: 12px 8px;
-  flex: 1;
 }
 
 .sidebar-menu :deep(.el-menu-item) {
@@ -496,6 +507,8 @@ watchEffect(() => {
   line-height: 44px;
   color: var(--text-secondary);
   font-size: 14px;
+  position: relative;
+  transition: all var(--transition-fast);
 }
 
 .sidebar-menu :deep(.el-menu-item:hover) {
@@ -504,143 +517,76 @@ watchEffect(() => {
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: var(--teal-50);
-  color: var(--teal-700);
+  background: var(--bg-hover);
+  color: var(--accent-primary);
   font-weight: 600;
-  border-right: 3px solid var(--accent-primary);
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: var(--gradient-primary);
+  border-radius: 0 2px 2px 0;
 }
 
 .sidebar-menu :deep(.el-menu-item .el-icon) {
   color: inherit;
   font-size: 18px;
+  margin-right: 8px;
 }
 
 .sidebar-storage {
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
   flex-shrink: 0;
 }
 
 .sidebar-storage-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+  color: var(--text-tertiary);
 }
 
-.sidebar-storage-header .el-icon {
-  color: var(--text-muted);
-}
+.sidebar-storage-header .el-icon { color: var(--text-muted); }
 
 .sidebar-storage-bar {
-  height: 6px;
   background: var(--bg-tertiary);
-  border-radius: 3px;
-  overflow: hidden;
+  height: 5px;
+  margin: 0 4px;
 }
 
 .sidebar-storage-fill {
-  height: 100%;
-  background: var(--accent-primary);
-  border-radius: 3px;
-  transition: width 0.4s ease, background 0.3s;
+  background: var(--gradient-primary);
+  transition: width 0.6s ease, background 0.3s;
 }
 
 .sidebar-storage-fill.warning {
-  background: var(--el-color-danger);
+  background: linear-gradient(90deg, var(--rose-500), var(--rose-400));
 }
 
 .sidebar-storage-text {
-  display: flex;
-  align-items: baseline;
-  gap: 2px;
-  margin-top: 6px;
-}
-
-.sidebar-storage-used {
-  font-size: 13px;
-  font-weight: 600;
   color: var(--text-primary);
 }
 
-.sidebar-storage-total {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.sidebar-storage-remaining {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.sidebar-storage-remaining.warning {
-  color: var(--el-color-danger);
-  font-weight: 500;
-}
-
-.main-container {
-  flex-direction: column;
-}
-
-.announcement-bar {
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.announcement-alert {
-  border-radius: 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.announcement-alert :deep(.el-alert__content) {
-  padding: 6px 0;
-}
-
-.alert-content {
-  font-size: 13px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  max-width: 600px;
-}
+.sidebar-storage-remaining { color: var(--text-muted); }
+.sidebar-storage-remaining.warning { color: var(--rose-600); font-weight: 500; }
 
 .app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 56px;
-  padding: 0 24px;
   background: var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .page-brand {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex: 1;
-  min-width: 0;
-}
-
-.header-search {
-  position: relative;
-  max-width: 400px;
-  flex: 1;
+  letter-spacing: var(--tracking-tight);
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .search-input :deep(.el-input__wrapper) {
@@ -648,16 +594,17 @@ watchEffect(() => {
   background: var(--bg-secondary);
   box-shadow: none;
   border: 1px solid transparent;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 }
 
 .search-input :deep(.el-input__wrapper:hover) {
   border-color: var(--border-color);
+  background: var(--bg-hover);
 }
 
 .search-input :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 1px var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1) !important;
   background: var(--bg-primary);
 }
 
@@ -669,131 +616,39 @@ watchEffect(() => {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-dropdown);
   max-height: 420px;
   overflow-y: auto;
   z-index: 2000;
+  animation: fadeInUp 0.2s ease;
 }
 
 .search-dropdown-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
   background: var(--bg-primary);
-  z-index: 1;
 }
 
-.search-dropdown-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
+.search-loading { color: var(--text-muted); }
 
-.search-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px;
-  color: var(--text-muted);
-  font-size: 13px;
-}
+.search-result-item { border-color: var(--border-color); }
+.search-result-item:hover { background: var(--sky-50); }
 
-.search-result-item {
-  padding: 12px 16px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border-color);
-  transition: background 0.15s;
-}
+.result-title { color: var(--text-primary); }
+.result-page { color: var(--text-muted); background: var(--bg-tertiary); }
+.result-sim { color: var(--accent-primary); }
+.result-text { color: var(--text-secondary); }
 
-.search-result-item:last-child {
-  border-bottom: none;
-}
-
-.search-result-item:hover {
-  background: var(--teal-50);
-}
-
-.result-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.result-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.result-page {
-  font-size: 11px;
-  color: var(--text-muted);
-  background: var(--bg-tertiary);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-}
-
-.result-sim {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent-primary);
-  flex-shrink: 0;
-}
-
-.result-text {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.user-email {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
+.user-email { color: var(--text-secondary); }
 
 .user-avatar-img {
   width: 34px;
   height: 34px;
-  border-radius: 50%;
-  border: 2px solid var(--teal-100);
-  cursor: pointer;
-  object-fit: cover;
+  border: 2px solid var(--sky-100);
   transition: border-color 0.2s ease;
 }
 
-.user-avatar-img:hover {
-  border-color: var(--accent-primary);
-}
+.user-avatar-img:hover { border-color: var(--accent-primary); }
 
-.app-main {
-  padding: 0;
-  background: var(--bg-secondary);
-  overflow: auto;
-  flex: 1;
-}
+.app-main { background: var(--bg-secondary); }
+
+.alert-content { color: var(--text-secondary); }
 </style>

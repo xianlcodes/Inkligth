@@ -17,8 +17,18 @@ let _pendingRequests: Array<{
 
 let _router: Router | null = null
 
+let _onUnauthorized: (() => void) | null = null
+
 export function setRouter(router: Router) {
   _router = router
+}
+
+/**
+ * 注入「清除认证状态」回调，用于清空 Pinia auth store。
+ * 避免 401 重定向时路由守卫因 store.token 未清而循环调用 fetchUser()。
+ */
+export function setOnUnauthorized(callback: () => void) {
+  _onUnauthorized = callback
 }
 
 export function setApiToken(token: string | null) {
@@ -79,6 +89,7 @@ export function clearAuth() {
 }
 
 function redirectToLogin() {
+  _onUnauthorized?.()
   if (_router) {
     _router.push('/login')
   }

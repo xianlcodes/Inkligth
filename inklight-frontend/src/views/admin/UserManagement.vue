@@ -1,20 +1,22 @@
 <template>
-  <div class="admin-users">
-    <h2 class="page-title">用户管理</h2>
+  <div style="max-width:1200px">
+    <div class="page-header">
+      <h2 class="text-xl font-bold text-slate-800 m-0">用户管理</h2>
+    </div>
 
-    <div class="toolbar">
+    <div class="flex gap-3 mb-4">
       <el-input
         v-model="searchQuery"
         placeholder="搜索邮箱..."
         clearable
-        class="search-input"
+        style="width:280px"
         @change="loadUsers"
       >
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
     </div>
 
-    <el-table :data="users" v-loading="loading" class="users-table" stripe>
+    <el-table :data="users" v-loading="loading" stripe>
       <el-table-column prop="email" label="邮箱" min-width="200" />
       <el-table-column prop="username" label="用户名" min-width="120">
         <template #default="{ row }">{{ row.username || '-' }}</template>
@@ -48,14 +50,15 @@
       </el-table-column>
     </el-table>
 
-    <el-pagination
-      v-model:current-page="currentPage"
-      :page-size="pageSize"
-      :total="total"
-      layout="total, prev, pager, next"
-      class="pagination"
-      @current-change="loadUsers"
-    />
+    <div class="flex justify-end mt-4">
+      <el-pagination
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="total"
+        layout="total, prev, pager, next"
+        @current-change="loadUsers"
+      />
+    </div>
 
     <el-dialog v-model="dialogVisible" title="编辑用户" width="400px">
       <el-form :model="editForm" label-position="top">
@@ -157,30 +160,4 @@ onMounted(() => { loadUsers() })
 </script>
 
 <style scoped>
-.admin-users { max-width: 1200px; }
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 20px 0;
-}
-
-.toolbar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.search-input { width: 280px; }
-
-.users-table {
-  background: var(--bg-primary);
-  border-radius: var(--radius-lg);
-}
-
-.pagination {
-  margin-top: 16px;
-  justify-content: flex-end;
-}
 </style>

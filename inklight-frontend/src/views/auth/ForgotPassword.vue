@@ -5,7 +5,7 @@
         <div class="forgot-logo">
           <el-icon :size="28"><Reading /></el-icon>
         </div>
-        <h1 class="forgot-title">ScholarFocus</h1>
+        <h1 class="forgot-title">InkLight</h1>
         <p class="forgot-subtitle">重置密码</p>
       </div>
 
@@ -327,7 +327,7 @@ async function handleResetPassword() {
 }
 
 .forgot-input :deep(.el-input__wrapper:hover) {
-  border-color: var(--teal-300);
+  border-color: var(--sky-300);
   background: rgba(255, 255, 255, 0.7);
   box-shadow: none !important;
 }

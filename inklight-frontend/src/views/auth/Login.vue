@@ -1,39 +1,118 @@
 <template>
   <div class="login-page">
-    <div class="login-card">
-      <div class="login-header">
-        <div class="login-logo">
-          <el-icon :size="28"><Reading /></el-icon>
+    <!-- 左侧：品牌视觉 + 动画角色 -->
+    <div class="left-panel">
+      <div class="left-top">
+        <div class="brand-mark">
+          <img :src="quillLogo" alt="InkLight" class="brand-img" />
         </div>
-        <h1 class="login-title">ScholarFocus</h1>
-        <p class="login-subtitle">研墨文献 · 智能研读平台</p>
+        <span class="brand-name">InkLight</span>
       </div>
 
-      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-position="top">
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="loginForm.email" placeholder="请输入邮箱" size="large" class="login-input" />
-        </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" show-password size="large" class="login-input" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleLogin" :loading="loading" class="login-btn">
-            登录
-          </el-button>
-        </el-form-item>
-        <div class="login-actions">
-          <router-link to="/forgot-password" class="action-link">忘记密码？</router-link>
-        </div>
-      </el-form>
-
-      <div class="register-link-row">
-        <span>还没有账号？</span>
-        <router-link to="/register" class="register-link">立即注册</router-link>
+      <div class="characters-area">
+        <AnimatedCharacters
+          :is-typing="isTyping"
+          :show-password="showPassword"
+          :password-length="passwordValue.length"
+        />
       </div>
+
+      <div class="left-footer">
+        <router-link to="/forgot-password">忘记密码</router-link>
+        <router-link to="/register">注册账号</router-link>
+      </div>
+
+      <div class="decor-blur-1" />
+      <div class="decor-blur-2" />
+      <div class="decor-grid" />
     </div>
 
-    <div class="icp-footer">
-      <a href="http://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">渝ICP备2026008976号</a>
+    <!-- 右侧：登录表单 -->
+    <div class="right-panel">
+      <div class="form-wrapper">
+        <div class="mobile-logo">
+          <div class="mobile-logo-icon">
+            <img :src="quillLogo" alt="InkLight" class="mobile-brand-img" />
+          </div>
+          <span>InkLight 研墨</span>
+        </div>
+
+        <div class="form-header">
+          <h1 class="form-title">登录到工作台</h1>
+          <p class="form-subtitle">研墨文献 · 智能研读平台</p>
+        </div>
+
+        <el-form
+          ref="loginFormRef"
+          :model="loginForm"
+          :rules="rules"
+          class="login-form"
+          hide-required-asterisk
+          @keyup.enter="handleLogin"
+        >
+          <div class="field-label">邮箱</div>
+          <el-form-item prop="email">
+            <el-input
+              v-model="loginForm.email"
+              placeholder="输入您的邮箱"
+              :prefix-icon="Message"
+              size="large"
+              @focus="isTyping = true"
+              @blur="isTyping = false"
+            />
+          </el-form-item>
+
+          <div class="field-label">密码</div>
+          <el-form-item prop="password">
+            <el-input
+              v-model="loginForm.password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="输入您的密码"
+              :prefix-icon="Lock"
+              size="large"
+              @input="onPasswordInput"
+              @focus="isTyping = true"
+              @blur="isTyping = false"
+            >
+              <template #suffix>
+                <span class="eye-toggle" @click="showPassword = !showPassword">
+                  <el-icon v-if="showPassword"><View /></el-icon>
+                  <el-icon v-else><Hide /></el-icon>
+                </span>
+              </template>
+            </el-input>
+          </el-form-item>
+
+          <div v-if="errorMsg" class="error-box">
+            <el-icon><WarningFilled /></el-icon>
+            <span>{{ errorMsg }}</span>
+          </div>
+
+          <el-form-item style="margin-bottom: 0">
+            <el-button
+              type="primary"
+              :loading="loading"
+              class="submit-btn"
+              @click="handleLogin"
+            >
+              {{ loading ? '登录中...' : '登录' }}
+            </el-button>
+          </el-form-item>
+        </el-form>
+
+        <div class="divider">
+          <span>或</span>
+        </div>
+
+        <div class="signup-row">
+          还没有账号？
+          <router-link to="/register" class="signup-link">立即注册</router-link>
+        </div>
+      </div>
+
+      <div class="icp-footer">
+        <a href="http://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">渝ICP备2026008976号</a>
+      </div>
     </div>
   </div>
 </template>
@@ -42,16 +121,19 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Reading } from '@element-plus/icons-vue'
+import { Message, Lock, View, Hide, WarningFilled } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import bgImage from '@/assets/bg_image.jpg'
-
-const bgUrl = `url(${bgImage})`
+import AnimatedCharacters from '@/components/business/AnimatedCharacters.vue'
+import quillLogo from '@/assets/quill.png'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(false)
 const loginFormRef = ref()
+const isTyping = ref(false)
+const showPassword = ref(false)
+const passwordValue = ref('')
+const errorMsg = ref('')
 
 const loginForm = reactive({
   email: '',
@@ -69,16 +151,22 @@ const rules = {
   ]
 }
 
+function onPasswordInput(val: string) {
+  passwordValue.value = val
+}
+
 async function handleLogin() {
   const valid = await loginFormRef.value?.validate().catch(() => false)
   if (!valid) return
   loading.value = true
+  errorMsg.value = ''
   try {
     await authStore.login(loginForm.email, loginForm.password)
     ElMessage.success('登录成功')
     router.push('/')
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || '登录失败')
+    errorMsg.value = e.response?.data?.detail || '邮箱或密码错误，请重新输入'
+    ElMessage.error(errorMsg.value)
   } finally {
     loading.value = false
   }
@@ -87,133 +175,367 @@ async function handleLogin() {
 
 <style scoped>
 .login-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   左侧面板
+   ═══════════════════════════════════════════════════════════════ */
+
+.left-panel {
   position: relative;
-  box-sizing: border-box;
-  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px;
+  background: linear-gradient(145deg, #0f172a 0%, #075985 50%, #0284c7 100%);
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .left-panel {
+    display: none;
+  }
+}
+
+.left-top {
+  position: relative;
+  z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: v-bind(bgUrl) no-repeat center center;
-  background-size: cover;
-  padding: 20px;
-}
-
-.login-card {
-  width: 440px;
-  max-width: 100%;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-3xl);
-  padding: 40px 36px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.login-logo {
-  width: 52px;
-  height: 52px;
-  background: var(--accent-primary);
-  border-radius: var(--radius-xl);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 14px;
-  box-shadow: 0 8px 16px -4px rgba(13, 148, 136, 0.3);
-  color: #ffffff;
-}
-
-.login-title {
-  font-size: 24px;
+  gap: 10px;
+  font-size: 20px;
   font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 6px;
-  letter-spacing: -0.5px;
+  color: #ffffff;
+  letter-spacing: 0.5px;
 }
 
-.login-subtitle {
-  font-size: 14px;
-  color: var(--text-tertiary);
-  margin: 0;
-}
-
-.login-input :deep(.el-input__wrapper) {
-  border-radius: var(--radius-lg);
-  box-shadow: none !important;
-  border: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.5);
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.login-input :deep(.el-input__wrapper:hover) {
-  border-color: var(--teal-300);
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: none !important;
-}
-
-.login-input :deep(.el-input__wrapper.is-focus) {
-  border-color: var(--accent-primary);
-  box-shadow: none !important;
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.login-input :deep(.el-input__wrapper:-webkit-autofill),
-.login-input :deep(.el-input__wrapper:autofill) {
-  box-shadow: none !important;
-}
-
-.login-btn {
-  width: 100%;
-  height: 46px;
-  font-size: 16px;
-  border-radius: var(--radius-lg);
-  margin-top: 4px;
-}
-
-.login-actions {
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
-  justify-content: flex-end;
-  margin-top: -8px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  backdrop-filter: blur(8px);
 }
 
-.action-link {
+.brand-img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.mobile-brand-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.brand-name {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.characters-area {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 500px;
+}
+
+.left-footer {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.left-footer a {
   font-size: 13px;
-  color: var(--accent-primary);
+  color: rgba(255, 255, 255, 0.45);
   text-decoration: none;
+  transition: color 0.2s;
 }
 
-.action-link:hover {
-  text-decoration: underline;
+.left-footer a:hover {
+  color: rgba(255, 255, 255, 0.85);
 }
 
-.register-link-row {
+.decor-blur-1 {
+  position: absolute;
+  top: 15%;
+  right: 10%;
+  width: 300px;
+  height: 300px;
+  background: rgba(56, 189, 248, 0.2);
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.decor-blur-2 {
+  position: absolute;
+  bottom: 10%;
+  left: 5%;
+  width: 400px;
+  height: 400px;
+  background: rgba(2, 132, 199, 0.25);
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.decor-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   右侧面板
+   ═══════════════════════════════════════════════════════════════ */
+
+.right-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: #ffffff;
+  position: relative;
+}
+
+.form-wrapper {
+  width: 100%;
+  max-width: 400px;
+}
+
+.mobile-logo {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 48px;
+}
+
+@media (max-width: 1024px) {
+  .mobile-logo {
+    display: flex;
+  }
+}
+
+.mobile-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-header {
   text-align: center;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-color);
+  margin-bottom: 40px;
+}
+
+.form-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+  line-height: 1.3;
+}
+
+.form-subtitle {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
 }
 
-.register-link {
-  color: var(--accent-primary);
-  text-decoration: none;
+/* ─── Form fields ─── */
+
+.field-label {
+  font-size: 13px;
   font-weight: 500;
-  margin-left: 4px;
+  color: #374151;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
 }
 
-.register-link:hover {
-  text-decoration: underline;
+.login-form :deep(.el-form-item) {
+  margin-bottom: 20px;
 }
+
+.login-form :deep(.el-input__wrapper) {
+  height: 48px;
+  background: #fafafa !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+  padding-left: 12px;
+}
+
+.login-form :deep(.el-input__wrapper:hover) {
+  border-color: var(--accent-primary) !important;
+}
+
+.login-form :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.08) !important;
+  background: #ffffff !important;
+}
+
+.login-form :deep(.el-input__inner) {
+  background: transparent !important;
+  font-size: 14px !important;
+  color: #111827 !important;
+}
+
+.login-form :deep(.el-input__inner::placeholder) {
+  color: #c0c4cc !important;
+}
+
+.login-form :deep(.el-input__prefix) {
+  margin-right: 8px;
+}
+
+.login-form :deep(.el-input__prefix-inner) {
+  color: #b0b7c3;
+  font-size: 15px;
+}
+
+.login-form :deep(.el-form-item__error) {
+  font-size: 13px;
+  margin-top: 4px;
+  color: var(--rose-500);
+}
+
+/* ─── Password eye toggle ─── */
+
+.eye-toggle {
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+  padding: 0 4px;
+}
+
+.eye-toggle:hover {
+  color: #374151;
+}
+
+/* ─── Error box ─── */
+
+.error-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--rose-600);
+  background: var(--rose-50);
+  border: 1px solid var(--rose-100);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+/* ─── Submit button ─── */
+
+.submit-btn {
+  width: 100%;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 10px;
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  letter-spacing: 1px;
+}
+
+.submit-btn:hover {
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+  transform: translateY(-1px);
+}
+
+.submit-btn:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+
+/* ─── Divider ─── */
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 0;
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.divider span {
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+/* ─── Signup ─── */
+
+.signup-row {
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 28px;
+}
+
+.signup-link {
+  color: var(--accent-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.signup-link:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+
+/* ─── ICP footer ─── */
 
 .icp-footer {
-  position: fixed;
-  z-index: 10;
+  position: absolute;
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
@@ -223,44 +545,54 @@ async function handleLogin() {
 
 .icp-footer a {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(0, 0, 0, 0.3);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 .icp-footer a:hover {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(0, 0, 0, 0.6);
   text-decoration: underline;
 }
 
-/* === Mobile Responsive === */
-@media (max-width: 640px) {
-  .login-card {
-    width: 100%;
-    padding: 32px 24px;
+/* ═══════════════════════════════════════════════════════════════
+   移动端响应
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+  .login-page {
+    grid-template-columns: 1fr;
   }
 
-  .login-logo {
-    width: 44px;
+  .right-panel {
+    min-height: 100vh;
+  }
+
+  .form-title {
+    font-size: 22px;
+  }
+
+  .icp-footer {
+    bottom: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .right-panel {
+    padding: 24px 16px;
+  }
+
+  .form-wrapper {
+    max-width: 100%;
+  }
+
+  .form-header {
+    margin-bottom: 32px;
+  }
+
+  .submit-btn {
     height: 44px;
-    margin-bottom: 10px;
-  }
-
-  .login-logo :deep(.el-icon) {
-    font-size: 22px !important;
-  }
-
-  .login-title {
-    font-size: 20px;
-  }
-
-  .login-subtitle {
-    font-size: 13px;
-  }
-
-  .login-btn {
-    height: 42px;
-    font-size: 15px;
+    font-size: 14px;
   }
 }
 </style>

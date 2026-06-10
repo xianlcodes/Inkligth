@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 
@@ -30,7 +31,10 @@ logging.getLogger("app.services.layout_analysis_service").setLevel(logging.WARNI
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis, feedback, featured_paper, paper_chat
+from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis, feedback, featured_paper
+from app.argument.router import router as argument_router
+from app.skills.router import router as skills_router
+from app.export.router import router as export_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -57,13 +61,41 @@ async def startup_event():
         import logging
         logging.getLogger(__name__).warning("ONNX layout model preload skipped", exc_info=True)
 
-    # 启动每日精选论文定时任务
+    # 启动每日精选论文定时任务 + 立即拉取一次
     try:
-        from app.tasks.scheduler import start_scheduler
+        from app.tasks.scheduler import start_scheduler, run_initial_fetch
         start_scheduler()
+        # 后台立即拉取一次（不阻塞启动）
+        asyncio.create_task(run_initial_fetch())
     except Exception:
         import logging
         logging.getLogger(__name__).warning("Featured papers scheduler failed to start", exc_info=True)
+
+    # 清理重启后遗留的 stale task（跨进程/重启）
+    try:
+        from app.utils.task_store import task_store
+        await task_store.cleanup_stale_tasks()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("Task cleanup failed", exc_info=True)
+
+    # 初始化 Redis 连接
+    try:
+        from app.core.redis import redis_manager
+        await redis_manager.initialize()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("Redis init failed", exc_info=True)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    try:
+        from app.core.redis import redis_manager
+        await redis_manager.close()
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("Redis shutdown failed", exc_info=True)
 
 
 # CORS
@@ -99,7 +131,9 @@ app.include_router(tutorial.router, prefix=settings.API_V1_STR, tags=["tutorials
 app.include_router(layout_analysis.router, prefix=f"{settings.API_V1_STR}/layout-analysis", tags=["layout-analysis"])
 app.include_router(feedback.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["feedback"])
 app.include_router(featured_paper.router, prefix=settings.API_V1_STR, tags=["featured"])
-app.include_router(paper_chat.router, prefix=settings.API_V1_STR)
+app.include_router(argument_router, prefix=settings.API_V1_STR)
+app.include_router(skills_router, prefix=settings.API_V1_STR)
+app.include_router(export_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/")

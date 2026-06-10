@@ -1,14 +1,14 @@
 <template>
-  <el-container class="admin-container">
-    <el-aside width="240px" class="admin-sidebar">
-      <div class="admin-sidebar-header">
+  <el-container class="h-full" style="background:var(--bg-secondary)">
+    <el-aside width="240px" class="flex flex-col border-r" style="background:var(--bg-primary);border-color:var(--border-color)">
+      <div class="flex items-center gap-2_5 px-5 py-5 text-lg font-bold text-slate-800 border-b" style="border-color:var(--border-color)">
         <el-icon :size="22"><Setting /></el-icon>
         <span>后台管理</span>
       </div>
       <el-menu
         :default-active="route.path"
         router
-        class="admin-menu"
+        class="flex-1 border-r-0"
       >
         <el-menu-item index="/admin/statistics">
           <el-icon><DataAnalysis /></el-icon>
@@ -39,7 +39,7 @@
           <span>用户反馈</span>
         </el-menu-item>
       </el-menu>
-      <div class="admin-sidebar-footer">
+      <div class="px-4 py-3 border-t" style="border-color:var(--border-color)">
         <el-button text @click="router.push('/')">
           <el-icon><Back /></el-icon>
           <span>返回前台</span>
@@ -61,39 +61,6 @@ const router = useRouter()
 </script>
 
 <style scoped>
-.admin-container {
-  height: 100%;
-  background: var(--bg-secondary);
-}
-
-.admin-sidebar {
-  background: var(--bg-primary);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-}
-
-.admin-sidebar-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 20px;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.admin-menu {
-  flex: 1;
-  border-right: none;
-}
-
-.admin-sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
-}
-
 .admin-main {
   padding: 24px 32px;
   overflow-y: auto;

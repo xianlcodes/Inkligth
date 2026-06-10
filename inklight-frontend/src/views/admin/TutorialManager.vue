@@ -1,7 +1,7 @@
 <template>
-  <div class="tutorial-manager">
+  <div style="padding:4px 0">
     <div class="page-header">
-      <h2>使用教程管理</h2>
+      <h2 class="text-xl font-bold text-slate-800 m-0">使用教程管理</h2>
       <el-button type="primary" @click="openCreate">新建教程</el-button>
     </div>
 
@@ -39,7 +39,7 @@
       </el-table-column>
     </el-table>
 
-    <div class="pagination-wrap" v-if="total > pageSize">
+    <div v-if="total > pageSize" class="flex justify-center mt-5">
       <el-pagination
         v-model:current-page="currentPage"
         :page-size="pageSize"
@@ -82,12 +82,12 @@
           placement="top"
         >
           <el-card shadow="hover">
-            <div class="version-header">
-              <span class="version-number">版本 {{ v.version_number }}</span>
-              <span class="version-title">{{ v.title }}</span>
+            <div class="flex items-center gap-3 mb-2">
+              <span class="font-semibold" style="color:var(--accent-primary)">版本 {{ v.version_number }}</span>
+              <span class="text-base text-slate-800">{{ v.title }}</span>
             </div>
-            <div class="version-summary" v-if="v.summary">{{ v.summary }}</div>
-            <div class="version-actions">
+            <div v-if="v.summary" class="text-sm text-slate-500 mb-2">{{ v.summary }}</div>
+            <div class="flex gap-2 mt-2">
               <el-button size="small" @click="previewVersion(v)">预览</el-button>
               <el-popconfirm title="恢复此版本将覆盖当前内容，确定恢复？" @confirm="handleRestore(v.id)">
                 <template #reference>
@@ -267,63 +267,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.tutorial-manager {
-  padding: 4px 0;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.page-header h2 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.pagination-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 20px;
-}
-
-.version-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.version-number {
-  font-weight: 600;
-  color: var(--el-color-primary);
-}
-
-.version-title {
-  font-size: 15px;
-}
-
-.version-summary {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-
-.version-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
 .preview-content {
   max-height: 60vh;
   overflow-y: auto;
   padding: 16px;
-  border: 1px solid var(--el-border-color);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: var(--el-bg-color);
+  background: var(--bg-primary);
 }
 
 .preview-content :deep(img) {

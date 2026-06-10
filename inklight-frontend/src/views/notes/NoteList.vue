@@ -1,17 +1,17 @@
 <template>
-  <div class="notes-container">
-    <div class="notes-header">
-      <h2 class="notes-title">文献笔记</h2>
-      <p class="notes-subtitle">管理所有文献的笔记与标注</p>
+  <div class="h-full flex flex-col overflow-hidden bg-slate-50">
+    <div class="flex-shrink-0 px-8 pt-6 pb-4">
+      <h2 class="text-xl font-bold text-slate-800 m-0 mb-1">文献笔记</h2>
+      <p class="text-xs text-slate-400 m-0">管理所有文献的笔记与标注</p>
     </div>
 
-    <div class="notes-filter">
+    <div class="flex gap-3 flex-shrink-0 px-8 pb-4">
       <el-select
         v-model="filterType"
         placeholder="笔记类型"
         clearable
         size="default"
-        class="filter-select"
+        style="width:140px"
         @change="fetchNotes"
       >
         <el-option label="全部类型" value="" />
@@ -25,7 +25,7 @@
         placeholder="搜索文献标题..."
         clearable
         size="default"
-        class="filter-input"
+        class="flex-1 max-w-xs"
         @input="onFilterInput"
       >
         <template #prefix>
@@ -34,7 +34,7 @@
       </el-input>
     </div>
 
-    <div v-loading="loading" class="notes-list">
+    <div v-loading="loading" class="flex-1 overflow-y-auto px-8 pb-6">
       <el-empty v-if="!loading && filteredNotes.length === 0" description="暂无笔记" />
 
       <div
@@ -43,35 +43,25 @@
         class="note-card"
         @click="openEditDialog(note)"
       >
-        <div class="note-card-left">
-          <el-tag
-            :type="noteTypeColor(note.note_type)"
-            size="small"
-            effect="dark"
-            class="note-type-tag"
-          >
+        <div class="flex-shrink-0 pt-0_5">
+          <el-tag :type="noteTypeColor(note.note_type)" size="small" effect="dark" class="!rounded-lg">
             {{ noteTypeLabel(note.note_type) }}
           </el-tag>
         </div>
-        <div class="note-card-body">
-          <p class="note-quoted" v-if="note.quoted_text">{{ note.quoted_text }}</p>
-          <p class="note-content" v-else-if="note.content">{{ note.content }}</p>
-          <p class="note-empty" v-else>空笔记</p>
-          <div class="note-meta">
-            <span class="note-literature" v-if="note.literature_title">
+        <div class="flex-1 min-w-0">
+          <p v-if="note.quoted_text" class="note-text">{{ note.quoted_text }}</p>
+          <p v-else-if="note.content" class="note-text">{{ note.content }}</p>
+          <p v-else class="text-xs text-slate-400 italic m-0 mb-2">空笔记</p>
+          <div class="flex items-center gap-3 flex-wrap">
+            <span v-if="note.literature_title" class="inline-flex items-center gap-1 text-xs text-sky-600">
               <el-icon><Document /></el-icon>
               {{ note.literature_title }}
             </span>
-            <span class="note-date">{{ formatDate(note.created_at) }}</span>
+            <span class="text-xs text-slate-400">{{ formatDate(note.created_at) }}</span>
           </div>
         </div>
         <div class="note-card-actions" @click.stop>
-          <el-button
-            text
-            size="small"
-            type="danger"
-            @click="handleDelete(note)"
-          >
+          <el-button text size="small" type="danger" @click="handleDelete(note)">
             <el-icon><Delete /></el-icon>
           </el-button>
         </div>
@@ -79,30 +69,20 @@
     </div>
 
     <!-- 编辑对话框 -->
-    <el-dialog
-      v-model="editDialogVisible"
-      title="编辑笔记"
-      width="640px"
-      :close-on-click-modal="false"
-    >
-      <div class="edit-dialog-body">
-        <div class="edit-meta">
-          <span class="edit-literature" v-if="editingNote?.literature_title">
+    <el-dialog v-model="editDialogVisible" title="编辑笔记" width="640px" :close-on-click-modal="false">
+      <div class="max-h-[60vh] overflow-y-auto">
+        <div class="flex items-center gap-2_5 mb-3">
+          <span v-if="editingNote?.literature_title" class="inline-flex items-center gap-1 text-sm text-sky-600 font-medium">
             <el-icon><Document /></el-icon>
             {{ editingNote.literature_title }}
           </span>
-          <el-tag
-            v-if="editingNote"
-            :type="noteTypeColor(editingNote.note_type)"
-            size="small"
-            effect="dark"
-          >
+          <el-tag v-if="editingNote" :type="noteTypeColor(editingNote.note_type)" size="small" effect="dark">
             {{ noteTypeLabel(editingNote.note_type) }}
           </el-tag>
         </div>
-        <p class="edit-quoted" v-if="editingNote?.quoted_text">{{ editingNote.quoted_text }}</p>
-        <div class="tiptap-wrapper">
-          <div v-if="editor" class="tiptap-toolbar">
+        <p v-if="editingNote?.quoted_text" class="edit-quoted">{{ editingNote.quoted_text }}</p>
+        <div class="border border-slate-200 rounded-md overflow-hidden">
+          <div v-if="editor" class="flex gap-0_5 px-2 py-1_5 bg-slate-100 border-b border-slate-200">
             <button
               v-for="(item, key) in toolbarItems"
               :key="key"
@@ -132,9 +112,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document, Delete, Search, Edit, Operation, Menu, Tickets } from '@element-plus/icons-vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
-import UnderlineExtension from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { getNotes, updateNote, deleteNote, type Note } from '@/api/note'
+import { formatDateShort } from '@/utils/time'
 
 const notes = ref<Note[]>([])
 const loading = ref(false)
@@ -147,7 +127,6 @@ const saving = ref(false)
 const editor = useEditor({
   extensions: [
     StarterKit,
-    UnderlineExtension,
     Placeholder.configure({ placeholder: '输入笔记内容...' }),
   ],
   content: '',
@@ -287,61 +266,12 @@ function noteTypeColor(type: string) {
 }
 
 function formatDate(dateStr: string) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return formatDateShort(dateStr)
 }
 </script>
 
 <style scoped>
-.notes-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg-secondary);
-}
-
-.notes-header {
-  padding: 24px 32px 16px;
-  flex-shrink: 0;
-}
-
-.notes-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 4px 0;
-}
-
-.notes-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.notes-filter {
-  display: flex;
-  gap: 12px;
-  padding: 0 32px 16px;
-  flex-shrink: 0;
-}
-
-.filter-select {
-  width: 140px;
-}
-
-.filter-input {
-  flex: 1;
-  max-width: 320px;
-}
-
-.notes-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 32px 24px;
-}
-
+/* ── Note card ── */
 .note-card {
   display: flex;
   align-items: flex-start;
@@ -352,108 +282,33 @@ function formatDate(dateStr: string) {
   border-radius: var(--radius-lg);
   margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
 }
-
 .note-card:hover {
   border-color: var(--accent-primary);
-  box-shadow: 0 2px 12px rgba(13, 148, 136, 0.08);
-}
-
-.note-card-left {
-  flex-shrink: 0;
-  padding-top: 2px;
-}
-
-.note-type-tag {
-  border-radius: var(--radius-lg);
-}
-
-.note-card-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.note-quoted {
-  font-size: 14px;
-  color: var(--text-primary);
-  line-height: 1.6;
-  margin: 0 0 8px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.note-content {
-  font-size: 14px;
-  color: var(--text-primary);
-  line-height: 1.6;
-  margin: 0 0 8px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.note-empty {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-style: italic;
-  margin: 0 0 8px 0;
-}
-
-.note-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.note-literature {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--accent-primary);
-}
-
-.note-date {
-  font-size: 12px;
-  color: var(--text-muted);
+  box-shadow: 0 2px 12px rgba(2, 132, 199, 0.08);
 }
 
 .note-card-actions {
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity var(--transition-fast);
+}
+.note-card:hover .note-card-actions { opacity: 1; }
+
+/* ── Note text (line-clamp) ── */
+.note-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 0 0 8px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.note-card:hover .note-card-actions {
-  opacity: 1;
-}
-
-.edit-dialog-body {
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.edit-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.edit-literature {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--accent-primary);
-  font-weight: 500;
-}
-
+/* ── Quoted text in edit dialog ── */
 .edit-quoted {
   font-size: 13px;
   color: var(--text-secondary);
@@ -465,20 +320,7 @@ function formatDate(dateStr: string) {
   margin: 0 0 14px 0;
 }
 
-.tiptap-wrapper {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.tiptap-toolbar {
-  display: flex;
-  gap: 2px;
-  padding: 6px 8px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
-}
-
+/* ── TipTap toolbar ── */
 .toolbar-btn {
   width: 32px;
   height: 32px;
@@ -491,26 +333,24 @@ function formatDate(dateStr: string) {
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 }
-
 .toolbar-btn:hover {
   background: var(--bg-primary);
   color: var(--text-primary);
 }
-
 .toolbar-btn.active {
   background: var(--accent-primary);
   color: #fff;
 }
 
+/* ── TipTap editor ── */
 .tiptap-editor {
   padding: 12px 14px;
   min-height: 160px;
   max-height: 300px;
   overflow-y: auto;
 }
-
 .tiptap-editor :deep(.ProseMirror) {
   outline: none;
   min-height: 160px;
@@ -518,7 +358,6 @@ function formatDate(dateStr: string) {
   line-height: 1.7;
   color: var(--text-primary);
 }
-
 .tiptap-editor :deep(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   color: var(--text-muted);
@@ -526,12 +365,6 @@ function formatDate(dateStr: string) {
   float: left;
   height: 0;
 }
-
-.tiptap-editor :deep(.ProseMirror ul) {
-  padding-left: 20px;
-}
-
-.tiptap-editor :deep(.ProseMirror li) {
-  margin-bottom: 4px;
-}
+.tiptap-editor :deep(.ProseMirror ul) { padding-left: 20px; }
+.tiptap-editor :deep(.ProseMirror li) { margin-bottom: 4px; }
 </style>

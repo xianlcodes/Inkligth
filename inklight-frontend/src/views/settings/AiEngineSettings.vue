@@ -1,8 +1,8 @@
 <template>
-  <div class="ai-engine-settings">
-    <div class="header">
-      <h2>AI 引擎配置</h2>
-      <div class="header-actions">
+  <div class="px-4 py-4">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-slate-800 m-0">AI 引擎配置</h2>
+      <div class="flex gap-2">
         <el-button type="primary" @click="openCreateDialog">添加引擎</el-button>
       </div>
     </div>
@@ -11,14 +11,14 @@
 
     <el-empty v-else-if="store.engines.length === 0" description="暂无引擎配置，请点击右上角添加" />
 
-    <div v-else class="engine-list">
-      <el-card v-for="engine in store.engines" :key="engine.id" class="engine-card" shadow="hover">
-        <div class="engine-header">
-          <div class="engine-title">
-            <span class="provider">{{ engine.provider }}</span>
+    <div v-else class="grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr))">
+      <el-card v-for="engine in store.engines" :key="engine.id" class="rounded-lg" shadow="hover">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-base">{{ engine.provider }}</span>
             <el-tag v-if="engine.is_default" type="success" size="small">默认</el-tag>
           </div>
-          <div class="engine-actions">
+          <div class="flex items-center gap-1">
             <el-button v-if="!engine.is_default" link type="primary" size="small" @click="handleSetDefault(engine.id)">
               设为默认
             </el-button>
@@ -27,13 +27,13 @@
           </div>
         </div>
 
-        <div class="engine-body">
-          <p><strong>模型：</strong>{{ engine.default_model }}</p>
-          <p><strong>API 地址：</strong>{{ engine.api_base }}</p>
-          <p><strong>Key：</strong>{{ engine.api_key_mask }}</p>
-          <p v-if="engine.fallback_models"><strong>备用模型：</strong>{{ engine.fallback_models }}</p>
-          <p>
-            <strong>代理：</strong>
+        <div>
+          <p class="text-sm text-slate-500 my-1"><strong class="text-slate-700">模型：</strong>{{ engine.default_model }}</p>
+          <p class="text-sm text-slate-500 my-1"><strong class="text-slate-700">API 地址：</strong>{{ engine.api_base }}</p>
+          <p class="text-sm text-slate-500 my-1"><strong class="text-slate-700">Key：</strong>{{ engine.api_key_mask }}</p>
+          <p v-if="engine.fallback_models" class="text-sm text-slate-500 my-1"><strong class="text-slate-700">备用模型：</strong>{{ engine.fallback_models }}</p>
+          <p class="text-sm text-slate-500 my-1">
+            <strong class="text-slate-700">代理：</strong>
             <el-tag :type="engine.proxy_enabled ? 'warning' : 'info'" size="small">
               {{ engine.proxy_enabled ? '已开启' : '未开启' }}
             </el-tag>
@@ -59,7 +59,7 @@
         </el-form-item>
 
         <el-form-item label="API Key" prop="api_key">
-          <div v-if="isEdit && editingKeyMask" class="key-mask-hint">当前 Key: {{ editingKeyMask }}</div>
+          <div v-if="isEdit && editingKeyMask" class="text-xs text-slate-400 mb-1">当前 Key: {{ editingKeyMask }}</div>
           <el-input
             v-model="form.api_key"
             type="password"
@@ -78,7 +78,7 @@
 
         <el-form-item label="启用代理">
           <el-switch v-model="form.proxy_enabled" />
-          <span class="proxy-hint">通过服务器代理访问 AI 服务（如 OpenAI 需要）</span>
+          <span class="text-xs text-slate-400 ml-2">通过服务器代理访问 AI 服务（如 OpenAI 需要）</span>
         </el-form-item>
 
         <el-form-item label="设为默认">
@@ -90,17 +90,17 @@
           <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
         </el-form-item>
 
-        <div class="tutorial-hint">
+        <div class="flex items-center gap-1 px-3 py-2 mt-2 bg-sky-50 border border-sky-100 rounded-md text-sm text-sky-700 tutorial-hint">
           <el-icon :size="14"><QuestionFilled /></el-icon>
           <span>添加有问题？</span>
           <el-button link type="primary" @click="$router.push('/tutorials')">可以看教程</el-button>
         </div>
 
-        <div v-if="testResult" class="test-result">
+        <div v-if="testResult" class="mt-3">
           <el-alert :title="testResult.message" :type="testResult.success ? 'success' : 'error'" :closable="false" />
-          <div v-if="testResult.models.length > 0" class="model-list">
+          <div v-if="testResult.models.length > 0" class="mt-2">
             <p>可用模型：</p>
-            <el-tag v-for="m in testResult.models.slice(0, 10)" :key="m" size="small" class="model-tag">{{ m }}</el-tag>
+            <el-tag v-for="m in testResult.models.slice(0, 10)" :key="m" size="small" class="mr-1_5 mb-1_5">{{ m }}</el-tag>
             <span v-if="testResult.models.length > 10">等共 {{ testResult.models.length }} 个模型</span>
           </div>
         </div>
@@ -304,87 +304,6 @@ async function handleDelete(engineId: string) {
 </script>
 
 <style scoped>
-.ai-engine-settings {
-  padding: 16px;
-}
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.engine-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
-}
-.engine-card {
-  border-radius: 8px;
-}
-.engine-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-.engine-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.provider {
-  font-weight: 600;
-  font-size: 16px;
-}
-.engine-body p {
-  margin: 4px 0;
-  color: #666;
-  font-size: 14px;
-}
-.test-result {
-  margin-top: 12px;
-}
-.model-list {
-  margin-top: 8px;
-}
-.model-tag {
-  margin-right: 6px;
-  margin-bottom: 6px;
-}
-.key-mask-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.proxy-hint {
-  font-size: 12px;
-  color: var(--text-tertiary, #94a3b8);
-  margin-left: 8px;
-}
-
-.proxy-hint:hover {
-  color: var(--accent-primary, #0d9488);
-}
-
-.tutorial-hint {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 12px;
-  margin-top: 8px;
-  background: var(--teal-50);
-  border: 1px solid var(--teal-100);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  color: var(--teal-700);
-}
-
 .tutorial-hint .el-icon {
   color: var(--accent-primary);
 }

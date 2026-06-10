@@ -5,7 +5,7 @@
         <div class="register-logo">
           <el-icon :size="28"><Reading /></el-icon>
         </div>
-        <h1 class="register-title">ScholarFocus</h1>
+        <h1 class="register-title">InkLight</h1>
         <p class="register-subtitle">创建新账号</p>
       </div>
 
@@ -296,7 +296,7 @@ onMounted(() => {
 }
 
 .register-input :deep(.el-input__wrapper:hover) {
-  border-color: var(--teal-300);
+  border-color: var(--sky-300);
   background: rgba(255, 255, 255, 0.7);
   box-shadow: none !important;
 }
@@ -365,7 +365,7 @@ onMounted(() => {
 
 .captcha-image:hover {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
 }
 
 .captcha-refresh-btn {

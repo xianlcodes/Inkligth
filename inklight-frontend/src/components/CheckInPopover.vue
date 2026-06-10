@@ -85,6 +85,7 @@ import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Calendar } from '@element-plus/icons-vue'
 import { doCheckIn, getCheckInStatus, type CheckInStatus } from '@/api/checkIn'
+import { getBeijingNow } from '@/utils/time'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{
@@ -103,15 +104,19 @@ function formatBytes(bytes: number): string {
 }
 
 const calendarDays = computed(() => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  const today = now.getDate()
+  const bjNow = getBeijingNow()
+  const year = bjNow.getFullYear()
+  const month = bjNow.getMonth()
+  const today = bjNow.getDate()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const checkedSet = new Set(
     (status.value?.checked_dates || []).map((d: string) => {
-      const date = new Date(d)
-      return date.getDate()
+      const normalized = d.endsWith('Z') || d.includes('+') ? d : d + 'Z'
+      const date = new Date(normalized)
+      // 转为北京时间取日
+      const localOffset = -date.getTimezoneOffset()
+      const bjDate = new Date(date.getTime() + (480 - localOffset) * 60000)
+      return bjDate.getDate()
     })
   )
 

@@ -79,10 +79,24 @@
             size="large"
             @click="handlePreview"
             class="download-btn"
-            style="margin-left: 12px"
           >
             <el-icon><View /></el-icon>
             预览翻译 PDF
+          </el-button>
+        </div>
+
+        <div v-if="expiresAtMsg" class="expiry-notice">
+          <el-alert type="warning" :closable="false" show-icon>
+            <template #title>
+              <span>翻译文件 {{ expiresAtMsg }}，请及时下载</span>
+            </template>
+          </el-alert>
+        </div>
+
+        <div v-if="downloadUrl" class="retranslate-section">
+          <el-button size="small" @click="startNewTranslation">
+            <el-icon><Refresh /></el-icon>
+            重新翻译
           </el-button>
         </div>
 
@@ -120,14 +134,7 @@
             <el-icon><Close /></el-icon>
             停止翻译
           </el-button>
-          <el-button
-            v-if="downloadUrl"
-            type="primary"
-            @click="handleDownload"
-          >
-            <el-icon><Download /></el-icon>
-            下载 PDF
-          </el-button>
+
           <el-button
             v-if="errorMessage"
             type="danger"
@@ -145,12 +152,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Download, VideoPlay, SwitchButton, Close, View } from '@element-plus/icons-vue'
+import { Download, VideoPlay, SwitchButton, Close, View, Refresh } from '@element-plus/icons-vue'
 import {
   startPdfTranslate,
   getPdfTranslateStatus,
   cancelPdfTranslate,
+  checkExistingTranslation,
 } from '@/api/pdfTranslate'
+import { getBeijingAgeDays } from '@/utils/time'
 
 const props = defineProps<{
   modelValue: boolean
@@ -211,14 +220,32 @@ const previewUrl = ref('')
 const runningInBackground = ref(false)
 const taskCompletedInBackground = ref(false)
 const isCancelled = ref(false)
+const reTranslating = ref(false)
+const expiresAtMsg = ref('')
+
+function formatExpiryMsg(isoStr: string): string {
+  try {
+    const ageDays = getBeijingAgeDays(isoStr)
+    if (ageDays >= 3) return '已过期'
+    const remainingMs = 3 * 24 * 60 * 60 * 1000 - ageDays * 24 * 60 * 60 * 1000
+    if (remainingMs <= 0) return '已过期'
+    const days = Math.floor(remainingMs / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((remainingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    if (days > 0) return `还有 ${days} 天 ${hours} 小时后过期`
+    return `还有 ${hours} 小时后过期`
+  } catch {
+    return '3 天后自动删除'
+  }
+}
+
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const dialogTitle = computed(() => {
-  if (isCancelled.value) return 'PDF 原位翻译下载（已取消）'
-  if (runningInBackground.value) return 'PDF 原位翻译下载（后台运行中）'
-  if (downloadUrl.value) return 'PDF 原位翻译下载（已完成）'
-  if (showProgress.value) return 'PDF 原位翻译下载（处理中）'
-  return 'PDF 原位翻译下载'
+  if (isCancelled.value) return 'PDF 原位翻译（已取消）'
+  if (runningInBackground.value) return 'PDF 原位翻译（后台运行中）'
+  if (downloadUrl.value) return 'PDF 原位翻译（已完成）'
+  if (showProgress.value && !reTranslating.value) return 'PDF 原位翻译（处理中）'
+  return 'PDF 原位翻译'
 })
 
 const showProgress = computed(() => !!taskId.value)
@@ -236,6 +263,44 @@ const progressStatus = computed(() => {
   if (progress.value >= 100) return 'success'
   return ''
 })
+
+async function checkExisting() {
+  if (!props.literatureId) return
+  try {
+    const resp = await checkExistingTranslation(props.literatureId)
+    const data = resp.data
+    if (data.has_translation && data.download_url) {
+      downloadUrl.value = data.download_url
+      previewUrl.value = data.preview_url || ''
+      progress.value = 100
+      currentMessage.value = '翻译文件已就绪'
+      taskId.value = 'existing'
+      expiresAtMsg.value = formatExpiryMsg(data.expires_at || '')
+      runningInBackground.value = false
+      taskCompletedInBackground.value = false
+      isCancelled.value = false
+      reTranslating.value = false
+    }
+  } catch {
+    // 检查失败，使用默认翻译表单
+  }
+}
+
+function startNewTranslation() {
+  reTranslating.value = true
+  taskId.value = ''
+  progress.value = 0
+  currentMessage.value = ''
+  errorMessage.value = ''
+  downloadUrl.value = ''
+  previewUrl.value = ''
+  expiresAtMsg.value = ''
+  runningInBackground.value = false
+  taskCompletedInBackground.value = false
+  isCancelled.value = false
+  stopPolling()
+  setStoredTask(null)
+}
 
 async function handleStartTranslate() {
   if (sourceLang.value === targetLang.value) {
@@ -258,6 +323,7 @@ async function handleStartTranslate() {
     runningInBackground.value = false
     taskCompletedInBackground.value = false
     isCancelled.value = false
+    reTranslating.value = false
 
     setStoredTask({
       literatureId: props.literatureId,
@@ -516,6 +582,8 @@ watch(visible, async (val) => {
     const stored = getStoredTask()
     if (stored) {
       await restoreTask()
+    } else {
+      await checkExisting()
     }
   }
 })
@@ -595,12 +663,23 @@ onUnmounted(() => {
 }
 
 .download-section {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
   margin-top: 20px;
 }
 
 .download-btn {
-  min-width: 200px;
+  min-width: 160px;
+}
+
+.expiry-notice {
+  margin-top: 16px;
+}
+
+.retranslate-section {
+  text-align: center;
+  margin-top: 8px;
 }
 
 .error-section {
