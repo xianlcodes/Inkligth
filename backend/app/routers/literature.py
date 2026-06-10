@@ -332,6 +332,7 @@ async def _translate_one(
         if not text.strip():
             return {"paragraph_index": index, "original": text, "translated": ""}
 
+        translated = ""
         last_error = ""
         for attempt in range(MAX_RETRIES + 1):
             try:
@@ -359,7 +360,7 @@ async def _translate_one(
                         index, attempt + 1, e,
                     )
                     break
-        else:
+        if not translated:
             translated = f"[翻译失败: {beautify_translation_error(last_error)}]"
 
     async with progress_lock:
@@ -454,6 +455,7 @@ async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
                         if not original.strip():
                             return {"paragraph_index": index, "original": original, "translated": ""}
 
+                        raw = ""
                         last_error = ""
                         for attempt in range(MAX_RETRIES + 1):
                             try:
@@ -478,7 +480,7 @@ async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
                                         index, attempt + 1, e,
                                     )
                                     break
-                        else:
+                        if not raw:
                             raw = f"[翻译失败: {beautify_translation_error(last_error)}]"
 
                     translated = formula_service.restore_text(raw)
