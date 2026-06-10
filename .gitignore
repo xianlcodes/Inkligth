@@ -83,6 +83,8 @@ icons.svg
 *.txt
 !requirements.txt
 !**/requirements.txt
+!requirements-base.txt
+!**/requirements-base.txt
 !inklight-frontend/public/robots.txt
 !inklight-frontend/public/sitemap.xml
 # 排除所有 .md 文件（除 README.md 外）
