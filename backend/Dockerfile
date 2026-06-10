@@ -6,7 +6,7 @@ WORKDIR /app
 RUN sed -i 's|http://deb.debian.org|http://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        libglx-mesa0 \
+        libgl1 \
         libglib2.0-0 \
         libsm6 \
         libxrender1 \
