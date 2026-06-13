@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from datetime import datetime
+from urllib.parse import quote
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, UploadFile, File, Query
 from fastapi.responses import FileResponse, StreamingResponse
@@ -1388,11 +1389,14 @@ async def download_pdf_translate(
         if not output_path:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
 
+        # Content-Disposition 必须用 latin-1，中文需编码为 RFC 5987
+        safe_ascii = output_filename.encode("ascii", "ignore").decode("ascii") or "translated.pdf"
+        encoded_name = quote(output_filename, safe="")
         return FileResponse(
             path=output_path,
             media_type="application/pdf",
-            filename=output_filename or "translated.pdf",
-            headers={"Content-Disposition": f'attachment; filename="{output_filename or "translated.pdf"}"'},
+            filename=safe_ascii,
+            headers={"Content-Disposition": f'attachment; filename="{safe_ascii}"; filename*=UTF-8\'\'{encoded_name}'},
         )
     except HTTPException:
         raise
@@ -1420,12 +1424,13 @@ async def preview_pdf_translate(
         if not output_path:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
 
-        safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
+        safe_ascii = (output_filename or "translated.pdf").encode("ascii", "ignore").decode("ascii") or "translated.pdf"
+        encoded_name = quote(output_filename or "translated.pdf", safe="")
         return FileResponse(
             path=output_path,
             media_type="application/pdf",
-            filename=safe_filename,
-            headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
+            filename=safe_ascii,
+            headers={"Content-Disposition": f'inline; filename="{safe_ascii}"; filename*=UTF-8\'\'{encoded_name}'},
         )
     except HTTPException:
         raise
