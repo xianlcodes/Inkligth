@@ -1,11 +1,10 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, BigInteger, ForeignKey
-from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.database import AlibabaBase
 
 
-class UserStorage(Base):
+class UserStorage(AlibabaBase):
     __tablename__ = "user_storages"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -17,5 +16,3 @@ class UserStorage(Base):
     invitation_bonus = Column(BigInteger, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    user = relationship("User", backref="storage")

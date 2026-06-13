@@ -1,11 +1,9 @@
 import logging
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, delete
-from sqlalchemy.orm import joinedload
+from sqlalchemy import select, func
 
 from app.models.note import Note
-from app.models.literature import Literature
 from app.schemas.note import NoteCreate, NoteUpdate
 
 logger = logging.getLogger(__name__)
@@ -50,14 +48,14 @@ class NoteService:
         total_result = await db.execute(count_q)
         total = total_result.scalar() or 0
 
-        q = select(Note).options(joinedload(Note.literature)).where(*conditions).order_by(Note.created_at.desc()).offset(skip).limit(limit)
+        q = select(Note).where(*conditions).order_by(Note.created_at.desc()).offset(skip).limit(limit)
         result = await db.execute(q)
-        items = list(result.unique().scalars().all())
+        items = list(result.scalars().all())
         return total, items
 
     @staticmethod
     async def get_note_by_id(db: AsyncSession, note_id: str, user_id: str) -> Optional[Note]:
-        q = select(Note).options(joinedload(Note.literature)).where(Note.id == note_id, Note.user_id == user_id)
+        q = select(Note).where(Note.id == note_id, Note.user_id == user_id)
         result = await db.execute(q)
         return result.unique().scalar_one_or_none()
 
@@ -99,8 +97,7 @@ class NoteService:
 
         q = (
             select(Note)
-            .options(joinedload(Note.literature))
-            .where(*conditions)
+                        .where(*conditions)
             .order_by(Note.created_at.desc())
             .offset(skip)
             .limit(limit)

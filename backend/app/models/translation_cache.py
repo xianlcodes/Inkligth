@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Text, Integer, UniqueConstraint
-from app.db.database import Base
+from app.db.database import TencentBase
 
 
-class TranslationCache(Base):
+class TranslationCache(TencentBase):
     __tablename__ = "translation_cache"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

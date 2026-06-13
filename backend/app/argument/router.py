@@ -31,7 +31,8 @@ from app.argument.schemas import (
 from app.argument.models import Ledger, ReviewSession
 from app.core.ai_client import get_cached_user_ai_client_and_model
 from app.core.config import settings
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_current_user
+from app.db.database import get_tencent_db as get_db
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -39,14 +40,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/argument", tags=["argument"])
 
 
-async def _create_call_llm(db: AsyncSession, user_id: str):
+async def _create_call_llm(_db: AsyncSession, user_id: str):
     """基于用户配置的 AI 引擎创建异步 call_llm 闭包
 
     Returns:
         (call_llm_fn, model_name) or (None, None) 如果引擎未配置
     """
     try:
-        ai_client, model = await get_cached_user_ai_client_and_model(db, user_id)
+        # AI 引擎配置在阿里云用户数据库上，需要单独的 session
+        from app.db.database import AlibabaSessionLocal
+        async with AlibabaSessionLocal() as user_db:
+            ai_client, model = await get_cached_user_ai_client_and_model(user_db, user_id)
         has_key = bool(ai_client.api_key) and ai_client.api_key != "dummy-key"
         logger.info("AI engine for user %s: model=%s, has_key=%s", user_id, model, has_key)
 

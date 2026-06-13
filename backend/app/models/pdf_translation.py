@@ -2,16 +2,17 @@ import uuid
 from datetime import datetime, timedelta
 from sqlalchemy import Column, String, DateTime, BigInteger, ForeignKey, Index
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.database import TencentBase
 
 
-class PdfTranslation(Base):
+class PdfTranslation(TencentBase):
     """原位 PDF 翻译记录，文件保留 3 天后自动清理"""
     __tablename__ = "pdf_translations"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     literature_id = Column(String, ForeignKey("literatures.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # user_id 无 FK 约束（跨库引用 users.id）
+    user_id = Column(String, nullable=False, index=True)
     task_id = Column(String, nullable=False)
     source_lang = Column(String, default="en")
     target_lang = Column(String, default="zh")

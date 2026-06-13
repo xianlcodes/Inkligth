@@ -4,9 +4,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
 from app.db.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
+from app.models.literature import Literature
 from app.schemas.note import NoteCreate, NoteUpdate, NoteResponse, NoteListResponse
 from app.services.note_service import NoteService
 
@@ -51,9 +53,16 @@ async def list_notes(
     total, items = await NoteService.get_all_notes(
         db, str(current_user.id), note_type=note_type, literature_id=literature_id, skip=skip, limit=limit
     )
+    # 批量查询文献标题
+    lit_ids = [n.literature_id for n in items if n.literature_id]
+    lit_titles: dict[str, str] = {}
+    if lit_ids:
+        result = await db.execute(select(Literature.id, Literature.title).where(Literature.id.in_(lit_ids)))
+        for row in result:
+            lit_titles[str(row.id)] = row.title
     return NoteListResponse(
         total=total,
-        items=[_note_to_response(item, literature_title=item.literature.title if item.literature else None) for item in items],
+        items=[_note_to_response(item, literature_title=lit_titles.get(item.literature_id)) for item in items],
     )
 
 
@@ -66,7 +75,11 @@ async def get_note(
     note = await NoteService.get_note_by_id(db, note_id, str(current_user.id))
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="笔记不存在")
-    return _note_to_response(note, literature_title=note.literature.title if note.literature else None)
+    lit_title = None
+    if note.literature_id:
+        r = await db.execute(select(Literature.title).where(Literature.id == note.literature_id))
+        lit_title = r.scalar_one_or_none()
+    return _note_to_response(note, literature_title=lit_title)
 
 
 @router.patch("/{note_id}", response_model=NoteResponse)
@@ -80,7 +93,11 @@ async def update_note(
     if not note:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="笔记不存在")
     updated = await NoteService.update_note(db, note, data)
-    return _note_to_response(updated, literature_title=updated.literature.title if updated.literature else None)
+    lit_title = None
+    if updated.literature_id:
+        r = await db.execute(select(Literature.title).where(Literature.id == updated.literature_id))
+        lit_title = r.scalar_one_or_none()
+    return _note_to_response(updated, literature_title=lit_title)
 
 
 @router.delete("/{note_id}", status_code=status.HTTP_204_NO_CONTENT)

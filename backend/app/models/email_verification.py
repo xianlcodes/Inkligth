@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean
-from app.db.database import Base
+from app.db.database import AlibabaBase
 
 
-class EmailVerificationToken(Base):
+class EmailVerificationToken(AlibabaBase):
     __tablename__ = "email_verification_tokens"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

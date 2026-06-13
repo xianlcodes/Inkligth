@@ -16,6 +16,8 @@ export interface Literature {
   translated_at: string | null
   status: 'unread' | 'reading' | 'read'
   folder_id: string | null
+  total_pages: number | null
+  last_read_page: number | null
   created_at: string
   updated_at: string
 }
@@ -73,4 +75,16 @@ export function getLiteratureFileBlob(id: string) {
 
 export function deleteLiterature(id: string) {
   return apiClient.delete(`/literatures/${id}`)
+}
+
+export function importByDoi(doi: string) {
+  return apiClient.post('/literatures/import-by-doi', { doi })
+}
+
+export function importByArxiv(arxivId: string) {
+  return apiClient.post('/literatures/import-by-arxiv', { arxiv_id: arxivId })
+}
+
+export function getCitation(id: string) {
+  return apiClient.get<{ code: number; data: { format: string; citation: string } }>(`/literatures/${id}/citation`)
 }

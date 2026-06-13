@@ -3,10 +3,10 @@ from datetime import datetime
 from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, Float
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.database import TencentBase
 
 
-class LiteratureChunk(Base):
+class LiteratureChunk(TencentBase):
     __tablename__ = "literature_chunks"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

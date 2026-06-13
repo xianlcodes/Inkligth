@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 
 from app.models.literature import Literature
-from app.models.ai_analysis import AIAnalysis
 from app.models.note import Note
 from app.models.literature_chunk import LiteratureChunk
 from app.models.reading_record import ReadingRecord
@@ -976,6 +975,104 @@ class LiteratureService:
         await db.refresh(db_literature)
         return db_literature
 
+    # ── DOI / arXiv 一键导入 ──────────────────────────────────────────
+
+    @staticmethod
+    async def import_by_doi(db: AsyncSession, user_id: str, doi: str) -> Literature:
+        """通过 DOI 导入文献元数据（无 PDF，需要用户后续上传）"""
+        # 检查是否已存在相同 DOI 的文献
+        from sqlalchemy import select
+        existing = await db.execute(
+            select(Literature).where(Literature.doi == doi, Literature.user_id == user_id)
+        )
+        existing_lit = existing.scalar_one_or_none()
+        if existing_lit:
+            raise ValueError(f"该文献已被导入过")
+
+        metadata = await LiteratureService.fetch_crossref_metadata(doi)
+        if not metadata.get("title"):
+            raise ValueError(f"无法从 DOI 获取元数据: {doi}")
+
+        literature_in = LiteratureCreate(
+            title=metadata.get("title"),
+            authors=metadata.get("authors"),
+            abstract=metadata.get("abstract"),
+            year=metadata.get("year"),
+            journal=metadata.get("journal"),
+            doi=doi,
+            file_path="",
+            status="unread",
+        )
+        return await LiteratureService.create_literature(db, user_id, None, literature_in)
+
+    @staticmethod
+    async def import_by_arxiv(
+        db: AsyncSession, user_id: str, arxiv_id: str,
+        upload_dir: str = "",
+    ) -> Literature:
+        """通过 arXiv ID 导入文献（自动下载 PDF + 元数据）"""
+        metadata = await LiteratureService.fetch_arxiv_metadata(arxiv_id)
+        if not metadata.get("title"):
+            raise ValueError(f"无法从 arXiv 获取元数据: {arxiv_id}")
+
+        pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
+        file_path = ""
+        file_size = 0
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+                resp = await client.get(pdf_url)
+                resp.raise_for_status()
+                content = resp.content
+
+            dest_dir = upload_dir or UPLOAD_DIR
+            os.makedirs(dest_dir, exist_ok=True)
+            filename = f"arxiv_{arxiv_id.replace('.', '_')}.pdf"
+            file_path = os.path.join(dest_dir, filename)
+            with open(file_path, "wb") as f:
+                f.write(content)
+            file_size = len(content)
+        except Exception as e:
+            logger.warning("arXiv PDF download failed for %s: %s", arxiv_id, e)
+            # 即便 PDF 下载失败，也创建带元数据的记录
+
+        literature_in = LiteratureCreate(
+            title=metadata.get("title"),
+            authors=metadata.get("authors"),
+            abstract=metadata.get("abstract"),
+            year=metadata.get("year"),
+            journal=metadata.get("journal"),
+            doi=metadata.get("doi"),
+            file_path=file_path,
+            file_size=file_size,
+            status="unread",
+        )
+        return await LiteratureService.create_literature(db, user_id, None, literature_in)
+
+    @staticmethod
+    def to_bibtex(literature: "Literature") -> str:
+        """生成 BibTeX 引用字符串"""
+        key = literature.doi or literature.id[:8]
+        authors = literature.authors or ""
+        title = literature.title or ""
+        journal = literature.journal or ""
+        year = literature.year or ""
+        doi = literature.doi or ""
+
+        lines = [f"@article{{{key},"]
+        if title:
+            lines.append(f"  title = {{{title}}},")
+        if authors:
+            lines.append(f"  author = {{{authors}}},")
+        if journal:
+            lines.append(f"  journal = {{{journal}}},")
+        if year:
+            lines.append(f"  year = {{{year}}},")
+        if doi:
+            lines.append(f"  doi = {{{doi}}},")
+        lines.append("}")
+        return "\n".join(lines)
+
     @staticmethod
     async def update_literature(db: AsyncSession, db_literature: Literature, literature_in: LiteratureUpdate) -> Literature:
         if literature_in.title is not None:
@@ -996,6 +1093,10 @@ class LiteratureService:
             db_literature.folder_id = literature_in.folder_id
         if literature_in.raw_text is not None:
             db_literature.raw_text = literature_in.raw_text
+        if literature_in.last_read_page is not None:
+            db_literature.last_read_page = literature_in.last_read_page
+        if literature_in.total_pages is not None:
+            db_literature.total_pages = literature_in.total_pages
         await db.commit()
         await db.refresh(db_literature)
         return db_literature
@@ -1005,7 +1106,6 @@ class LiteratureService:
         literature_id = literature.id
         file_path = literature.file_path
 
-        await db.execute(delete(AIAnalysis).where(AIAnalysis.literature_id == literature_id))
         await db.execute(delete(Note).where(Note.literature_id == literature_id))
         await db.execute(delete(LiteratureChunk).where(LiteratureChunk.literature_id == literature_id))
         await db.execute(delete(ReadingRecord).where(ReadingRecord.literature_id == literature_id))

@@ -600,7 +600,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, Plus, Download, ArrowDown, Refresh, ChatDotSquare, Promotion } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
-import { getLiterature, getLiteratureFileBlob, type Literature } from '@/api/literature'
+import { getLiterature, getLiteratureFileBlob, updateLiterature, type Literature } from '@/api/literature'
 import PdfTranslateDialog from '@/components/business/PdfTranslateDialog.vue'
 import { translateTextStream, startFullTranslate, getTaskStatus, deleteFullTranslation, cancelTask, type TranslatedParagraph } from '@/api/translate'
 import { createNote, getNotes, deleteNote, type Note, type RectCoords } from '@/api/note'
@@ -862,6 +862,8 @@ async function sendReadingRecord(page: number, duration: number) {
   if (!literature.value) return
   try {
     await recordReading(literature.value.id, page, Math.max(duration, 0))
+    // Save reading progress
+    await updateLiterature(literature.value.id, { last_read_page: page, total_pages: totalPages.value })
   } catch {
     // silently fail
   }
@@ -960,7 +962,13 @@ function onPdfLoaded(doc: { numPages: number; getPage: (n: number) => Promise<{ 
     const viewport = page.getViewport({ scale: 1 })
     pdfPageWidth = viewport.width
     fitToWidth()
-    nextTick(() => renderHighlights())
+    nextTick(() => {
+      renderHighlights()
+      // Restore reading progress
+      if (literature.value?.last_read_page && !route.query.page) {
+        scrollToPage(literature.value.last_read_page)
+      }
+    })
   })
 }
 

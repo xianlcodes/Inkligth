@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, ForeignKey
-from app.db.database import Base
+from app.db.database import AlibabaBase
 
 
-class RefreshToken(Base):
+class RefreshToken(AlibabaBase):
     __tablename__ = "refresh_tokens"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

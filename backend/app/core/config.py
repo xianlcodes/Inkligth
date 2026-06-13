@@ -33,11 +33,19 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
 
     # PostgreSQL 分散字段（可通过 env var 逐个覆盖）
+    # 用于腾讯云远程数据库（文献相关）
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: str = "5432"
     POSTGRES_USER: str = "inklight"
     POSTGRES_PASSWORD: str = "inklight"
     POSTGRES_DB: str = "inklight"
+
+    # 阿里云本地数据库（用户相关）
+    LOCAL_POSTGRES_SERVER: str = "localhost"
+    LOCAL_POSTGRES_PORT: str = "5432"
+    LOCAL_POSTGRES_USER: str = "inklight"
+    LOCAL_POSTGRES_PASSWORD: str = "inklight"
+    LOCAL_POSTGRES_DB: str = "inklight"
 
     # Redis 分散字段（仅当 REDIS_URL 为空时使用）
     REDIS_HOST: str = "localhost"
@@ -78,14 +86,18 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL_FINAL(self) -> str:
-        """返回实际使用的数据库 URL
-
-        始终从分散字段构建 URL；docker-compose / docker -e 可通过
-        POSTGRES_SERVER 等字段逐个覆盖，比整段 URL 更灵活。
-        """
+        """返回腾讯云远程数据库 URL（文献相关数据）"""
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+    @property
+    def LOCAL_DATABASE_URL_FINAL(self) -> str:
+        """返回阿里云本地数据库 URL（用户相关数据）"""
+        return (
+            f"postgresql+asyncpg://{self.LOCAL_POSTGRES_USER}:{self.LOCAL_POSTGRES_PASSWORD}"
+            f"@{self.LOCAL_POSTGRES_SERVER}:{self.LOCAL_POSTGRES_PORT}/{self.LOCAL_POSTGRES_DB}"
         )
 
     @property

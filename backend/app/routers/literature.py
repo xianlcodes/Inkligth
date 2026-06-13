@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.db.database import get_tencent_db as get_db, get_user_db, TencentSessionLocal, AlibabaSessionLocal
 from app.core.deps import get_current_user
 from app.core.ai_client import get_user_ai_client, get_user_default_model
 from app.core.ai_providers.translator import OpenAITranslator, beautify_translation_error
@@ -37,25 +37,28 @@ router = APIRouter(tags=["literatures"])
 
 
 def _resolve_file_path(file_path: str) -> str:
-    if os.path.isabs(file_path) and os.path.exists(file_path):
+    if not file_path:
+        return ""
+
+    if os.path.isabs(file_path) and os.path.isfile(file_path):
         return file_path
 
     upload_dir = os.path.abspath(settings.UPLOAD_DIR)
 
     if not os.path.isabs(file_path):
         candidate = os.path.join(upload_dir, os.path.basename(file_path))
-        if os.path.exists(candidate):
+        if os.path.isfile(candidate):
             return candidate
 
         candidate = os.path.join(upload_dir, file_path)
-        if os.path.exists(candidate):
+        if os.path.isfile(candidate):
             return candidate
 
     legacy_path = os.path.join("/app", file_path)
-    if os.path.exists(legacy_path):
+    if os.path.isfile(legacy_path):
         return legacy_path
 
-    return os.path.join(upload_dir, os.path.basename(file_path))
+    return ""
 
 
 @router.post("", response_model=LiteratureResponse)
@@ -120,6 +123,61 @@ async def upload_literature(
     return literature
 
 
+class ImportByDoiRequest(BaseModel):
+    doi: str
+
+class ImportByArxivRequest(BaseModel):
+    arxiv_id: str
+
+
+@router.post("/import-by-doi")
+async def import_by_doi(
+    body: ImportByDoiRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """通过 DOI 导入文献元数据（无 PDF，需用户后续上传）"""
+    try:
+        literature = await LiteratureService.import_by_doi(db, str(current_user.id), body.doi.strip())
+        return literature
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/import-by-arxiv")
+async def import_by_arxiv(
+    body: ImportByArxivRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    """通过 arXiv ID 导入文献（自动下载 PDF + 元数据）"""
+    try:
+        literature = await LiteratureService.import_by_arxiv(
+            db, str(current_user.id), body.arxiv_id.strip(),
+            upload_dir=settings.UPLOAD_DIR,
+        )
+        return literature
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/{literature_id}/citation")
+async def get_citation(
+    literature_id: str,
+    format: str = Query("bibtex", pattern="^(bibtex)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """获取文献引用（支持 BibTeX）"""
+    from app.services.literature_service import LiteratureService
+    lit = await LiteratureService.get_literature_by_id(db, literature_id, str(current_user.id))
+    if not lit:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+    bibtex = LiteratureService.to_bibtex(lit)
+    return {"code": 200, "data": {"format": format, "citation": bibtex}}
+
+
 @router.get("", response_model=LiteratureListResponse)
 async def list_literatures(
     skip: int = Query(0, ge=0),
@@ -172,11 +230,17 @@ async def delete_literature(
     literature_id: str,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
+    user_db: AsyncSession = Depends(get_user_db),
 ):
     literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
     if not literature:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
     file_size = literature.file_size or 0
+    # AIAnalysis 在阿里云用户数据库上，需要单独删除
+    from app.models.ai_analysis import AIAnalysis
+    from sqlalchemy import delete
+    await user_db.execute(delete(AIAnalysis).where(AIAnalysis.literature_id == literature_id))
+    await user_db.commit()
     await LiteratureService.delete_literature(db, literature)
     if file_size > 0:
         await StorageService.release_used_space(db, current_user.id, file_size)
@@ -197,7 +261,9 @@ async def get_literature_file(
     file_path = literature.file_path
     absolute_path = _resolve_file_path(file_path)
 
-    if not os.path.exists(absolute_path):
+    if not absolute_path or not os.path.exists(absolute_path):
+        if not literature.file_path:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="该文献暂无 PDF 文件（通过 DOI 导入仅有元数据）")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
 
     return FileResponse(
@@ -806,6 +872,7 @@ async def start_analyze(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
+    user_db: AsyncSession = Depends(get_user_db),
 ):
     literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
     if not literature:
@@ -814,7 +881,7 @@ async def start_analyze(
     if not literature.raw_text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该文献暂无文本内容，无法分析")
 
-    existing = await AnalysisService.get_analysis_by_literature(db, current_user.id, literature_id)
+    existing = await AnalysisService.get_analysis_by_literature(user_db, current_user.id, literature_id)
     if existing:
         return AnalyzeResponse(
             task_id="cached",
@@ -846,7 +913,7 @@ async def start_analyze(
 @router.get("/{literature_id}/analysis", response_model=AnalysisResponse)
 async def get_analysis(
     literature_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
     current_user=Depends(get_current_user),
 ):
     analysis = await AnalysisService.get_analysis_by_literature(db, current_user.id, literature_id)
@@ -865,23 +932,23 @@ async def get_analysis(
 
 
 async def _run_analyze(task_id: str, literature_id: str, user_id: str):
-    from app.db.database import async_session_factory
+    from app.db.database import TencentSessionLocal, AlibabaSessionLocal
 
     try:
-        async with async_session_factory() as db:
-            literature = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
+        async with TencentSessionLocal() as tencent_db, AlibabaSessionLocal() as user_db:
+            literature = await LiteratureService.get_literature_by_id(tencent_db, literature_id, user_id)
             if not literature or not literature.raw_text:
                 await task_store.update_task(task_id, status=TaskStatus.FAILED, error="文献不存在或无文本内容")
                 return
 
-            ai_client = await get_user_ai_client(db, user_id)
-            model = await get_user_default_model(db, user_id)
+            ai_client = await get_user_ai_client(user_db, user_id)
+            model = await get_user_default_model(user_db, user_id)
             analyzer = OpenAIAnalyzer(client=ai_client, model=model)
 
             result = await analyzer.analyze(literature.raw_text)
 
             await AnalysisService.create_or_update_analysis(
-                db,
+                user_db,
                 user_id=user_id,
                 literature_id=literature_id,
                 summary=result.get("summary", {}),
@@ -1265,15 +1332,21 @@ async def cancel_pdf_translate(
     return {"code": 200, "msg": "翻译任务已取消"}
 
 
-async def _resolve_translate_file(db, task_id: str, literature_id: str, user_id: str):
+async def _resolve_translate_file(db, task_id: str, literature_id: str, user_id: str, title: str = ""):
     """从 task_store 或 PdfTranslation 表解析翻译文件路径，返回 (path, filename) 或 None"""
+    # 用论文标题构造文件名
+    if title:
+        safe = "".join(c for c in title if c.isalnum() or c in " _-").strip() or "translated"
+        base_name = f"{safe} - 原位翻译.pdf"
+    else:
+        base_name = "translated.pdf"
+
     task_info = await task_store.get_task(task_id)
     if task_info and task_info.status == TaskStatus.COMPLETED:
         result = task_info.result or {}
         path = result.get("output_path")
-        fname = result.get("output_filename")
         if path and os.path.exists(path):
-            return path, fname or "translated.pdf"
+            return path, base_name
 
     # Fallback: 从数据库查找
     from datetime import datetime as dt
@@ -1289,7 +1362,7 @@ async def _resolve_translate_file(db, task_id: str, literature_id: str, user_id:
     )
     rec = result.scalar_one_or_none()
     if rec and rec.file_path and os.path.exists(rec.file_path):
-        return rec.file_path, f"translated.pdf"
+        return rec.file_path, base_name
     return None, None
 
 
@@ -1305,17 +1378,17 @@ async def download_pdf_translate(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
 
     output_path, output_filename = await _resolve_translate_file(
-        db, task_id, literature_id, str(current_user.id)
+        db, task_id, literature_id, str(current_user.id),
+        title=literature.title or "",
     )
     if not output_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
 
-    safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
     return FileResponse(
         path=output_path,
         media_type="application/pdf",
-        filename=safe_filename,
-        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'},
+        filename=output_filename or "translated.pdf",
+        headers={"Content-Disposition": f'attachment; filename="{output_filename or "translated.pdf"}"'},
     )
 
 

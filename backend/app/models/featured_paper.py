@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Text, Date, DateTime
-from app.db.database import Base
+from app.db.database import TencentBase
 
 
-class FeaturedPaper(Base):
+class FeaturedPaper(TencentBase):
     __tablename__ = "featured_papers"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

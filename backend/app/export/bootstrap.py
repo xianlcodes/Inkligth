@@ -21,7 +21,7 @@ def init_export(app: FastAPI) -> None:
         app: FastAPI 应用实例（由现有 main.py 创建）
     """
     from app.export.router import router
-    from app.export.models import ExportRecord  # noqa: F401 - 确保 SQLAlchemy 发现模型
+    from app.export.models import ExportRecord  # noqa: F401 - ensure SQLAlchemy discovers the model
 
     app.include_router(router, prefix="/api/v1")
 
@@ -30,7 +30,7 @@ def init_export(app: FastAPI) -> None:
     _ensure_export_dir()
 
     # 确保数据库表存在（create_all 是幂等的，仅创建不存在的表）
-    from app.db.database import Base, engine
+    from app.db.database import AlibabaBase, alibaba_engine
     import asyncio
 
     try:
@@ -49,7 +49,7 @@ def init_export(app: FastAPI) -> None:
 
 async def _ensure_tables():
     """创建导出相关数据库表（如果不存在）"""
-    from app.db.database import Base, engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    from app.db.database import AlibabaBase, alibaba_engine
+    async with alibaba_engine.begin() as conn:
+        await conn.run_sync(AlibabaBase.metadata.create_all)
     logger.info("Export tables ensured")

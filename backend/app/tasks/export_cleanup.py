@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 
 async def cleanup_expired_exports():
     """清理所有过期导出文件（供 APScheduler 调用）"""
-    from app.db.database import AsyncSessionLocal
+    from app.db.database import AlibabaSessionLocal
     from app.export.exporter_service import ExportService
 
     logger.info("[Export Cleanup] Starting cleanup of expired exports...")
     try:
-        async with AsyncSessionLocal() as db:
+        async with AlibabaSessionLocal() as db:
             count = await ExportService.cleanup_expired_files(db)
             if count:
                 logger.warning("[Export Cleanup] Removed %d expired export files", count)

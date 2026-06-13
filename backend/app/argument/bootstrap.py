@@ -21,23 +21,20 @@ def init_argument(app: FastAPI) -> None:
     """
     try:
         from app.argument.router import router as argument_router
-        from app.db.database import Base, engine
+        from app.db.database import TencentBase, tencent_engine
 
         # 注册路由
         app.include_router(argument_router, prefix="/api/v1")
 
         # 确保数据库表存在（异步引擎需用 run_sync）
         async def _create_tables():
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
+            async with tencent_engine.begin() as conn:
+                await conn.run_sync(TencentBase.metadata.create_all)
 
         asyncio.create_task(_create_tables())
 
         logger.info("Argument Companion module initialized (routes + tables)")
 
     except Exception as e:
-        logger.warning(
-            "Argument Companion init failed (non-fatal): %s. "
-            "Routes and tables may need manual setup.",
-            e,
-        )
+        msg = "Argument Companion init failed (non-fatal): %s. Routes and tables may need manual setup."
+        logger.warning(msg, e)

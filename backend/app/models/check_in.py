@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime, date
 from sqlalchemy import Column, String, DateTime, Integer, BigInteger, Date, ForeignKey
-from app.db.database import Base
+from app.db.database import AlibabaBase
 
 
-class CheckIn(Base):
+class CheckIn(AlibabaBase):
     __tablename__ = "check_ins"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

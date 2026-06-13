@@ -39,6 +39,10 @@
             class="ml-1_5"
           />
         </el-button>
+        <el-button @click="importDialogVisible = true">
+          <el-icon><Link /></el-icon>
+          导入
+        </el-button>
       </div>
     </div>
 
@@ -143,13 +147,26 @@
             :key="lit.id"
             shadow="hover"
             class="cursor-pointer"
-            @click="openReader(lit.id)"
+            @click="handleCardClick(lit)"
           >
             <div class="flex items-start justify-between mb-2_5 flex-wrap gap-1">
               <div class="card-icon">
                 <el-icon :size="20"><Document /></el-icon>
               </div>
-              <el-tag :type="statusType(lit.status)" size="small" effect="plain">{{ statusText(lit.status) }}</el-tag>
+              <div class="flex items-center gap-2">
+                <el-tag :type="statusType(lit.status)" size="small" effect="plain">{{ statusText(lit.status) }}</el-tag>
+                <el-select
+                  v-model="lit.status"
+                  size="small"
+                  class="status-select"
+                  @click.stop
+                  @change="(val: string) => handleStatusChange(lit.id, val)"
+                >
+                  <el-option label="未读" value="unread" />
+                  <el-option label="在读" value="reading" />
+                  <el-option label="已读" value="read" />
+                </el-select>
+              </div>
               <el-tag
                 v-if="isProcessingTitle(lit)"
                 type="warning"
@@ -168,11 +185,14 @@
               <span v-if="lit.year">{{ lit.year }}</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-xs text-slate-400">{{ formatDateOnly(lit.created_at) }}</span>
+              <span class="text-xs text-slate-400 whitespace-nowrap">{{ formatDateOnly(lit.created_at) }}</span>
               <div class="flex items-center gap-2">
                 <el-button size="small" type="primary" text @click.stop="openDetail(lit.id)">
                   <el-icon><Reading /></el-icon>
                   详情
+                </el-button>
+                <el-button size="small" text @click.stop="handleCopyCitation(lit.id)" title="复制 BibTeX 引用">
+                  <el-icon><Link /></el-icon>
                 </el-button>
                 <el-dropdown trigger="click" @click.stop>
                   <el-button size="small" text @click.stop>
@@ -204,17 +224,6 @@
                     </el-button>
                   </template>
                 </el-popconfirm>
-                <el-select
-                  v-model="lit.status"
-                  size="small"
-                  class="status-select"
-                  @click.stop
-                  @change="(val: string) => handleStatusChange(lit.id, val)"
-                >
-                  <el-option label="未读" value="unread" />
-                  <el-option label="在读" value="reading" />
-                  <el-option label="已读" value="read" />
-                </el-select>
               </div>
             </div>
           </el-card>
@@ -256,6 +265,26 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="importDialogVisible" title="导入文献" width="420px">
+      <el-form label-position="top">
+        <el-form-item label="DOI">
+          <el-input v-model="importDoiValue" placeholder="例：10.1038/s41586-023-06014-9">
+            <template #append>
+              <el-button :loading="importingDoi" @click="handleImportByDoi">导入</el-button>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-divider />
+        <el-form-item label="arXiv ID">
+          <el-input v-model="importArxivValue" placeholder="例：2303.08774">
+            <template #append>
+              <el-button :loading="importingArxiv" @click="handleImportByArxiv">导入</el-button>
+            </template>
+          </el-input>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
+
     <UploadProgressPanel
       :items="uploadQueue.items"
       @pause="uploadQueue.pauseItem"
@@ -273,12 +302,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Upload, Document, Reading, Search, Collection,
   Delete, Folder, FolderOpened, FolderDelete,
-  Plus, Edit, MoreFilled, ArrowDown, Loading,
+  Plus, Edit, MoreFilled, ArrowDown, Loading, Link,
 } from '@element-plus/icons-vue'
 import { useLiteratureStore } from '@/stores/literature'
 import { useRouter } from 'vue-router'
 import type { Literature } from '@/api/literature'
-import { deleteLiterature, updateLiteratureFolder, getLiteratures } from '@/api/literature'
+import { deleteLiterature, updateLiteratureFolder, getLiteratures, importByDoi, importByArxiv, getCitation } from '@/api/literature'
 import { getFolders, createFolder, renameFolder, deleteFolder, type FolderItem } from '@/api/folder'
 import { getStorage } from '@/api/storage'
 import { useUploadQueue } from '@/composables/useUploadQueue'
@@ -305,6 +334,13 @@ const allLiteratureCount = ref(0)
 const newFolderInputVisible = ref(false)
 const newFolderName = ref('')
 const newFolderInputRef = ref()
+
+// 导入对话框
+const importDialogVisible = ref(false)
+const importDoiValue = ref('')
+const importArxivValue = ref('')
+const importingDoi = ref(false)
+const importingArxiv = ref(false)
 
 const renameFolderVisible = ref(false)
 const renameFolderId = ref<string | null>(null)
@@ -518,6 +554,14 @@ function openReader(id: string) {
   router.push(`/read/${id}`)
 }
 
+function handleCardClick(lit: Literature) {
+  if (lit.file_path) {
+    router.push(`/read/${lit.id}`)
+  } else {
+    openDetail(lit.id)
+  }
+}
+
 async function handleStatusChange(id: string, status: string) {
   try {
     await literatureStore.updateStatus(id, status)
@@ -652,6 +696,57 @@ async function handleDeleteFolder(id: string) {
     await loadFolders()
   } catch (error: any) {
     ElMessage.error(error.response?.data?.detail || '删除失败')
+  }
+}
+
+async function handleImportByDoi() {
+  const doi = importDoiValue.value.trim()
+  if (!doi) {
+    ElMessage.warning('请输入 DOI')
+    return
+  }
+  importingDoi.value = true
+  try {
+    await importByDoi(doi)
+    ElMessage.success('文献已通过 DOI 导入')
+    importDialogVisible.value = false
+    importDoiValue.value = ''
+    handleSearch()
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.detail || 'DOI 导入失败')
+  } finally {
+    importingDoi.value = false
+  }
+}
+
+async function handleImportByArxiv() {
+  const arxivId = importArxivValue.value.trim()
+  if (!arxivId) {
+    ElMessage.warning('请输入 arXiv ID')
+    return
+  }
+  importingArxiv.value = true
+  try {
+    await importByArxiv(arxivId)
+    ElMessage.success('文献已通过 arXiv 导入')
+    importDialogVisible.value = false
+    importArxivValue.value = ''
+    handleSearch()
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.detail || 'arXiv 导入失败')
+  } finally {
+    importingArxiv.value = false
+  }
+}
+
+async function handleCopyCitation(id: string) {
+  try {
+    const resp = await getCitation(id)
+    const citation = resp.data.data.citation
+    await navigator.clipboard.writeText(citation)
+    ElMessage.success('BibTeX 引用已复制')
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.detail || '获取引用失败')
   }
 }
 </script>

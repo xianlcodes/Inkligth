@@ -24,7 +24,7 @@ def init_skills(app: FastAPI) -> None:
     app.include_router(router, prefix="/api/v1")
 
     # 确保数据库表存在
-    from app.db.database import Base, engine
+    from app.db.database import AlibabaBase, alibaba_engine
 
     try:
         loop = asyncio.get_event_loop()
@@ -50,18 +50,18 @@ def init_skills(app: FastAPI) -> None:
 
 async def _ensure_tables():
     """创建技能/钩子相关数据库表"""
-    from app.db.database import Base, engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    from app.db.database import AlibabaBase, alibaba_engine
+    async with alibaba_engine.begin() as conn:
+        await conn.run_sync(AlibabaBase.metadata.create_all)
     logger.info("Skills/Hooks tables ensured")
 
 
 async def _install_presets():
     """安装预置技能"""
-    from app.db.database import AsyncSessionLocal
+    from app.db.database import AlibabaSessionLocal
     from app.skills.services import SkillService
 
-    async with AsyncSessionLocal() as db:
+    async with AlibabaSessionLocal() as db:
         count = await SkillService.install_presets(db)
         if count:
             logger.info("Installed %d preset skills on startup", count)

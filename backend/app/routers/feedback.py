@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.db.database import get_user_db as get_db
 from app.core.deps import get_current_user
 from app.schemas.feedback import FeedbackCreate, FeedbackResponse, FeedbackListResponse
 from app.services.feedback_service import FeedbackService

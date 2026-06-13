@@ -41,7 +41,7 @@
         v-for="note in filteredNotes"
         :key="note.id"
         class="note-card"
-        @click="openEditDialog(note)"
+        @click="navigateToReader(note)"
       >
         <div class="flex-shrink-0 pt-0_5">
           <el-tag :type="noteTypeColor(note.note_type)" size="small" effect="dark" class="!rounded-lg">
@@ -61,6 +61,9 @@
           </div>
         </div>
         <div class="note-card-actions" @click.stop>
+          <el-button text size="small" @click="openEditDialog(note)">
+            <el-icon><Edit /></el-icon>
+          </el-button>
           <el-button text size="small" type="danger" @click="handleDelete(note)">
             <el-icon><Delete /></el-icon>
           </el-button>
@@ -108,6 +111,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, shallowRef } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Document, Delete, Search, Edit, Operation, Menu, Tickets } from '@element-plus/icons-vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
@@ -115,6 +119,8 @@ import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { getNotes, updateNote, deleteNote, type Note } from '@/api/note'
 import { formatDateShort } from '@/utils/time'
+
+const router = useRouter()
 
 const notes = ref<Note[]>([])
 const loading = ref(false)
@@ -263,6 +269,15 @@ function noteTypeColor(type: string) {
     question: 'danger',
   }
   return map[type] || ''
+}
+
+function navigateToReader(note: Note) {
+  if (!note.literature_id) return
+  const query: Record<string, string> = {}
+  if (note.page_number && parseInt(note.page_number) > 0) {
+    query.page = note.page_number
+  }
+  router.push({ path: `/read/${note.literature_id}`, query })
 }
 
 function formatDate(dateStr: string) {

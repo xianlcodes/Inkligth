@@ -65,6 +65,7 @@ Thumbs.db
 doc/
 *.zip
 docker-compose.yml
+DEPLOY.md
 
 # Backend
 backend/all-MiniLM-L6-v2/

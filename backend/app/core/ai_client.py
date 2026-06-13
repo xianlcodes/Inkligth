@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.services.ai_engine_service import AIEngineService, decrypt_api_key
+from app.db.database import AlibabaSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,9 @@ def invalidate_user_ai_cache(user_id: str) -> None:
 
 
 async def get_cached_user_ai_client_and_model(
-    db: AsyncSession, user_id: str
+    _db: AsyncSession, user_id: str
 ) -> tuple[AsyncOpenAI, str]:
+    """获取缓存的 AI 客户端和模型名（AI 引擎数据在阿里云用户数据库）"""
     cache_key = str(user_id)
     now = time.monotonic()
     if cache_key in _user_ai_cache:
@@ -51,16 +53,22 @@ async def get_cached_user_ai_client_and_model(
         if now - ts < _AI_CLIENT_CACHE_TTL:
             return client, model
 
-    client = await get_user_ai_client(db, user_id)
-    model = await get_user_default_model(db, user_id)
+    # AIEngine 在阿里云用户数据库上，使用独立的 session
+    async with AlibabaSessionLocal() as user_db:
+        client = await get_user_ai_client(user_db, user_id)
+        model = await get_user_default_model(user_db, user_id)
     _user_ai_cache[cache_key] = (now, client, model)
     logger.debug("AI client cached for user %s, model=%s", user_id, model)
     return client, model
 
 
-async def get_user_ai_client(db: AsyncSession, user_id: str) -> AsyncOpenAI:
-    engine = await AIEngineService.get_default_engine(db, user_id)
+async def get_user_ai_client(_db: AsyncSession, user_id: str) -> AsyncOpenAI:
+    """AIEngine 在阿里云用户数据库上"""
+    async with AlibabaSessionLocal() as user_db:
+        engine = await AIEngineService.get_default_engine(user_db, user_id)
     if engine:
+        logger.info("Found AI engine %s for user %s (provider=%s, model=%s)",
+                     engine.id, user_id, engine.provider, engine.default_model)
         try:
             api_key = decrypt_api_key(engine.api_key)
         except Exception as e:
@@ -84,6 +92,7 @@ async def get_user_ai_client(db: AsyncSession, user_id: str) -> AsyncOpenAI:
             http_client=_get_http_client(use_proxy=use_proxy),
         )
 
+    logger.warning("No AI engine found for user %s — trying global fallback", user_id)
     if settings.DEFAULT_AI_KEY:
         return AsyncOpenAI(
             base_url=settings.DEFAULT_AI_BASE_URL,
@@ -101,8 +110,10 @@ async def get_user_ai_client(db: AsyncSession, user_id: str) -> AsyncOpenAI:
     )
 
 
-async def get_user_default_model(db: AsyncSession, user_id: str) -> str:
-    engine = await AIEngineService.get_default_engine(db, user_id)
+async def get_user_default_model(_db: AsyncSession, user_id: str) -> str:
+    """AIEngine 在阿里云用户数据库上"""
+    async with AlibabaSessionLocal() as user_db:
+        engine = await AIEngineService.get_default_engine(user_db, user_id)
     if engine:
         return engine.default_model
     return settings.DEFAULT_AI_MODEL

@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 
 async def init_export_tables():
     """创建导出系统所需的数据库表"""
-    from app.db.database import Base, engine
+    from app.db.database import AlibabaBase, alibaba_engine
     from app.export.models import ExportRecord  # noqa: F401 - 注册模型
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with alibaba_engine.begin() as conn:
+        await conn.run_sync(AlibabaBase.metadata.create_all)
     logger.info("Export tables created successfully (if not existed)")
 
 

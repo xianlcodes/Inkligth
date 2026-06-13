@@ -22,7 +22,7 @@ async def fetch_featured_papers_job():
             count = await fetch_and_store_featured_papers(db)
             logger.warning("[Scheduler] Fetched and stored %d new featured papers", count)
     except Exception as e:
-        logger.error("[Scheduler] Failed to fetch featured papers: %s", e, exc_info=True)
+        logger.error("[Scheduler] Failed to fetch featured papers: %s", e)
 
 
 async def run_initial_fetch():
@@ -30,13 +30,12 @@ async def run_initial_fetch():
     from app.db.database import AsyncSessionLocal
     from app.services.featured_paper_service import fetch_and_store_featured_papers
 
-    logger.warning("[Scheduler] Running initial featured papers fetch on startup...")
     try:
         async with AsyncSessionLocal() as db:
             count = await fetch_and_store_featured_papers(db)
             logger.warning("[Scheduler] Initial fetch complete: %d papers stored", count)
     except Exception as e:
-        logger.error("[Scheduler] Initial fetch failed: %s", e, exc_info=True)
+        logger.warning("[Scheduler] Initial fetch skipped (remote DB not accessible): %s", e)
 
 
 def start_scheduler():

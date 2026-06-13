@@ -2,15 +2,16 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, LargeBinary, ForeignKey, Index
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.database import TencentBase
 
 
-class Translation(Base):
+class Translation(TencentBase):
     __tablename__ = "translations"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     literature_id = Column(String, ForeignKey("literatures.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # user_id 无 FK 约束（跨库引用 users.id）
+    user_id = Column(String, nullable=False, index=True)
     content_hash = Column(String(64), nullable=False)
     engine_version = Column(String, nullable=True)
     translation_style = Column(String, nullable=True)

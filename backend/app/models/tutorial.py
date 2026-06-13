@@ -2,10 +2,10 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean, Text, Integer, ForeignKey
 from sqlalchemy.orm import relationship
-from app.db.database import Base
+from app.db.database import AlibabaBase
 
 
-class Tutorial(Base):
+class Tutorial(AlibabaBase):
     __tablename__ = "tutorials"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -18,10 +18,12 @@ class Tutorial(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    versions = relationship("TutorialVersion", back_populates="tutorial", order_by="TutorialVersion.version_number.desc()", lazy="selectin")
+    versions = relationship("TutorialVersion", back_populates="tutorial",
+                            order_by="TutorialVersion.version_number.desc()",
+                            lazy="selectin")
 
 
-class TutorialVersion(Base):
+class TutorialVersion(AlibabaBase):
     __tablename__ = "tutorial_versions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

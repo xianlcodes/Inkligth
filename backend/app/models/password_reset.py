@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean
-from app.db.database import Base
+from app.db.database import AlibabaBase
 
 
-class PasswordResetToken(Base):
+class PasswordResetToken(AlibabaBase):
     __tablename__ = "password_reset_tokens"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

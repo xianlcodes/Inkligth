@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey
-from app.db.database import Base
+from app.db.database import AlibabaBase
 
 
-class Invitation(Base):
+class Invitation(AlibabaBase):
     __tablename__ = "invitations"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

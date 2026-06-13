@@ -32,6 +32,8 @@ class LiteratureUpdate(BaseModel):
     status: Optional[str] = None
     folder_id: Optional[str] = None
     raw_text: Optional[str] = None
+    last_read_page: Optional[int] = None
+    total_pages: Optional[int] = None
 
 
 class LiteratureResponse(LiteratureBase):
@@ -43,6 +45,8 @@ class LiteratureResponse(LiteratureBase):
     translated_text: Optional[str] = None
     translated_at: Optional[datetime] = None
     folder_id: Optional[str] = None
+    total_pages: Optional[int] = None
+    last_read_page: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

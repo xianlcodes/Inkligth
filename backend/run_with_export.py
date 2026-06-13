@@ -47,14 +47,14 @@ try:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     from apscheduler.triggers.interval import IntervalTrigger
     from app.export.exporter_service import ExportService
-    from app.db.database import AsyncSessionLocal
+    from app.db.database import AlibabaSessionLocal
 
     scheduler = AsyncIOScheduler()
     cleanup_trigger = IntervalTrigger(minutes=15)
 
     async def cleanup_job():
         try:
-            async with AsyncSessionLocal() as db:
+            async with AlibabaSessionLocal() as db:
                 count = await ExportService.cleanup_expired_files(db)
                 if count:
                     logger.info("Export cleanup: removed %d expired files", count)
