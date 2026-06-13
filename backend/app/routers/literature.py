@@ -1345,24 +1345,27 @@ async def _resolve_translate_file(db, task_id: str, literature_id: str, user_id:
     if task_info and task_info.status == TaskStatus.COMPLETED:
         result = task_info.result or {}
         path = result.get("output_path")
-        if path and os.path.exists(path):
+        if path and os.path.isfile(path):
             return path, base_name
 
     # Fallback: 从数据库查找
-    from datetime import datetime as dt
-    from app.models.pdf_translation import PdfTranslation
-    from sqlalchemy import select
-    result = await db.execute(
-        select(PdfTranslation).where(
-            PdfTranslation.task_id == task_id,
-            PdfTranslation.literature_id == literature_id,
-            PdfTranslation.user_id == str(user_id),
-            PdfTranslation.expires_at > dt.utcnow(),
-        ).limit(1)
-    )
-    rec = result.scalar_one_or_none()
-    if rec and rec.file_path and os.path.exists(rec.file_path):
-        return rec.file_path, base_name
+    try:
+        from datetime import datetime as dt
+        from app.models.pdf_translation import PdfTranslation
+        from sqlalchemy import select
+        result = await db.execute(
+            select(PdfTranslation).where(
+                PdfTranslation.task_id == task_id,
+                PdfTranslation.literature_id == literature_id,
+                PdfTranslation.user_id == str(user_id),
+                PdfTranslation.expires_at > dt.utcnow(),
+            ).limit(1)
+        )
+        rec = result.scalar_one_or_none()
+        if rec and rec.file_path and os.path.isfile(rec.file_path):
+            return rec.file_path, base_name
+    except Exception as e:
+        logger.error("Failed to query PdfTranslation table: %s", e, exc_info=True)
     return None, None
 
 
@@ -1373,23 +1376,30 @@ async def download_pdf_translate(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
-    if not literature:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+    try:
+        literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+        if not literature:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
 
-    output_path, output_filename = await _resolve_translate_file(
-        db, task_id, literature_id, str(current_user.id),
-        title=literature.title or "",
-    )
-    if not output_path:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
+        output_path, output_filename = await _resolve_translate_file(
+            db, task_id, literature_id, str(current_user.id),
+            title=literature.title or "",
+        )
+        if not output_path:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
 
-    return FileResponse(
-        path=output_path,
-        media_type="application/pdf",
-        filename=output_filename or "translated.pdf",
-        headers={"Content-Disposition": f'attachment; filename="{output_filename or "translated.pdf"}"'},
-    )
+        return FileResponse(
+            path=output_path,
+            media_type="application/pdf",
+            filename=output_filename or "translated.pdf",
+            headers={"Content-Disposition": f'attachment; filename="{output_filename or "translated.pdf"}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Download PDF translate failed: literature=%s task=%s error=%s",
+                      literature_id, task_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"下载翻译文件失败: {str(e)[:200]}")
 
 
 @router.get("/{literature_id}/translate-pdf/{task_id}/preview")
@@ -1399,23 +1409,30 @@ async def preview_pdf_translate(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
-    if not literature:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
+    try:
+        literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
+        if not literature:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
 
-    output_path, output_filename = await _resolve_translate_file(
-        db, task_id, literature_id, str(current_user.id)
-    )
-    if not output_path:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
+        output_path, output_filename = await _resolve_translate_file(
+            db, task_id, literature_id, str(current_user.id)
+        )
+        if not output_path:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="翻译结果文件不存在或已过期")
 
-    safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
-    return FileResponse(
-        path=output_path,
-        media_type="application/pdf",
-        filename=safe_filename,
-        headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
-    )
+        safe_filename = "".join(c for c in (output_filename or "translated.pdf") if c.isalnum() or c in "._- ")
+        return FileResponse(
+            path=output_path,
+            media_type="application/pdf",
+            filename=safe_filename,
+            headers={"Content-Disposition": f'inline; filename="{safe_filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Preview PDF translate failed: literature=%s task=%s error=%s",
+                      literature_id, task_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"预览翻译文件失败: {str(e)[:200]}")
 
 
 async def _run_pdf_translate(

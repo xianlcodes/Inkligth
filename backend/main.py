@@ -71,6 +71,15 @@ async def startup_event():
         import logging
         logging.getLogger(__name__).warning("Featured papers scheduler failed to start", exc_info=True)
 
+    # 确保翻译文件记录表存在（新部署时 init_db.py 可能未运行）
+    try:
+        from app.db.database import tencent_engine, TencentBase
+        async with tencent_engine.begin() as conn:
+            await conn.run_sync(TencentBase.metadata.create_all)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("TencentBase create_all failed", exc_info=True)
+
     # 清理重启后遗留的 stale task（跨进程/重启）
     try:
         from app.utils.task_store import task_store

@@ -31,7 +31,7 @@ async def cleanup_expired_pdf_translations():
             deleted_count = 0
             for rec in records:
                 # 删除磁盘文件
-                if rec.file_path and os.path.exists(rec.file_path):
+                if rec.file_path and os.path.isfile(rec.file_path):
                     try:
                         os.remove(rec.file_path)
                         logger.info("Deleted expired PDF translation file: %s", rec.file_path)
