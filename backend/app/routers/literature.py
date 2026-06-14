@@ -873,7 +873,6 @@ async def start_analyze(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
-    user_db: AsyncSession = Depends(get_user_db),
 ):
     literature = await LiteratureService.get_literature_by_id(db, literature_id, current_user.id)
     if not literature:
@@ -882,7 +881,7 @@ async def start_analyze(
     if not literature.raw_text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该文献暂无文本内容，无法分析")
 
-    existing = await AnalysisService.get_analysis_by_literature(user_db, current_user.id, literature_id)
+    existing = await AnalysisService.get_analysis_by_literature(db, current_user.id, literature_id)
     if existing:
         return AnalyzeResponse(
             task_id="cached",
@@ -914,7 +913,7 @@ async def start_analyze(
 @router.get("/{literature_id}/analysis", response_model=AnalysisResponse)
 async def get_analysis(
     literature_id: str,
-    db: AsyncSession = Depends(get_user_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     analysis = await AnalysisService.get_analysis_by_literature(db, current_user.id, literature_id)
@@ -933,23 +932,23 @@ async def get_analysis(
 
 
 async def _run_analyze(task_id: str, literature_id: str, user_id: str):
-    from app.db.database import TencentSessionLocal, AlibabaSessionLocal
+    from app.db.database import TencentSessionLocal
 
     try:
-        async with TencentSessionLocal() as tencent_db, AlibabaSessionLocal() as user_db:
+        async with TencentSessionLocal() as tencent_db:
             literature = await LiteratureService.get_literature_by_id(tencent_db, literature_id, user_id)
             if not literature or not literature.raw_text:
                 await task_store.update_task(task_id, status=TaskStatus.FAILED, error="文献不存在或无文本内容")
                 return
 
-            ai_client = await get_user_ai_client(user_db, user_id)
-            model = await get_user_default_model(user_db, user_id)
+            ai_client = await get_user_ai_client(None, user_id)
+            model = await get_user_default_model(None, user_id)
             analyzer = OpenAIAnalyzer(client=ai_client, model=model)
 
             result = await analyzer.analyze(literature.raw_text)
 
             await AnalysisService.create_or_update_analysis(
-                user_db,
+                tencent_db,
                 user_id=user_id,
                 literature_id=literature_id,
                 summary=result.get("summary", {}),

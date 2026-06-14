@@ -29,6 +29,7 @@ from app.models.translation import Translation  # noqa: F401
 from app.models.pdf_translation import PdfTranslation  # noqa: F401
 from app.models.translation_cache import TranslationCache  # noqa: F401
 from app.models.featured_paper import FeaturedPaper  # noqa: F401
+from app.models.ai_analysis import AIAnalysis  # noqa: F401
 
 # Argument Companion 模型
 from app.argument.models import Ledger, Promise, ReviewSession, ReviewPoint, Anchor  # noqa: F401
@@ -50,7 +51,6 @@ from app.models.feedback import Feedback  # noqa: F401
 from app.models.admin import OperationLog, SystemConfig, ConfigChangeLog  # noqa: F401
 from app.models.ai_engine import AIEngine  # noqa: F401
 from app.models.conversation import Conversation, ConversationMessage  # noqa: F401
-from app.models.ai_analysis import AIAnalysis  # noqa: F401
 from app.models.tutorial import Tutorial, TutorialVersion  # noqa: F401
 from app.skills.models import Skill, Hook  # noqa: F401
 from app.export.models import ExportRecord  # noqa: F401
@@ -124,6 +124,10 @@ ALIBABA_MIGRATIONS = [
 
     # conversation_messages 表
     "ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS context_text TEXT",
+
+    # ai_analyses 已迁移到腾讯云，删除阿里云上的跨库 FK 约束（如存在）
+    "DO $$ BEGIN IF EXISTS (SELECT FROM pg_tables WHERE tablename='ai_analyses') THEN "
+    "ALTER TABLE ai_analyses DROP CONSTRAINT IF EXISTS ai_analyses_literature_id_fkey; END IF; END $$",
 ]
 
 
