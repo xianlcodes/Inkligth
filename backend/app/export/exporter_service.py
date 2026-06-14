@@ -46,12 +46,20 @@ class ExportService:
     @staticmethod
     async def _get_source_content(db: AsyncSession, user_id: str, source_type: str, source_ids: list[str]) -> tuple[str, str]:
         """
-        根据来源类型从数据库获取真实内容与标题。
+        根据来源类型从腾讯云数据库获取真实内容与标题。
 
         - literature  : 从 literatures.raw_text 取原文
         - translation : 从 translations.content 取最新译文
         - note        : 从 notes 表取所有笔记
         """
+        # 文献/译文/笔记都在腾讯云数据库，需用独立会话
+        from app.db.database import TencentSessionLocal
+        async with TencentSessionLocal() as tencent_db:
+            return await ExportService._do_get_source_content(tencent_db, user_id, source_type, source_ids)
+
+    @staticmethod
+    async def _do_get_source_content(db: AsyncSession, user_id: str, source_type: str, source_ids: list[str]) -> tuple[str, str]:
+        """实际执行查询（内部使用，由 _get_source_content 调用）"""
         if not source_ids:
             return "# （无内容）\n\n未指定导出来源。", "空导出"
 

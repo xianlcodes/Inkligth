@@ -69,6 +69,7 @@ async def upload_literature(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
     background_tasks: BackgroundTasks = None,
+    user_db: AsyncSession = Depends(get_user_db),
 ):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are allowed")
@@ -77,9 +78,9 @@ async def upload_literature(
     file_size = len(file_content)
     await file.seek(0)
 
-    has_space = await StorageService.check_space_available(db, current_user.id, file_size)
+    has_space = await StorageService.check_space_available(user_db, current_user.id, file_size)
     if not has_space:
-        storage = await StorageService.get_storage(db, current_user.id)
+        storage = await StorageService.get_storage(user_db, current_user.id)
         remaining = storage.total_space - storage.used_space
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -108,7 +109,7 @@ async def upload_literature(
         ),
     )
 
-    await StorageService.add_used_space(db, current_user.id, file_size)
+    await StorageService.add_used_space(user_db, current_user.id, file_size)
     await db.commit()
 
     if background_tasks:
@@ -237,14 +238,14 @@ async def delete_literature(
     if not literature:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献不存在")
     file_size = literature.file_size or 0
-    # AIAnalysis 在阿里云用户数据库上，需要单独删除
+    # AIAnalysis 在腾讯云数据库上
     from app.models.ai_analysis import AIAnalysis
     from sqlalchemy import delete
-    await user_db.execute(delete(AIAnalysis).where(AIAnalysis.literature_id == literature_id))
-    await user_db.commit()
+    await db.execute(delete(AIAnalysis).where(AIAnalysis.literature_id == literature_id))
+    await db.commit()
     await LiteratureService.delete_literature(db, literature)
     if file_size > 0:
-        await StorageService.release_used_space(db, current_user.id, file_size)
+        await StorageService.release_used_space(user_db, current_user.id, file_size)
     logger.info(f"Literature deleted: {literature_id} by user {current_user.id}")
     return DeleteResponse(message="文献已删除")
 
@@ -709,15 +710,16 @@ async def _process_uploaded_literature(
             )
             logger.warning(f"Literature {literature_id} raw_text saved ({len(raw_text)} chars)")
 
-        # 3. Get AI client if available
+        # 3. Get AI client if available（AIEngine 在阿里云用户数据库）
         ai_client = None
         model = None
         try:
-            async with async_session_factory() as db:
+            from app.db.database import AlibabaSessionLocal
+            async with AlibabaSessionLocal() as user_db:
                 from app.services.ai_engine_service import AIEngineService, decrypt_api_key
                 from app.core.ai_providers.provider_registry import AIProviderRegistry
 
-                engine = await AIEngineService.get_default_engine(db, user_id)
+                engine = await AIEngineService.get_default_engine(user_db, user_id)
                 if engine:
                     api_key = decrypt_api_key(engine.api_key)
                     registry = AIProviderRegistry()

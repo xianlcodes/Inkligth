@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.db.database import get_db, get_user_db
 from app.core.deps import get_current_user
 from app.services.literature_service import LiteratureService, UPLOAD_DIR
 from app.services.storage_service import StorageService
@@ -133,6 +133,7 @@ async def merge_chunks(
     upload_id: str,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
+    user_db: AsyncSession = Depends(get_user_db),
 ):
     meta_path = _session_meta_path(upload_id)
     if not os.path.exists(meta_path):
@@ -171,9 +172,9 @@ async def merge_chunks(
     raw_filename = meta["filename"].rsplit(".", 1)[0]
     file_size = os.path.getsize(output_path)
 
-    has_space = await StorageService.check_space_available(db, str(current_user.id), file_size)
+    has_space = await StorageService.check_space_available(user_db, str(current_user.id), file_size)
     if not has_space:
-        storage = await StorageService.get_storage(db, str(current_user.id))
+        storage = await StorageService.get_storage(user_db, str(current_user.id))
         remaining = storage.total_space - storage.used_space
         os.remove(output_path)
         raise HTTPException(
@@ -202,8 +203,9 @@ async def merge_chunks(
         ),
     )
 
-    await StorageService.add_used_space(db, str(current_user.id), file_size)
+    await StorageService.add_used_space(user_db, str(current_user.id), file_size)
     await db.commit()
+    await user_db.commit()
 
     import asyncio as _asyncio
     _asyncio.create_task(

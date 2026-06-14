@@ -10,7 +10,8 @@ for handler in root_logger.handlers[:]:
 # 配置自定义日志格式（仅显示WARNING及以上）
 logging.basicConfig(
     level=logging.WARNING,
-    format="%(levelname)s:%(name)s:%(message)s",
+    format="%(asctime)s %(levelname)s:%(name)s:%(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
