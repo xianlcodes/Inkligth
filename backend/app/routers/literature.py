@@ -268,10 +268,15 @@ async def get_literature_file(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="该文献暂无 PDF 文件（通过 DOI 导入仅有元数据）")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在")
 
+    stat = os.stat(absolute_path)
     return FileResponse(
         path=absolute_path,
         media_type="application/pdf",
         filename=os.path.basename(file_path),
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "ETag": f'"{int(stat.st_mtime)}-{stat.st_size}"',
+        },
     )
 
 

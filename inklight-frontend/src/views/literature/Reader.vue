@@ -610,6 +610,8 @@ import { recordReading } from '@/api/stats'
 import { chatWithPaper, type SkillChatResponse } from '@/api/skills'
 import { getBeijingAgeDays } from '@/utils/time'
 
+const _blobCache = new Map<string, string>()
+
 const route = useRoute()
 const router = useRouter()
 
@@ -934,8 +936,15 @@ async function loadLiterature() {
   try {
     const lit = await getLiterature(id)
     literature.value = lit.data
-    const resp = await getLiteratureFileBlob(id)
-    pdfBlobUrl.value = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+    const cached = _blobCache.get(id)
+    if (cached) {
+      pdfBlobUrl.value = cached
+    } else {
+      const resp = await getLiteratureFileBlob(id)
+      const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+      _blobCache.set(id, url)
+      pdfBlobUrl.value = url
+    }
 
     if (literature.value.translated_text) {
       try {
