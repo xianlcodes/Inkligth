@@ -297,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Upload, Document, Reading, Search, Collection,
@@ -369,18 +369,6 @@ const notifiedUploadIds = new Set<string>()
 const recentUploadTimestamps = new Map<string, number>()
 
 onMounted(() => {
-  // Watch for newly uploaded items and record their upload time
-  const unwatch = watch(
-    () => uploadQueue.items.filter(i => i.status === 'success' && i.literatureId).length,
-    () => {
-      for (const item of uploadQueue.items) {
-        if (item.status === 'success' && item.literatureId && !recentUploadTimestamps.has(item.literatureId)) {
-          recentUploadTimestamps.set(item.literatureId, Date.now())
-        }
-      }
-    },
-  )
-
   pollTimer = setInterval(async () => {
     // Clean up uploads older than 60s
     const now = Date.now()
@@ -405,6 +393,9 @@ onMounted(() => {
       loadAllCount()
       for (const item of newSuccess) {
         notifiedUploadIds.add(item.id)
+        if (item.literatureId) {
+          recentUploadTimestamps.set(item.literatureId, Date.now())
+        }
       }
     }
 
@@ -424,7 +415,6 @@ onMounted(() => {
   }, 2000)
 
   onUnmounted(() => {
-    unwatch()
     if (pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null

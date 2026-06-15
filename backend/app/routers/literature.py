@@ -770,7 +770,6 @@ async def _process_uploaded_literature(
                 content = ""
 
             if content:
-                import re
                 ai_title = None
                 m = re.search(r"Title[:\s]+(.+)", content, re.IGNORECASE)
                 if m:
@@ -781,7 +780,8 @@ async def _process_uploaded_literature(
                     ai_authors = m.group(1).strip().strip('"\'* ')
 
                 updates = {}
-                if ai_title and len(ai_title) > len(heuristic_title or ""):
+                # Prefer AI title over heuristic if it looks reasonable
+                if ai_title:
                     if not ai_title[0].islower() and not re.search(r'\w-\s+\w', ai_title):
                         updates["title"] = ai_title
                 if ai_authors and not heuristic_authors:
