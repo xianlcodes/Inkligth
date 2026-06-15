@@ -837,7 +837,11 @@ class LiteratureService:
                 temperature=0.1,
                 max_tokens=1000,
             )
-            content = response.choices[0].message.content.strip()
+            content = response.choices[0].message.content
+            if not content or not content.strip():
+                logger.warning("AI returned empty content, skipping metadata extraction")
+                return {}
+            content = content.strip()
             # Try to extract JSON from response
             import json
             # Handle markdown code blocks
@@ -901,6 +905,7 @@ class LiteratureService:
             metadata["abstract"] = LiteratureService.extract_abstract_from_text(text)
 
         # Tier 3: AI extraction (run when title looks suspicious or key fields missing)
+        _ai_failed = False
         if ai_client and model:
             title = metadata.get("title") or ""
             title_is_suspicious = (
@@ -934,10 +939,23 @@ class LiteratureService:
                             for field in ("year", "journal", "doi"):
                                 if ai_metadata.get(field):
                                     metadata[field] = ai_metadata[field]
+                    else:
+                        _ai_failed = True  # AI returned empty
                 except asyncio.TimeoutError:
+                    _ai_failed = True
                     logger.warning("Tier 3: AI extraction timed out after 30s")
                 except Exception as e:
+                    _ai_failed = True
                     logger.error(f"Tier 3: AI extraction failed: {e}")
+
+        # Final quality check: when AI failed, reject garbage Tier 2 titles
+        if _ai_failed and metadata.get("title"):
+            t = metadata["title"]
+            if t[0].islower() or re.search(r'\w-\s+\w', t):
+                logger.warning(
+                    f"Title rejected (garbage after AI failure), will use filename fallback: {t[:80]}"
+                )
+                metadata["title"] = None
 
         return metadata
 

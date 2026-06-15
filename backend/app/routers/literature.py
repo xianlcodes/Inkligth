@@ -731,7 +731,15 @@ async def _process_uploaded_literature(
                     adapter = registry.get_or_default(engine.provider)
                     base_url = adapter.get_openai_base_url(engine.api_base)
                     from openai import AsyncOpenAI
-                    ai_client = AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=300.0)
+                    from app.core.ai_client import _get_http_client
+                    from app.core.config import settings
+                    use_proxy = engine.proxy_enabled and bool(settings.PROXY_URL)
+                    ai_client = AsyncOpenAI(
+                        base_url=base_url,
+                        api_key=api_key,
+                        timeout=300.0,
+                        http_client=_get_http_client(use_proxy=use_proxy),
+                    )
                     model = engine.default_model
         except Exception as e:
             logger.warning(f"Failed to initialize AI client for metadata extraction: {e}")
