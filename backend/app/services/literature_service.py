@@ -808,7 +808,6 @@ class LiteratureService:
     @staticmethod
     async def extract_metadata_by_ai(text: str, ai_client, model: str) -> dict:
         """Use AI to extract metadata from raw text."""
-        # Truncate text to avoid token limits (keep first 8000 chars which usually contains title/authors/abstract)
         truncated_text = text[:8000] if len(text) > 8000 else text
 
         prompt = (
@@ -836,16 +835,13 @@ class LiteratureService:
                 ],
                 temperature=0.1,
                 max_tokens=1000,
-                response_format={"type": "json_object"},
             )
             content = response.choices[0].message.content
             if not content or not content.strip():
                 logger.warning("AI returned empty content, skipping metadata extraction")
                 return {}
             content = content.strip()
-            # Try to extract JSON from response
             import json
-            # Handle markdown code blocks
             if "```" in content:
                 content = content.split("```")[1]
                 if content.startswith("json"):
@@ -949,19 +945,12 @@ class LiteratureService:
                     _ai_failed = True
                     logger.error(f"Tier 3: AI extraction failed: {e}")
 
-        # Final quality check: when AI failed, Tier 2 results are unreliable
-        if _ai_failed:
-            t = metadata.get("title", "")
-            if not t or t[0].islower() or re.search(r'\w-\s+\w', t):
-                logger.warning(
-                    f"Tier 3 AI failed, clearing unreliable Tier 2 metadata "
-                    f"(title='{t[:60] if t else ''}')"
-                )
+        # Title quality check: reject garbage extracted by Tier 2 when AI failed
+        if _ai_failed and metadata.get("title"):
+            t = metadata["title"]
+            if t[0].islower() or re.search(r'\w-\s+\w', t):
+                logger.warning(f"Title rejected (garbage), will use filename: {t[:80]}")
                 metadata["title"] = None
-                metadata["authors"] = None
-                metadata["abstract"] = None
-                metadata["year"] = None
-                metadata["journal"] = None
 
         return metadata
 

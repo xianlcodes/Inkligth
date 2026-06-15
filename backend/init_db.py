@@ -66,6 +66,13 @@ TENCENT_MIGRATIONS = [
     "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS translated_at TIMESTAMP",
     "ALTER TABLE literatures ALTER COLUMN translated_text TYPE BYTEA USING NULL",
     "ALTER TABLE literatures ADD COLUMN IF NOT EXISTS file_size BIGINT",
+    # 删除跨库外键（用户在阿里云，文献在腾讯云，FK 不跨库）
+    "ALTER TABLE literatures DROP CONSTRAINT IF EXISTS literatures_user_id_fkey",
+    "ALTER TABLE folders DROP CONSTRAINT IF EXISTS folders_user_id_fkey",
+    "ALTER TABLE presentations DROP CONSTRAINT IF EXISTS presentations_user_id_fkey",
+    "ALTER TABLE reading_records DROP CONSTRAINT IF EXISTS reading_records_user_id_fkey",
+    "ALTER TABLE notes DROP CONSTRAINT IF EXISTS notes_user_id_fkey",
+    "ALTER TABLE pdf_translations DROP CONSTRAINT IF EXISTS pdf_translations_user_id_fkey",
 
     # pdf_translations 表（user_id 无 FK 约束 — 跨库引用 users.id）
     "CREATE TABLE IF NOT EXISTS pdf_translations ("
