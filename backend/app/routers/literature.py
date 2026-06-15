@@ -684,8 +684,8 @@ async def _process_uploaded_literature(
     user_id: str,
 ):
     """
-    Background task: extract text, save text immediately, then
-    run multi-tier metadata extraction (slow), and trigger chunk indexing.
+    Background task: extract text, save heuristic metadata immediately
+    (fast), then enrich with AI in background.
     """
     from app.db.database import async_session_factory
     from app.schemas.literature import LiteratureUpdate
@@ -700,7 +700,6 @@ async def _process_uploaded_literature(
 
         # ---------------------------------------------------------------
         # 2. Save raw_text FIRST, so the paper is immediately usable
-        #    (metadata extraction below can be slow due to Crossref API)
         # ---------------------------------------------------------------
         async with async_session_factory() as db:
             existing = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
@@ -709,46 +708,92 @@ async def _process_uploaded_literature(
                 return
             await LiteratureService.update_literature(
                 db, existing,
-                LiteratureUpdate(
-                    raw_text=raw_text,
-                ),
+                LiteratureUpdate(raw_text=raw_text),
             )
             logger.warning(f"Literature {literature_id} raw_text saved ({len(raw_text)} chars)")
 
-        # 3. Get AI client if available（使用和翻译相同的缓存客户端，继承 proxy 配置）
-        ai_client = None
-        model = None
+        # ---------------------------------------------------------------
+        # 3. Phase 1 — Fast heuristic metadata (no network, no AI)
+        #    Save immediately so "处理中" tag disappears on next poll.
+        # ---------------------------------------------------------------
+        heuristic_title = LiteratureService.extract_title_from_text(raw_text)
+        heuristic_authors = LiteratureService.extract_authors_from_text(raw_text, heuristic_title)
+        heuristic_abstract = LiteratureService.extract_abstract_from_text(raw_text, file_path=file_path)
+        if not heuristic_title:
+            first_line = raw_text.strip().splitlines()[0][:100] if raw_text.strip() else None
+            heuristic_title = first_line
+
+        async with async_session_factory() as db:
+            existing = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
+            if existing:
+                await LiteratureService.update_literature(
+                    db, existing,
+                    LiteratureUpdate(
+                        title=heuristic_title or raw_filename,
+                        authors=heuristic_authors,
+                        abstract=heuristic_abstract,
+                    ),
+                )
+                logger.warning(f"Phase 1 heuristic metadata saved: title='{heuristic_title}'")
+
+        # ---------------------------------------------------------------
+        # 4. Index chunks (also fast — pure text processing)
+        # ---------------------------------------------------------------
+        paragraphs = _split_paragraphs(raw_text)
+        await _index_chunks(literature_id, paragraphs)
+
+        # ---------------------------------------------------------------
+        # 5. Phase 2 — AI enrichment (non-streaming, short response)
+        #    Updates DB only if AI finds better title/authors.
+        # ---------------------------------------------------------------
         try:
             from app.core.ai_client import get_cached_user_ai_client_and_model
             ai_client, model = await get_cached_user_ai_client_and_model(None, user_id)
         except Exception as e:
-            logger.warning(f"Failed to initialize AI client for metadata extraction: {e}")
-        # 4. Multi-tier metadata extraction (may be slow — Crossref API calls)
-        metadata = await LiteratureService.extract_metadata(raw_text, ai_client=ai_client, model=model, file_path=file_path)
+            logger.warning(f"AI client not available for enrichment: {e}")
+            ai_client = None
+            model = None
 
-        # 5. Update literature metadata (title, authors, etc.)
-        async with async_session_factory() as db:
-            existing = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
-            if not existing:
-                logger.error(f"Literature {literature_id} not found in DB during metadata update")
-                return
+        if ai_client and model:
+            snippet = raw_text[:5000]
+            try:
+                response = await ai_client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content":
+                        f"{snippet}\n\nExtract from the paper above:\n"
+                        f"Title: ...\nAuthors: ..."}],
+                    temperature=0.1, max_tokens=500,
+                )
+                content = response.choices[0].message.content or ""
+            except Exception as e:
+                logger.warning(f"Phase 2 AI enrichment failed: {e}")
+                content = ""
 
-            await LiteratureService.update_literature(
-                db, existing,
-                LiteratureUpdate(
-                    title=metadata.get("title") or raw_filename,
-                    authors=metadata.get("authors"),
-                    abstract=metadata.get("abstract"),
-                    year=metadata.get("year"),
-                    journal=metadata.get("journal"),
-                    doi=metadata.get("doi"),
-                ),
-            )
-            logger.warning(f"Literature {literature_id} metadata updated: title='{metadata.get('title')}'")
+            if content:
+                import re
+                ai_title = None
+                m = re.search(r"Title[:\s]+(.+)", content, re.IGNORECASE)
+                if m:
+                    ai_title = m.group(1).strip().strip('"\'* ')
+                ai_authors = None
+                m = re.search(r"Authors[:\s]+(.+)", content, re.IGNORECASE)
+                if m:
+                    ai_authors = m.group(1).strip().strip('"\'* ')
 
-        # 6. Trigger chunk indexing
-        paragraphs = _split_paragraphs(raw_text)
-        await _index_chunks(literature_id, paragraphs)
+                updates = {}
+                if ai_title and len(ai_title) > len(heuristic_title or ""):
+                    if not ai_title[0].islower() and not re.search(r'\w-\s+\w', ai_title):
+                        updates["title"] = ai_title
+                if ai_authors and not heuristic_authors:
+                    updates["authors"] = ai_authors
+
+                if updates:
+                    async with async_session_factory() as db:
+                        existing = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
+                        if existing:
+                            await LiteratureService.update_literature(db, existing, LiteratureUpdate(**updates))
+                            logger.warning(f"Phase 2 AI enrichment updated: {updates}")
+
         logger.info(f"_process_uploaded_literature completed for {literature_id}")
 
     except Exception as e:
