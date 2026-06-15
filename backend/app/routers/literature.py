@@ -737,7 +737,7 @@ async def _process_uploaded_literature(
             logger.warning(f"Failed to initialize AI client for metadata extraction: {e}")
 
         # 4. Multi-tier metadata extraction (may be slow — Crossref API calls)
-        metadata = await LiteratureService.extract_metadata(raw_text, ai_client=ai_client, model=model)
+        metadata = await LiteratureService.extract_metadata(raw_text, ai_client=ai_client, model=model, file_path=file_path)
 
         # 5. Update literature metadata (title, authors, etc.)
         async with async_session_factory() as db:

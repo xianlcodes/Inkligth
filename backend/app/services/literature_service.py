@@ -776,10 +776,44 @@ class LiteratureService:
         return None
 
     @staticmethod
-    def extract_abstract_from_text(text: str) -> Optional[str]:
-        """Heuristic extraction of abstract from text."""
-        # Find abstract section
-        match = re.search(
+    def _extract_first_page_ordered(file_path: str) -> str:
+        """Extract first page text with proper column ordering for multi-column PDFs."""
+        try:
+            import fitz
+            with fitz.open(file_path) as doc:
+                if doc.page_count == 0:
+                    return ""
+                page = doc[0]
+                words = page.get_text("words")
+                if not words:
+                    return ""
+                mid_x = page.rect.width / 2
+                cols = ([], [])
+                for w in words:
+                    cx = (w[0] + w[2]) / 2
+                    cols[0 if cx < mid_x else 1].append(w)
+                for col in cols:
+                    col.sort(key=lambda w: (w[1], w[0]))
+                ordered = cols[0] + cols[1]
+                text = " ".join(w[4] for w in ordered)
+                # Insert newlines before common section headers so the abstract regex stops correctly
+                import re as _rm
+                text = _rm.sub(
+                    r'(?=\b(?:\d+\.\s*(?:Introduction|Related|Method|Experiment|Result|Discussion|Conclusion|Evaluation)|INTRODUCTION|KEYWORDS|REFERENCES?|CONCLUSION|ACKNOWLEDGMENTS?)\b)',
+                    r'\n', text, flags=_rm.IGNORECASE)
+                return text
+        except Exception as e:
+            logger.warning(f"Layout-aware page extraction failed: {e}")
+            return ""
+    @staticmethod
+    def extract_abstract_from_text(text: str, file_path: str = None) -> Optional[str]:
+        """Heuristic extraction of abstract from text.
+
+        When file_path is provided, first tries layout-aware extraction from first page
+        (handles multi-column PDFs), then falls back to flat-text regex.
+        """
+        # Common regex for finding abstract section
+        _re = (
             r"\b(Abstract|Summary)\b[\s:]*\n?"
             r"(.*?)"
             r"(?=\n\s*("
@@ -790,81 +824,66 @@ class LiteratureService:
             r"CONCLUSION|FUTURE\s+WORK|LIMITATIONS|"
             r"KEYWORDS|\d+\.\s|CHAPTER|FIGURE|TABLE|REFERENCES?|"
             r"ACKNOWLEDG(?:MENTS?|EMENTS?)"
-            r")\s*\n|$)",
-            text, re.IGNORECASE | re.DOTALL,
+            r")\s*\n|$)"
         )
+
+        # Strategy 1: layout-aware from first page
+        if file_path:
+            ordered = LiteratureService._extract_first_page_ordered(file_path)
+            if ordered:
+                match = re.search(_re, ordered, re.IGNORECASE | re.DOTALL)
+                if match:
+                    abstract = match.group(2).strip()
+                    words = abstract.split()
+                    if len(words) > 250:
+                        abstract = " ".join(words[:250]) + "..."
+                    if len(abstract) > 20:
+                        return abstract[:2000]
+
+        # Strategy 2: fallback to flat-text regex
+        match = re.search(_re, text, re.IGNORECASE | re.DOTALL)
         if match:
             abstract = match.group(2).strip()
-            # Truncate to ~200 words if too long
             words = abstract.split()
             if len(words) > 250:
                 abstract = " ".join(words[:250]) + "..."
             return abstract[:2000] if abstract else None
         return None
-
     # ------------------------------------------------------------------
     # AI-based metadata extraction
     # ------------------------------------------------------------------
     @staticmethod
     async def extract_metadata_by_ai(text: str, ai_client, model: str) -> dict:
-        """Use AI to extract metadata from raw text."""
-        truncated_text = text[:8000] if len(text) > 8000 else text
-
-        prompt = (
-            "You are an academic paper metadata extractor. Extract the following fields from the given paper text:\n"
-            "- title: The COMPLETE paper title (NOT author names). A title is a descriptive phrase\n"
-            "  with 6-30 words, often containing prepositions, colons, or technical terms.\n"
-            "  Author name lines contain commas, short fragments, superscript digits/asterisks.\n"
-            "  DO NOT output an author name line as the title.\n"
-            "- authors: Comma-separated list of author names (omit affiliations/superscripts).\n"
-            "  If no author information is clearly visible, use null.\n"
-            "- abstract: The abstract text (first 500 chars is enough)\n"
-            "- year: Publication year (4 digits), use null if unclear\n"
-            "- journal: Journal or conference name, use null if unclear\n"
-            "- doi: DOI if present, use null otherwise\n\n"
-            "Return ONLY a valid JSON object with these keys. Use null for missing fields.\n\n"
-            f"Paper text:\n{truncated_text}"
-        )
-
+        """Extract title and authors via AI streaming. Abstract handled by heuristic."""
         try:
-            response = await ai_client.chat.completions.create(
+            snippet = text[:5000]
+            stream = await ai_client.chat.completions.create(
                 model=model,
-                messages=[
-                    {"role": "system", "content": "You are a precise metadata extractor. Return only valid JSON."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.1,
-                max_tokens=1000,
+                messages=[{"role": "user", "content":
+                    f"{snippet}\n\n"
+                    f"Extract from the paper above:\n"
+                    f"Title: ...\nAuthors: ..."}],
+                temperature=0.1, max_tokens=500, stream=True,
             )
-            content = response.choices[0].message.content
-            if not content or not content.strip():
-                logger.warning("AI returned empty content, skipping metadata extraction")
-                return {}
-            content = content.strip()
-            import json
-            if "```" in content:
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-                content = content.strip()
-            result = json.loads(content)
-            return {
-                "title": result.get("title"),
-                "authors": result.get("authors"),
-                "abstract": result.get("abstract"),
-                "year": str(result.get("year", ""))[:4] if result.get("year") else None,
-                "journal": result.get("journal"),
-                "doi": result.get("doi"),
-            }
+            content = "".join([c.choices[0].delta.content or "" async for c in stream])
+            result = {}
+            m = re.search(r"Title[:\s]+(.+)", content, re.IGNORECASE)
+            if m: result['title'] = m.group(1).strip().strip('"\'* ')
+            m = re.search(r"Authors[:\s]+(.+)", content, re.IGNORECASE)
+            if m: result['authors'] = m.group(1).strip().strip('"\'* ')
+            if not result.get("title"):
+                cls = content.strip().split("\n")
+                result["title"] = cls[0][:200] if cls else content[:200]
+            return result
         except Exception as e:
-            logger.error(f"AI metadata extraction failed: {e}")
+            logger.error(f"AI title extraction failed: {e}")
             return {}
 
     # ------------------------------------------------------------------
     # Combined metadata extraction (Layer 1 -> 2 -> 3)
     # ------------------------------------------------------------------
     @staticmethod
-    async def extract_metadata(text: str, ai_client=None, model: str = None) -> dict:
+    async def extract_metadata(text: str, ai_client=None, model: str = None, file_path: str = None) -> dict:
         """Multi-tier metadata extraction: identifiers → local rules → AI.
 
         Tier 1: Extract DOI/arXiv and query external APIs (with cache + retry).
@@ -899,7 +918,7 @@ class LiteratureService:
         if not metadata.get("authors"):
             metadata["authors"] = LiteratureService.extract_authors_from_text(text, metadata.get("title"))
         if not metadata.get("abstract"):
-            metadata["abstract"] = LiteratureService.extract_abstract_from_text(text)
+            metadata["abstract"] = LiteratureService.extract_abstract_from_text(text, file_path=file_path)
 
         # Tier 3: AI extraction (run when title looks suspicious or key fields missing)
         _ai_failed = False
