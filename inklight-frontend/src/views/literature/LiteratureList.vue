@@ -297,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Upload, Document, Reading, Search, Collection,
@@ -365,18 +365,41 @@ onMounted(() => {
 let pollTimer: ReturnType<typeof setInterval> | null = null
 const processingLiteratureIds = new Map<string, number>()
 const notifiedUploadIds = new Set<string>()
+// Track recently-uploaded IDs so polling continues for Phase 2 AI enrichment (60s)
+const recentUploadTimestamps = new Map<string, number>()
 
 onMounted(() => {
+  // Watch for newly uploaded items and record their upload time
+  const unwatch = watch(
+    () => uploadQueue.items.filter(i => i.status === 'success' && i.literatureId).length,
+    () => {
+      for (const item of uploadQueue.items) {
+        if (item.status === 'success' && item.literatureId && !recentUploadTimestamps.has(item.literatureId)) {
+          recentUploadTimestamps.set(item.literatureId, Date.now())
+        }
+      }
+    },
+  )
+
   pollTimer = setInterval(async () => {
+    // Clean up uploads older than 60s
+    const now = Date.now()
+    for (const [id, ts] of recentUploadTimestamps) {
+      if (now - ts > 60000) recentUploadTimestamps.delete(id)
+    }
+
     const processingItems = literatureStore.literatures.filter(
       (item) => isProcessingTitle(item),
     )
+
+    // Poll if: items in processing, or recent uploads waiting for AI enrichment
+    const shouldPoll = processingItems.length > 0 || recentUploadTimestamps.size > 0
 
     const newSuccess = uploadQueue.items.filter(
       (item) => item.status === 'success' && item.literatureId && !notifiedUploadIds.has(item.id),
     )
 
-    if (newSuccess.length > 0 || processingItems.length > 0) {
+    if (newSuccess.length > 0 || shouldPoll) {
       loadFolders()
       handleSearch()
       loadAllCount()
@@ -387,7 +410,7 @@ onMounted(() => {
 
     for (const item of processingItems) {
       const startTime = processingLiteratureIds.get(item.id)
-      if (startTime && Date.now() - startTime > 30000) {
+      if (startTime && now - startTime > 30000) {
         processingLiteratureIds.delete(item.id)
         const expired = new Set(JSON.parse(sessionStorage.getItem('lit_expired') || '[]'))
         expired.add(item.id)
@@ -395,19 +418,21 @@ onMounted(() => {
         continue
       }
       if (!startTime) {
-        processingLiteratureIds.set(item.id, Date.now())
+        processingLiteratureIds.set(item.id, now)
       }
     }
   }, 2000)
-})
 
-onUnmounted(() => {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-  processingLiteratureIds.clear()
-  notifiedUploadIds.clear()
+  onUnmounted(() => {
+    unwatch()
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+    processingLiteratureIds.clear()
+    notifiedUploadIds.clear()
+    recentUploadTimestamps.clear()
+  })
 })
 
 function triggerFileSelect() {
