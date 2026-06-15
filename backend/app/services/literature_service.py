@@ -836,6 +836,7 @@ class LiteratureService:
                 ],
                 temperature=0.1,
                 max_tokens=1000,
+                response_format={"type": "json_object"},
             )
             content = response.choices[0].message.content
             if not content or not content.strip():
@@ -948,14 +949,19 @@ class LiteratureService:
                     _ai_failed = True
                     logger.error(f"Tier 3: AI extraction failed: {e}")
 
-        # Final quality check: when AI failed, reject garbage Tier 2 titles
-        if _ai_failed and metadata.get("title"):
-            t = metadata["title"]
-            if t[0].islower() or re.search(r'\w-\s+\w', t):
+        # Final quality check: when AI failed, Tier 2 results are unreliable
+        if _ai_failed:
+            t = metadata.get("title", "")
+            if not t or t[0].islower() or re.search(r'\w-\s+\w', t):
                 logger.warning(
-                    f"Title rejected (garbage after AI failure), will use filename fallback: {t[:80]}"
+                    f"Tier 3 AI failed, clearing unreliable Tier 2 metadata "
+                    f"(title='{t[:60] if t else ''}')"
                 )
                 metadata["title"] = None
+                metadata["authors"] = None
+                metadata["abstract"] = None
+                metadata["year"] = None
+                metadata["journal"] = None
 
         return metadata
 

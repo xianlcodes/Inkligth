@@ -721,26 +721,12 @@ async def _process_uploaded_literature(
         try:
             from app.db.database import AlibabaSessionLocal
             async with AlibabaSessionLocal() as user_db:
-                from app.services.ai_engine_service import AIEngineService, decrypt_api_key
-                from app.core.ai_providers.provider_registry import AIProviderRegistry
-
+                from app.services.ai_engine_service import AIEngineService
                 engine = await AIEngineService.get_default_engine(user_db, user_id)
                 if engine:
-                    api_key = decrypt_api_key(engine.api_key)
-                    registry = AIProviderRegistry()
-                    adapter = registry.get_or_default(engine.provider)
-                    base_url = adapter.get_openai_base_url(engine.api_base)
-                    from openai import AsyncOpenAI
-                    from app.core.ai_client import _get_http_client
-                    from app.core.config import settings
-                    use_proxy = engine.proxy_enabled and bool(settings.PROXY_URL)
-                    ai_client = AsyncOpenAI(
-                        base_url=base_url,
-                        api_key=api_key,
-                        timeout=300.0,
-                        http_client=_get_http_client(use_proxy=use_proxy),
-                    )
-                    model = engine.default_model
+                    from app.core.ai_client import get_user_ai_client, get_user_default_model
+                    ai_client = await get_user_ai_client(user_db, user_id)
+                    model = await get_user_default_model(user_db, user_id)
         except Exception as e:
             logger.warning(f"Failed to initialize AI client for metadata extraction: {e}")
 
