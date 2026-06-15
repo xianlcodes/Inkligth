@@ -715,27 +715,14 @@ async def _process_uploaded_literature(
             )
             logger.warning(f"Literature {literature_id} raw_text saved ({len(raw_text)} chars)")
 
-        # 3. Get AI client if available（AIEngine 在阿里云用户数据库）
+        # 3. Get AI client if available（使用和翻译相同的缓存客户端，继承 proxy 配置）
         ai_client = None
         model = None
         try:
-            from app.db.database import AlibabaSessionLocal
-            async with AlibabaSessionLocal() as user_db:
-                from app.services.ai_engine_service import AIEngineService, decrypt_api_key
-                from app.core.ai_providers.provider_registry import AIProviderRegistry
-
-                engine = await AIEngineService.get_default_engine(user_db, user_id)
-                if engine:
-                    api_key = decrypt_api_key(engine.api_key)
-                    registry = AIProviderRegistry()
-                    adapter = registry.get_or_default(engine.provider)
-                    base_url = adapter.get_openai_base_url(engine.api_base)
-                    from openai import AsyncOpenAI
-                    ai_client = AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=300.0)
-                    model = engine.default_model
+            from app.core.ai_client import get_cached_user_ai_client_and_model
+            ai_client, model = await get_cached_user_ai_client_and_model(None, user_id)
         except Exception as e:
             logger.warning(f"Failed to initialize AI client for metadata extraction: {e}")
-
         # 4. Multi-tier metadata extraction (may be slow — Crossref API calls)
         metadata = await LiteratureService.extract_metadata(raw_text, ai_client=ai_client, model=model, file_path=file_path)
 

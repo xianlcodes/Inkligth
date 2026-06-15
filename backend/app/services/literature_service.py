@@ -854,9 +854,11 @@ class LiteratureService:
     # ------------------------------------------------------------------
     @staticmethod
     async def extract_metadata_by_ai(text: str, ai_client, model: str) -> dict:
-        """Extract title and authors via AI streaming. Abstract handled by heuristic."""
+        """Extract title and authors via AI. Tries streaming first, falls back to non-streaming."""
+        snippet = text[:5000]
+        content = None
+        # Try streaming first (bypasses some network timeouts)
         try:
-            snippet = text[:5000]
             stream = await ai_client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content":
@@ -866,18 +868,32 @@ class LiteratureService:
                 temperature=0.1, max_tokens=500, stream=True,
             )
             content = "".join([c.choices[0].delta.content or "" async for c in stream])
-            result = {}
-            m = re.search(r"Title[:\s]+(.+)", content, re.IGNORECASE)
-            if m: result['title'] = m.group(1).strip().strip('"\'* ')
-            m = re.search(r"Authors[:\s]+(.+)", content, re.IGNORECASE)
-            if m: result['authors'] = m.group(1).strip().strip('"\'* ')
-            if not result.get("title"):
-                cls = content.strip().split("\n")
-                result["title"] = cls[0][:200] if cls else content[:200]
-            return result
         except Exception as e:
-            logger.error(f"AI title extraction failed: {e}")
-            return {}
+            logger.warning(f"AI streaming failed, trying non-streaming: {e}")
+        # Fallback: non-streaming (some providers have incompatible SSE)
+        if not content:
+            try:
+                response = await ai_client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content":
+                        f"{snippet}\n\n"
+                        f"Extract from the paper above:\n"
+                        f"Title: ...\nAuthors: ..."}],
+                    temperature=0.1, max_tokens=500,
+                )
+                content = response.choices[0].message.content or ""
+            except Exception as e:
+                logger.error(f"AI title extraction failed: {e}")
+                return {}
+        result = {}
+        m = re.search(r"Title[:\s]+(.+)", content, re.IGNORECASE)
+        if m: result['title'] = m.group(1).strip().strip('"\'* ')
+        m = re.search(r"Authors[:\s]+(.+)", content, re.IGNORECASE)
+        if m: result['authors'] = m.group(1).strip().strip('"\'* ')
+        if not result.get("title"):
+            cls = content.strip().split("\n")
+            result["title"] = cls[0][:200] if cls else content[:200]
+        return result
 
     # ------------------------------------------------------------------
     # Combined metadata extraction (Layer 1 -> 2 -> 3)

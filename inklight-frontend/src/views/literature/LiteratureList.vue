@@ -389,6 +389,9 @@ onMounted(() => {
       const startTime = processingLiteratureIds.get(item.id)
       if (startTime && Date.now() - startTime > 30000) {
         processingLiteratureIds.delete(item.id)
+        const expired = new Set(JSON.parse(sessionStorage.getItem('lit_expired') || '[]'))
+        expired.add(item.id)
+        sessionStorage.setItem('lit_expired', JSON.stringify([...expired]))
         continue
       }
       if (!startTime) {
@@ -610,9 +613,10 @@ function isProcessingTitle(lit: Literature): boolean {
   const extPattern = /\.pdf$/i
   const looksLikeFilename = extPattern.test(lit.title) || lit.title.includes('_') && !lit.title.includes(' ')
   if (!looksLikeFilename) return false
+  const expired = new Set(JSON.parse(sessionStorage.getItem('lit_expired') || '[]'))
+  if (expired.has(lit.id)) return false
   const startTime = processingLiteratureIds.get(lit.id)
-  if (startTime && Date.now() - startTime > 30000) return false
-  return true
+  return !(startTime && Date.now() - startTime > 30000)
 }
 
 function statusText(status: string) {
