@@ -1,9 +1,10 @@
 <template>
-  <div class="max-w-4xl mx-auto px-8 py-6">
-    <div class="page-header">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-800 m-0 mb-1">系统公告</h1>
-        <p class="text-sm text-slate-400 m-0">查看平台最新通知和公告</p>
+  <div class="announcements-page max-w-4xl mx-auto py-6">
+    <div class="announcements-header flex items-center justify-between">
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h1 class="section-title">系统公告</h1>
+        <span class="section-accent">NEWS</span>
       </div>
       <el-button
         v-if="authStore.user?.is_admin"
@@ -14,6 +15,7 @@
         发布公告
       </el-button>
     </div>
+    <p class="announcements-subtitle">查看平台最新通知和公告</p>
 
     <div v-loading="loading" class="flex flex-col gap-3">
       <el-empty v-if="!loading && announcements.length === 0" description="暂无公告" :image-size="80" />
@@ -273,6 +275,51 @@ function levelLabel(level: string) {
 </script>
 
 <style scoped>
+.announcements-page {
+  padding: 28px 32px 40px;
+}
+
+.announcements-header {
+  margin-bottom: 6px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
+.announcements-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 24px 18px;
+  letter-spacing: 0.01em;
+}
+
 .border-l-3 { border-left-width: 3px; }
 .rotate-180 { transform: rotate(180deg); }
 </style>

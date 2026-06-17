@@ -1,7 +1,9 @@
 <template>
-  <div class="mx-auto" style="max-width:1100px">
-    <div class="page-header">
-      <h2 class="text-xl font-bold text-slate-800 m-0">个人空间</h2>
+  <div class="storage-page mx-auto" style="max-width:1100px">
+    <div class="section-bar">
+      <div class="section-bar-line"></div>
+      <h2 class="section-title">个人空间</h2>
+      <span class="section-accent">STORAGE</span>
     </div>
 
     <el-row :gutter="20">
@@ -213,4 +215,38 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.storage-page {
+  padding: 28px 32px 40px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
 </style>

@@ -1,7 +1,11 @@
 <template>
-  <div style="padding:4px 0">
-    <div class="page-header">
-      <h2 class="text-xl font-bold text-slate-800 m-0">使用教程管理</h2>
+  <div class="admin-page">
+    <div class="flex items-center justify-between mb-4">
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h2 class="section-title">使用教程管理</h2>
+        <span class="section-accent">TUTORIALS</span>
+      </div>
       <el-button type="primary" @click="openCreate">新建教程</el-button>
     </div>
 
@@ -84,9 +88,9 @@
           <el-card shadow="hover">
             <div class="flex items-center gap-3 mb-2">
               <span class="font-semibold" style="color:var(--accent-primary)">版本 {{ v.version_number }}</span>
-              <span class="text-base text-slate-800">{{ v.title }}</span>
+              <span class="text-base version-title-text">{{ v.title }}</span>
             </div>
-            <div v-if="v.summary" class="text-sm text-slate-500 mb-2">{{ v.summary }}</div>
+            <div v-if="v.summary" class="text-sm version-summary-text mb-2">{{ v.summary }}</div>
             <div class="flex gap-2 mt-2">
               <el-button size="small" @click="previewVersion(v)">预览</el-button>
               <el-popconfirm title="恢复此版本将覆盖当前内容，确定恢复？" @confirm="handleRestore(v.id)">
@@ -267,13 +271,56 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.admin-page {
+  padding: 4px 0;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
+.version-title-text {
+  color: var(--text-primary);
+}
+
+.version-summary-text {
+  color: var(--text-secondary);
+}
+
 .preview-content {
   max-height: 60vh;
   overflow-y: auto;
   padding: 16px;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(221,214,200,0.2);
   border-radius: 6px;
-  background: var(--bg-primary);
+  background: rgba(255,255,255,0.5);
+  backdrop-filter: blur(4px);
 }
 
 .preview-content :deep(img) {

@@ -1937,7 +1937,10 @@ function stopResize() {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-secondary);
+  background:
+    radial-gradient(ellipse at 80% 0%, rgba(2, 132, 199, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 100%, rgba(16, 185, 129, 0.02) 0%, transparent 45%),
+    linear-gradient(175deg, #f8f5f0 0%, #f5f1eb 50%, #f2ece2 100%);
 }
 
 .toolbar {
@@ -1946,8 +1949,10 @@ function stopResize() {
   justify-content: space-between;
   gap: 16px;
   padding: 10px 24px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-primary);
+  border-bottom: 1px solid rgba(221, 214, 200, 0.3);
+  background: rgba(245, 241, 235, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   flex-shrink: 0;
   height: 52px;
 }
@@ -2034,7 +2039,7 @@ function stopResize() {
 .pdf-panel {
   display: flex;
   flex-direction: column;
-  background: var(--slate-100);
+  background: #ede8df;
   overflow: hidden;
   flex-shrink: 0;
   min-width: 0;
@@ -2045,8 +2050,10 @@ function stopResize() {
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
+  background: rgba(237, 232, 223, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(221, 214, 200, 0.4);
   flex-shrink: 0;
 }
 
@@ -2099,8 +2106,9 @@ function stopResize() {
 }
 
 .side-panel {
-  border-left: 1px solid var(--border-color);
-  background: var(--bg-primary);
+  border-left: 1px solid rgba(221, 214, 200, 0.3);
+  background: rgba(248, 245, 240, 0.7);
+  backdrop-filter: blur(4px);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -2110,8 +2118,8 @@ function stopResize() {
 
 .side-panel-header {
   padding: 12px 20px;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  border-bottom: 1px solid rgba(221, 214, 200, 0.3);
   flex-shrink: 0;
 }
 
@@ -2140,8 +2148,8 @@ function stopResize() {
 .side-tabs :deep(.el-tabs__header) {
   margin-bottom: 0;
   flex-shrink: 0;
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  border-bottom: 1px solid rgba(221, 214, 200, 0.3);
   padding: 0 8px;
 }
 
@@ -2205,8 +2213,8 @@ function stopResize() {
 
 .source-block,
 .trans-block {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(226, 232, 240, 0.4);
   border-radius: var(--radius-lg);
   padding: 14px;
   width: 100%;
@@ -2215,8 +2223,8 @@ function stopResize() {
 }
 
 .trans-block {
-  background: var(--sky-50);
-  border-color: var(--sky-100);
+  background: linear-gradient(135deg, rgba(240, 249, 255, 0.7), rgba(255, 255, 255, 0.6));
+  border-color: rgba(186, 230, 253, 0.4);
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2442,7 +2450,7 @@ function stopResize() {
 }
 
 .full-trans-item.is-active {
-  background: var(--sky-50);
+  background: linear-gradient(135deg, rgba(240, 249, 255, 0.8), rgba(255, 255, 255, 0.6));
   border-left: 3px solid var(--accent-primary);
   padding-left: 5px;
 }
@@ -2571,22 +2579,23 @@ function stopResize() {
 
 .note-card {
   padding: 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(226, 232, 240, 0.3);
+  background: rgba(255, 255, 255, 0.45);
   margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .note-card:hover {
-  border-color: var(--accent-primary);
-  background: var(--sky-50);
+  border-color: var(--sky-200);
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .note-card--active {
   border-color: var(--accent-primary);
-  background: var(--sky-50);
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+  background: linear-gradient(135deg, rgba(240, 249, 255, 0.7), rgba(255, 255, 255, 0.5));
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.12);
 }
 
 .note-card-header {
@@ -2704,7 +2713,8 @@ function stopResize() {
 }
 
 .summary-item {
-  background: var(--bg-tertiary);
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(226, 232, 240, 0.3);
   border-radius: var(--radius-md);
   padding: 12px;
 }
@@ -2740,7 +2750,8 @@ function stopResize() {
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  background: var(--bg-tertiary);
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(226, 232, 240, 0.3);
   border-radius: var(--radius-md);
   border-left: 3px solid var(--accent-primary);
 }

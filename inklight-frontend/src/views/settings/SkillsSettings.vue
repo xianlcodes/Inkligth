@@ -1,7 +1,11 @@
 <template>
-  <div class="px-4 py-4">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-bold text-slate-800 m-0">技能与钩子管理</h2>
+  <div class="skills-page">
+    <div class="skills-header flex items-center justify-between mb-4">
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h2 class="section-title">技能与钩子管理</h2>
+        <span class="section-accent">SKILLS</span>
+      </div>
       <div class="flex gap-2">
         <el-button @click="activeTab = 'skills'">技能列表</el-button>
         <el-button @click="activeTab = 'hooks'">钩子列表</el-button>
@@ -11,7 +15,7 @@
       </div>
     </div>
 
-    <el-tabs v-model="activeTab" class="rounded-lg p-2" style="background:var(--bg-primary)">
+    <el-tabs v-model="activeTab" class="rounded-lg p-2 skills-tabs">
       <!-- ── Skills Tab ── -->
       <el-tab-pane label="技能 (Skills)" name="skills">
         <div class="px-4 py-3 mb-4 rounded-lg text-sm leading-relaxed" style="background:var(--bg-tertiary);border:1px solid var(--border-light);color:var(--text-secondary)">
@@ -57,10 +61,10 @@
           <el-empty v-if="skills.length === 0" description="暂无技能，点击上方添加" />
 
           <div v-else class="flex flex-col gap-2">
-            <div v-for="skill in skills" :key="skill.id" class="px-4 py-3_5 border rounded-md transition-colors hover:border-sky-200" style="background:var(--bg-primary)">
+            <div v-for="skill in skills" :key="skill.id" class="skill-card">
               <div class="flex items-center justify-between mb-1_5">
                 <div class="flex items-center gap-2">
-                  <span class="text-base font-semibold text-slate-800">{{ skill.name }}</span>
+                  <span class="text-base font-semibold skill-name-text">{{ skill.name }}</span>
                   <el-tag :type="layerTagType(skill.layer)" size="small">{{ skill.layer }}</el-tag>
                   <el-tag v-if="skill.match_topic" size="small" effect="plain">{{ skill.match_topic }}</el-tag>
                   <el-tag v-if="skill.category && skill.category !== 'general'" size="small" type="success" effect="plain">{{ categoryLabel(skill.category) }}</el-tag>
@@ -79,8 +83,8 @@
                   </el-button>
                 </div>
               </div>
-              <p class="text-sm text-slate-600 m-0 mb-1 leading-normal">{{ skill.description }}</p>
-              <p class="text-xs text-slate-400 m-0">优先级: {{ skill.priority }} · 更新于 {{ formatDateShort(skill.updated_at) }}</p>
+              <p class="text-sm skill-desc-text m-0 mb-1 leading-normal">{{ skill.description }}</p>
+              <p class="text-xs skill-meta-text m-0">优先级: {{ skill.priority }} · 更新于 {{ formatDateShort(skill.updated_at) }}</p>
             </div>
           </div>
         </div>
@@ -88,7 +92,7 @@
 
       <!-- ── Hooks Tab ── -->
       <el-tab-pane label="钩子 (Hooks)" name="hooks">
-        <div class="px-4 py-3 mb-4 bg-amber-50 border border-amber-100 rounded-lg text-sm text-slate-700 leading-relaxed">
+        <div class="px-4 py-3 mb-4 warm-bg-amber rounded-lg text-sm skill-desc-text leading-relaxed">
           <p class="m-0"><strong>钩子</strong> 是 AI 操作的生命周期拦截器——在特定时机自动执行。比如：AI 对话前检查频率（限流）、对话后记录日志、出错时触发通知。钩子能让系统更安全可控。</p>
         </div>
 
@@ -96,10 +100,10 @@
           <el-empty v-if="hooks.length === 0" description="暂无钩子，点击上方添加" />
 
           <div v-else class="flex flex-col gap-2">
-            <div v-for="hook in hooks" :key="hook.id" class="px-4 py-3_5 border rounded-md transition-colors hover:border-sky-200" style="background:var(--bg-primary)">
+            <div v-for="hook in hooks" :key="hook.id" class="hook-card">
               <div class="flex items-center justify-between mb-1_5">
                 <div class="flex items-center gap-2">
-                  <span class="text-base font-semibold text-slate-800">{{ hook.name }}</span>
+                  <span class="text-base font-semibold skill-name-text">{{ hook.name }}</span>
                   <el-tag size="small">{{ hook.hook_point }}</el-tag>
                   <el-tag type="warning" size="small" effect="plain">{{ hook.action_type }}</el-tag>
                 </div>
@@ -117,8 +121,8 @@
                   </el-button>
                 </div>
               </div>
-              <p class="text-sm text-slate-600 m-0 mb-1 leading-normal">{{ hook.description }}</p>
-              <p class="text-xs text-slate-400 m-0">优先级: {{ hook.priority }} · {{ hook.hook_point }} · 更新于 {{ formatDateShort(hook.updated_at) }}</p>
+              <p class="text-sm skill-desc-text m-0 mb-1 leading-normal">{{ hook.description }}</p>
+              <p class="text-xs skill-meta-text m-0">优先级: {{ hook.priority }} · {{ hook.hook_point }} · 更新于 {{ formatDateShort(hook.updated_at) }}</p>
             </div>
           </div>
         </div>
@@ -133,7 +137,7 @@
     >
       <el-form :model="skillForm" label-width="90px">
         <!-- 层级说明 -->
-        <div class="px-3 py-2 mb-4 bg-sky-50 border border-sky-100 rounded-md text-sm text-slate-700 leading-relaxed">
+        <div class="px-3 py-2 mb-4 warm-bg-sky rounded-md text-sm skill-desc-text leading-relaxed">
           <p class="m-0 font-medium mb-1">技能按层级注入（从上到下）：</p>
           <ul class="m-0 pl-4 space-y-0_5">
             <li><strong>Soul（核心身份）</strong>：定义 AI 的根本身份，比如"你是一个论文评审专家"</li>
@@ -245,12 +249,12 @@
         <div
           v-for="preset in presets"
           :key="preset.name"
-          class="flex items-center justify-between py-3 border-b border-slate-100"
+          class="flex items-center justify-between py-3 preset-item"
         >
           <div class="flex flex-col gap-1">
-            <span class="font-semibold text-sm text-slate-800">{{ preset.label_cn }}</span>
-            <span class="text-xs text-slate-400">{{ preset.name }}</span>
-            <span class="text-xs text-slate-500">{{ preset.desc_cn }}</span>
+            <span class="font-semibold text-sm preset-name-text">{{ preset.label_cn }}</span>
+            <span class="text-xs preset-meta-text">{{ preset.name }}</span>
+            <span class="text-xs preset-desc-text">{{ preset.desc_cn }}</span>
             <el-tag size="small">{{ preset.layer }}</el-tag>
             <el-tag v-if="preset.category && preset.category !== 'general'" size="small" type="success" effect="plain">{{ categoryLabel(preset.category) }}</el-tag>
           </div>
@@ -583,7 +587,113 @@ watch(activeTab, () => {
 </script>
 
 <style scoped>
+.skills-page {
+  padding: 28px 32px 40px;
+}
+
+.skills-header {
+  margin-bottom: 28px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
 .preset-list-wrapper > div:last-child {
   border-bottom: none;
+}
+
+/* ── Skill Card Styles ── */
+.skill-card,
+.hook-card {
+  padding: 16px 20px;
+  border: 1px solid rgba(221,214,200,0.3);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s;
+}
+
+.skill-card:hover,
+.hook-card:hover {
+  border-color: rgba(2,132,199,0.25);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.skill-name-text {
+  color: var(--text-primary);
+}
+
+.skill-desc-text {
+  color: var(--text-secondary);
+}
+
+.skill-meta-text {
+  color: var(--text-muted);
+}
+
+/* ── Tabs Background ── */
+.skills-tabs {
+  background: rgba(255,255,255,0.35);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(221,214,200,0.2);
+}
+
+/* ── Info Panels ── */
+.warm-bg-amber {
+  background: rgba(255,251,235,0.5);
+  border: 1px solid rgba(254,243,199,0.4);
+}
+
+.warm-bg-sky {
+  background: rgba(240,249,255,0.5);
+  border: 1px solid rgba(186,230,253,0.3);
+}
+
+/* ── Presets ── */
+.preset-item {
+  border-bottom: 1px solid rgba(221,214,200,0.2);
+}
+
+.preset-item:last-child {
+  border-bottom: none;
+}
+
+.preset-name-text {
+  color: var(--text-primary);
+}
+
+.preset-meta-text {
+  color: var(--text-muted);
+}
+
+.preset-desc-text {
+  color: var(--text-secondary);
 }
 </style>

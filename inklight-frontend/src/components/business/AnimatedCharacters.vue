@@ -392,7 +392,7 @@ onUnmounted(() => {
 .characters-container {
   position: relative;
   width: 550px;
-  height: 450px;
+  height: 340px;
 }
 
 .character {

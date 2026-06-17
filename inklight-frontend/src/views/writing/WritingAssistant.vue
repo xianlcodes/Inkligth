@@ -1,5 +1,10 @@
 <template>
   <div class="writing-assistant">
+    <div class="section-bar" style="padding: 28px 32px 0 32px; margin-bottom: 0;">
+      <div class="section-bar-line"></div>
+      <h2 class="section-title">学术写作</h2>
+      <span class="section-accent">WRITING</span>
+    </div>
     <div class="writing-layout">
       <!-- Left: Skills + History -->
       <aside class="side-panel">
@@ -404,15 +409,52 @@ watch(selectedSkillNames, (val) => {
 </script>
 
 <style scoped>
+/* ── Section Bar ── */
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
 .writing-assistant {
   height: 100%;
-  padding: 0;
-  background: var(--bg-secondary, #f5f7fa);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
 }
 
 .writing-layout {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  height: 100%;
+  margin: 0 32px 0;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
   gap: 0;
 }
 
@@ -420,7 +462,8 @@ watch(selectedSkillNames, (val) => {
 .side-panel {
   width: 260px;
   min-width: 260px;
-  background: var(--bg-primary);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(8px);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -434,19 +477,19 @@ watch(selectedSkillNames, (val) => {
 }
 
 .panel-section + .panel-section {
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-color);
 }
 
 .panel-title {
   font-size: 14px;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   margin: 0 0 2px;
 }
 
 .panel-desc {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin: 0 0 12px;
   line-height: 1.4;
 }
@@ -454,7 +497,7 @@ watch(selectedSkillNames, (val) => {
 .empty-skills {
   text-align: center;
   padding: 24px 0;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -477,7 +520,7 @@ watch(selectedSkillNames, (val) => {
 }
 
 .skill-item:hover {
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 
 .skill-info {
@@ -490,13 +533,13 @@ watch(selectedSkillNames, (val) => {
 .skill-name {
   font-size: 12px;
   font-weight: 600;
-  color: #334155;
+  color: var(--text-secondary);
   line-height: 1.3;
 }
 
 .skill-desc {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -540,12 +583,12 @@ watch(selectedSkillNames, (val) => {
 }
 
 .history-item:hover {
-  background: #f1f5f9;
+  background: var(--bg-hover);
 }
 
 .history-item.active {
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
+  background: var(--accent-light);
+  border: 1px solid var(--accent-muted);
 }
 
 .history-item-content {
@@ -569,7 +612,7 @@ watch(selectedSkillNames, (val) => {
 .history-item-title {
   font-size: 12px;
   font-weight: 600;
-  color: #334155;
+  color: var(--text-secondary);
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -578,7 +621,7 @@ watch(selectedSkillNames, (val) => {
 
 .history-item-time {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -588,12 +631,13 @@ watch(selectedSkillNames, (val) => {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--bg-primary);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
 }
 
 .active-skills-bar {
   padding: 8px 20px;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -603,11 +647,11 @@ watch(selectedSkillNames, (val) => {
 
 .bar-label {
   font-size: 12px;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .bar-muted {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -646,11 +690,11 @@ watch(selectedSkillNames, (val) => {
 }
 
 .message.ai .msg-label {
-  background: #10b981;
+  background: linear-gradient(135deg, var(--mint-500, #10b981), #059669);
 }
 
 .message.user .msg-label {
-  background: #3b82f6;
+  background: linear-gradient(135deg, var(--accent-primary), var(--sky-500));
 }
 
 .msg-bubble {
@@ -658,40 +702,40 @@ watch(selectedSkillNames, (val) => {
   border-radius: 8px;
   font-size: 14px;
   line-height: 1.7;
-  color: #1e293b;
+  color: var(--text-primary);
   word-break: break-word;
 }
 
 .message.ai .msg-bubble {
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
+  background: var(--bg-overlay-heavy);
+  border: 1px solid var(--border-color);
 }
 
 .message.user .msg-bubble {
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-  color: #1e40af;
+  background: rgba(240,249,255,0.7);
+  border: 1px solid rgba(2,132,199,0.15);
+  color: var(--text-primary);
 }
 
 .thinking {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 /* ── Input Area ── */
 .input-area {
   padding: 16px 20px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .context-section {
-  background: #fffbeb;
-  border: 1px solid #fef3c7;
+  background: rgba(255,251,235,0.6);
+  border: 1px solid rgba(254,243,199,0.5);
   border-radius: 8px;
   padding: 12px;
 }
@@ -743,7 +787,7 @@ watch(selectedSkillNames, (val) => {
 .writing-assistant .msg-bubble h5 {
   margin: 16px 0 8px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1.4;
 }
 .writing-assistant .msg-bubble h2 { font-size: 16px; }
@@ -755,7 +799,7 @@ watch(selectedSkillNames, (val) => {
 .writing-assistant .msg-bubble strong { font-weight: 600; }
 .writing-assistant .msg-bubble em { font-style: italic; }
 .writing-assistant .msg-bubble code {
-  background: #f1f5f9;
+  background: rgba(221,214,200,0.3);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 13px;
@@ -768,13 +812,13 @@ watch(selectedSkillNames, (val) => {
   padding: 0;
   border-radius: 8px;
   overflow: hidden;
-  background: #1e293b;
+  background: #2a231e;
 }
 .writing-assistant .msg-bubble pre code {
   display: block;
   padding: 14px 16px;
-  background: #1e293b;
-  color: #e2e8f0;
+  background: #2a231e;
+  color: #ddd2c4;
   font-size: 13px;
   line-height: 1.6;
   font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
@@ -787,10 +831,10 @@ watch(selectedSkillNames, (val) => {
 .writing-assistant .msg-bubble blockquote {
   margin: 10px 0;
   padding: 8px 14px;
-  border-left: 3px solid #10b981;
-  background: #f0fdf4;
+  border-left: 3px solid var(--mint-500, #10b981);
+  background: rgba(240,253,244,0.5);
   border-radius: 0 6px 6px 0;
-  color: #166534;
+  color: var(--text-secondary);
   font-style: italic;
   line-height: 1.6;
 }
@@ -817,6 +861,6 @@ watch(selectedSkillNames, (val) => {
 .writing-assistant .msg-bubble hr {
   margin: 16px 0;
   border: none;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid rgba(221,214,200,0.4);
 }
 </style>

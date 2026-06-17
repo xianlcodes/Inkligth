@@ -1,7 +1,11 @@
 <template>
-  <div style="max-width:1200px">
+  <div class="admin-page">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-bold text-slate-800 m-0">系统配置</h2>
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h2 class="section-title">系统配置</h2>
+        <span class="section-accent">CONFIG</span>
+      </div>
       <div class="flex gap-2">
         <el-button @click="exportConfigs">
           <el-icon><Download /></el-icon>
@@ -43,7 +47,7 @@
         >
           <template #title>
             <div class="flex items-center gap-2_5">
-              <span class="text-base font-semibold text-slate-800">{{ categoryLabel(group.category) }}</span>
+              <span class="text-base font-semibold config-title-text">{{ categoryLabel(group.category) }}</span>
               <el-tag size="small" effect="plain">{{ group.items.length }}</el-tag>
             </div>
           </template>
@@ -52,7 +56,7 @@
             <div
               v-for="cfg in group.items"
               :key="cfg.key"
-              :class="['border-t first:border-t-0 transition-colors duration-fast', { 'bg-slate-50': editingKey === cfg.key }]"
+              :class="['border-t first:border-t-0 transition-colors duration-fast', { 'config-editing-row': editingKey === cfg.key }]"
               :style="cfg.is_critical ? { borderLeft: '3px solid #dc2626' } : {}"
             >
               <div class="flex items-center justify-between px-5 py-3_5 cursor-pointer gap-3" @click="startEdit(cfg)" v-if="editingKey !== cfg.key">
@@ -60,26 +64,26 @@
                   <el-tag :type="typeTagType(cfg.config_type)" size="small">
                     {{ typeLabel(cfg.config_type) }}
                   </el-tag>
-                  <span class="text-sm font-medium text-slate-800">{{ cfg.label || cfg.key }}</span>
-                  <code class="text-xs text-slate-400 bg-slate-100 px-1_5 py-0_5 rounded-xs">({{ cfg.key }})</code>
+                  <span class="text-sm font-medium config-title-text">{{ cfg.label || cfg.key }}</span>
+                  <code class="text-xs config-meta-text config-key-badge">({{ cfg.key }})</code>
                   <el-tag v-if="cfg.is_critical" type="danger" size="small" effect="dark">关键</el-tag>
                   <el-tag v-if="cfg.requires_restart" type="warning" size="small" effect="plain">需重启</el-tag>
                 </div>
                 <div class="flex items-center gap-3 flex-shrink-0">
-                  <span class="text-sm text-slate-600 truncate" style="max-width:200px">{{ truncate(cfg.value, 40) || '（未设置）' }}</span>
+                  <span class="text-sm config-desc-text truncate" style="max-width:200px">{{ truncate(cfg.value, 40) || '（未设置）' }}</span>
                   <el-button size="small" text type="primary" @click.stop="showHistory(cfg)">历史</el-button>
                 </div>
               </div>
 
               <div v-else class="px-5 py-3_5">
                 <div class="flex items-center gap-2 mb-3">
-                  <span class="text-base font-semibold text-slate-800">{{ cfg.label || cfg.key }}</span>
-                  <code class="text-xs text-slate-400">{{ cfg.key }}</code>
+                  <span class="text-base font-semibold config-title-text">{{ cfg.label || cfg.key }}</span>
+                  <code class="text-xs config-meta-text">{{ cfg.key }}</code>
                 </div>
 
                 <div class="flex flex-col gap-2_5">
                   <div class="edit-field">
-                    <label class="block text-sm text-slate-500 mb-1">值</label>
+                    <label class="block text-sm config-label-text mb-1">值</label>
                     <el-select
                       v-if="cfg.config_type === 'select'"
                       v-model="editValue"
@@ -501,9 +505,71 @@ onMounted(() => { loadConfigs() })
 </script>
 
 <style scoped>
+.admin-page {
+  max-width: 1200px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
 .config-collapse {
-  background: var(--bg-primary);
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(221,214,200,0.2);
   border-radius: var(--radius-lg);
+}
+
+.config-editing-row {
+  background: rgba(245,241,235,0.4);
+}
+
+.config-title-text {
+  color: var(--text-primary);
+}
+
+.config-desc-text {
+  color: var(--text-secondary);
+}
+
+.config-meta-text {
+  color: var(--text-muted);
+}
+
+.config-key-badge {
+  background: rgba(221,214,200,0.2);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.config-label-text {
+  color: var(--text-secondary);
 }
 
 .edit-field :deep(.el-input),
@@ -518,7 +584,7 @@ onMounted(() => { loadConfigs() })
 }
 
 .edit-meta code {
-  background: var(--bg-secondary);
+  background: rgba(221,214,200,0.2);
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 12px;

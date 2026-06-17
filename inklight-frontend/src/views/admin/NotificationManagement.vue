@@ -1,7 +1,11 @@
 <template>
-  <div style="max-width:1200px">
+  <div class="admin-page">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-bold text-slate-800 m-0">通知管理</h2>
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h2 class="section-title">通知管理</h2>
+        <span class="section-accent">NOTIFICATIONS</span>
+      </div>
       <div class="flex gap-2">
         <el-button type="danger" plain size="small" :disabled="selectedIds.length === 0" @click="batchDelete">
           批量删除 ({{ selectedIds.length }})
@@ -255,6 +259,40 @@ onMounted(() => { loadAnnouncements() })
 </script>
 
 <style scoped>
+.admin-page {
+  max-width: 1200px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
 .status-badge {
   font-size: 12px;
   padding: 2px 8px;
@@ -262,12 +300,12 @@ onMounted(() => { loadAnnouncements() })
 }
 
 .status-badge.published {
-  background: #f0fdf4;
+  background: rgba(240,253,244,0.6);
   color: #16a34a;
 }
 
 .status-badge.draft {
-  background: #f5f5f4;
+  background: rgba(245,245,244,0.5);
   color: #78716c;
 }
 </style>

@@ -1,7 +1,11 @@
 <template>
-  <div class="px-4 py-4">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-bold text-slate-800 m-0">AI 引擎配置</h2>
+  <div class="ai-settings-page">
+    <div class="ai-settings-header flex items-center justify-between mb-4">
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h2 class="section-title">AI 引擎配置</h2>
+        <span class="section-accent">ENGINES</span>
+      </div>
       <div class="flex gap-2">
         <el-button type="primary" @click="openCreateDialog">添加引擎</el-button>
       </div>
@@ -304,6 +308,44 @@ async function handleDelete(engineId: string) {
 </script>
 
 <style scoped>
+.ai-settings-page {
+  padding: 28px 32px 40px;
+}
+
+.ai-settings-header {
+  margin-bottom: 28px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
 .tutorial-hint .el-icon {
   color: var(--accent-primary);
 }

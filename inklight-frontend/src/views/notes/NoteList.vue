@@ -1,11 +1,15 @@
 <template>
-  <div class="h-full flex flex-col overflow-hidden bg-slate-50">
-    <div class="flex-shrink-0 px-8 pt-6 pb-4">
-      <h2 class="text-xl font-bold text-slate-800 m-0 mb-1">文献笔记</h2>
-      <p class="text-xs text-slate-400 m-0">管理所有文献的笔记与标注</p>
+  <div class="notes-page">
+    <div class="notes-header">
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h2 class="section-title">文献笔记</h2>
+        <span class="section-accent">NOTES</span>
+      </div>
+      <p class="notes-subtitle">管理所有文献的笔记与标注</p>
     </div>
 
-    <div class="flex gap-3 flex-shrink-0 px-8 pb-4">
+    <div class="notes-filters flex gap-3 flex-shrink-0 pb-4" style="padding-left:0">
       <el-select
         v-model="filterType"
         placeholder="笔记类型"
@@ -25,7 +29,7 @@
         placeholder="搜索文献标题..."
         clearable
         size="default"
-        class="flex-1 max-w-xs"
+        class="notes-search flex-1 max-w-xs"
         @input="onFilterInput"
       >
         <template #prefix>
@@ -286,28 +290,114 @@ function formatDate(dateStr: string) {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════════════════════════
+   InkLight — Notes Page (Reading-First)
+   Warm aesthetic matching Dashboard
+   ═══════════════════════════════════════════════════════════════ */
+
+.notes-page {
+  padding: 28px 32px 40px;
+  min-height: 100%;
+}
+
+/* ── Section bar (matching Dashboard pattern) ── */
+.notes-header {
+  margin-bottom: 24px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
+.notes-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 0 18px;
+  letter-spacing: 0.01em;
+}
+
+.notes-filters {
+  padding: 0 0 16px 0;
+}
+
+.notes-search :deep(.el-input__wrapper) {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-overlay);
+  box-shadow: none !important;
+}
+.notes-search :deep(.el-input__wrapper:hover) {
+  border-color: var(--sky-300);
+  background: var(--bg-overlay-hover);
+}
+.notes-search :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1) !important;
+  background: var(--bg-overlay-heavy);
+}
+
+.notes-filters :deep(.el-select .el-select__wrapper) {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-overlay);
+  box-shadow: none !important;
+}
+
 /* ── Note card ── */
 .note-card {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 14px 16px;
-  background: var(--bg-primary);
+  padding: 16px 18px;
+  background: var(--bg-overlay-heavy);
+  backdrop-filter: blur(2px);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   margin-bottom: 8px;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
 .note-card:hover {
-  border-color: var(--accent-primary);
-  box-shadow: 0 2px 12px rgba(2, 132, 199, 0.08);
+  background: var(--bg-overlay-hover);
+  border-color: var(--sky-200);
+  box-shadow: 0 4px 20px -6px rgba(2, 132, 199, 0.10), 0 1px 4px -2px rgba(0,0,0,0.02);
+  transform: translateY(-1px);
 }
 
 .note-card-actions {
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition-fast);
+  display: flex;
+  gap: 4px;
 }
 .note-card:hover .note-card-actions { opacity: 1; }
 
@@ -316,7 +406,7 @@ function formatDate(dateStr: string) {
   font-size: 14px;
   color: var(--text-primary);
   line-height: 1.6;
-  margin: 0 0 8px 0;
+  margin: 0 0 10px 0;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -329,7 +419,7 @@ function formatDate(dateStr: string) {
   color: var(--text-secondary);
   line-height: 1.6;
   padding: 10px 12px;
-  background: var(--bg-tertiary);
+  background: var(--bg-overlay);
   border-left: 3px solid var(--accent-primary);
   border-radius: var(--radius-md);
   margin: 0 0 14px 0;
@@ -351,7 +441,7 @@ function formatDate(dateStr: string) {
   transition: all var(--transition-fast);
 }
 .toolbar-btn:hover {
-  background: var(--bg-primary);
+  background: rgba(255,255,255,0.5);
   color: var(--text-primary);
 }
 .toolbar-btn.active {

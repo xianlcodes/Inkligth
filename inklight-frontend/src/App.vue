@@ -398,14 +398,20 @@ watchEffect(() => {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════════════════════════
+   InkLight — Global Layout
+   Reading-first design: dark sidebar, warm paper content
+   ═══════════════════════════════════════════════════════════════ */
+
 .app-container {
   height: 100%;
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
 }
 
+/* ── Sidebar — dark warm charcoal, reading-app feel ── */
 .app-sidebar {
-  background: var(--bg-primary) !important;
-  border-right: 1px solid var(--border-color);
+  background: #2a231e !important;
+  border-right: 1px solid #3d332c;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -418,8 +424,8 @@ watchEffect(() => {
 .app-sidebar.collapsed { border-right: none; }
 
 .sidebar-header {
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
+  border-bottom: 1px solid #3d332c;
+  background: #322b25;
 }
 
 .sidebar-header::after {
@@ -429,8 +435,7 @@ watchEffect(() => {
   left: 20px;
   right: 20px;
   height: 1px;
-  background: var(--gradient-primary);
-  opacity: 0.2;
+  background: linear-gradient(90deg, transparent 0%, rgba(2,132,199,0.2) 50%, transparent 100%);
 }
 
 .sidebar-logo {
@@ -446,24 +451,26 @@ watchEffect(() => {
 }
 
 .sidebar-logo-text {
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
+  color: #e0d6cc;
+  letter-spacing: -0.3px;
   font-size: 20px;
+  font-weight: 700;
 }
 
 .sidebar-toggle-btn {
-  border-color: var(--border-color);
-  background: var(--bg-primary);
-  color: var(--text-muted);
+  border-color: #4d4038;
+  background: rgba(255,255,255,0.06);
+  color: #8a7a6c;
   transition: all var(--transition-fast);
 }
 
 .sidebar-toggle-btn:hover {
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
-  background: var(--sky-50);
+  color: #38bdf8;
+  border-color: rgba(56,189,248,0.3);
+  background: rgba(2,132,199,0.12);
 }
 
+/* ── Sidebar expand FAB ── */
 .sidebar-expand-fab {
   position: fixed;
   left: 8px;
@@ -476,49 +483,57 @@ watchEffect(() => {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-lg);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-md);
+  background: #322b25;
+  border: 1px solid #4d4038;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
+  color: #8a7a6c;
   transition: all var(--transition-base);
 }
 
 .expand-fab-btn:hover {
-  color: var(--accent-primary);
-  border-color: var(--accent-primary);
-  box-shadow: var(--shadow-lg);
+  color: #38bdf8;
+  border-color: rgba(56,189,248,0.3);
+  box-shadow: 0 4px 16px rgba(2,132,199,0.15);
   transform: scale(1.05);
 }
 
+/* ── Sidebar menu — Element Plus overrides ── */
 .sidebar-menu {
   flex: 1;
   border-right: none;
-  padding: 12px 8px;
+  padding: 10px 8px;
+}
+
+.sidebar-menu :deep(.el-menu) {
+  background: transparent !important;
+  border-right: none !important;
 }
 
 .sidebar-menu :deep(.el-menu-item) {
   border-radius: var(--radius-md);
   margin-bottom: 2px;
-  height: 44px;
-  line-height: 44px;
-  color: var(--text-secondary);
+  height: 42px;
+  line-height: 42px;
+  color: #b8ab9e !important;
   font-size: 14px;
+  font-weight: 500;
   position: relative;
   transition: all var(--transition-fast);
+  background: transparent !important;
 }
 
 .sidebar-menu :deep(.el-menu-item:hover) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: rgba(255,255,255,0.05) !important;
+  color: #e8e0d8 !important;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: var(--bg-hover);
-  color: var(--accent-primary);
+  background: rgba(2,132,199,0.12) !important;
+  color: #7dd3fc !important;
   font-weight: 600;
 }
 
@@ -530,37 +545,43 @@ watchEffect(() => {
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background: var(--gradient-primary);
-  border-radius: 0 2px 2px 0;
+  background: linear-gradient(180deg, #0284c7, #38bdf8);
+  border-radius: 0 3px 3px 0;
 }
 
 .sidebar-menu :deep(.el-menu-item .el-icon) {
-  color: inherit;
+  color: inherit !important;
   font-size: 18px;
   margin-right: 8px;
+  opacity: 0.6;
 }
 
+.sidebar-menu :deep(.el-menu-item.is-active .el-icon) {
+  opacity: 1;
+}
+
+/* ── Sidebar storage ── */
 .sidebar-storage {
   padding: 12px 16px;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
+  border-top: 1px solid #3d332c;
+  background: #1e1916;
   flex-shrink: 0;
 }
 
 .sidebar-storage-header {
-  color: var(--text-tertiary);
+  color: #8a7a6c;
 }
 
-.sidebar-storage-header .el-icon { color: var(--text-muted); }
+.sidebar-storage-header .el-icon { color: #6b5d53; }
 
 .sidebar-storage-bar {
-  background: var(--bg-tertiary);
+  background: rgba(255,255,255,0.06);
   height: 5px;
   margin: 0 4px;
 }
 
 .sidebar-storage-fill {
-  background: var(--gradient-primary);
+  background: linear-gradient(90deg, #0284c7, #38bdf8);
   transition: width 0.6s ease, background 0.3s;
 }
 
@@ -569,29 +590,36 @@ watchEffect(() => {
 }
 
 .sidebar-storage-text {
-  color: var(--text-primary);
+  color: #c4b8a8;
 }
 
-.sidebar-storage-remaining { color: var(--text-muted); }
-.sidebar-storage-remaining.warning { color: var(--rose-600); font-weight: 500; }
+.sidebar-storage-remaining { color: #8a7a6c; }
+.sidebar-storage-remaining.warning { color: #f87171; font-weight: 500; }
 
+/* ── Header — translucent glass ── */
 .app-header {
-  background: var(--bg-primary);
+  position: relative;
+  z-index: 1001;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.02);
 }
 
 .page-brand {
-  letter-spacing: var(--tracking-tight);
-  background: var(--gradient-primary);
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  font-size: 17px;
 }
 
+/* ── Search ── */
 .search-input :deep(.el-input__wrapper) {
   border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
+  background: var(--bg-overlay);
   box-shadow: none;
   border: 1px solid transparent;
   transition: all var(--transition-fast);
@@ -599,13 +627,13 @@ watchEffect(() => {
 
 .search-input :deep(.el-input__wrapper:hover) {
   border-color: var(--border-color);
-  background: var(--bg-hover);
+  background: var(--bg-overlay-hover);
 }
 
 .search-input :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1) !important;
-  background: var(--bg-primary);
+  background: var(--bg-overlay-heavy);
 }
 
 .search-dropdown {
@@ -613,18 +641,19 @@ watchEffect(() => {
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: var(--bg-primary);
+  background: var(--bg-overlay-heavy);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-dropdown);
+  box-shadow: 0 8px 28px -8px rgba(0,0,0,0.08);
   max-height: 420px;
   overflow-y: auto;
-  z-index: 2000;
+  z-index: 9999;
   animation: fadeInUp 0.2s ease;
 }
 
 .search-dropdown-header {
-  background: var(--bg-primary);
+  background: transparent;
 }
 
 .search-loading { color: var(--text-muted); }
@@ -642,13 +671,29 @@ watchEffect(() => {
 .user-avatar-img {
   width: 34px;
   height: 34px;
-  border: 2px solid var(--sky-100);
+  border: 2px solid rgba(2,132,199,0.15);
   transition: border-color 0.2s ease;
 }
 
 .user-avatar-img:hover { border-color: var(--accent-primary); }
 
-.app-main { background: var(--bg-secondary); }
+/* ── Main content area ── */
+.app-main {
+  background:
+    radial-gradient(ellipse at 70% 0%, rgba(2, 132, 199, 0.03) 0%, transparent 55%),
+    radial-gradient(ellipse at 30% 100%, rgba(16, 185, 129, 0.02) 0%, transparent 45%),
+    var(--bg-primary);
+}
 
 .alert-content { color: var(--text-secondary); }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>

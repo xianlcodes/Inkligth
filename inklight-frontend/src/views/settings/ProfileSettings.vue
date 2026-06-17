@@ -1,13 +1,15 @@
 <template>
-  <div class="mx-auto pt-6 pb-6" style="max-width:640px">
-    <div class="page-header">
-      <h2 class="text-xl font-bold text-slate-800 m-0">个人设置</h2>
+  <div class="settings-page mx-auto py-6" style="max-width:640px">
+    <div class="section-bar">
+      <div class="section-bar-line"></div>
+      <h2 class="section-title">个人设置</h2>
+      <span class="section-accent">PROFILE</span>
     </div>
 
     <div class="flex flex-col gap-5">
-      <el-card shadow="never">
+      <el-card shadow="never" class="settings-card">
         <template #header>
-          <span class="text-base font-semibold text-slate-800">修改头像</span>
+          <span class="settings-card-title">修改头像</span>
         </template>
         <AvatarPicker
           v-model="avatarStyle"
@@ -19,9 +21,9 @@
         </div>
       </el-card>
 
-      <el-card shadow="never">
+      <el-card shadow="never" class="settings-card">
         <template #header>
-          <span class="text-base font-semibold text-slate-800">修改密码</span>
+          <span class="settings-card-title">修改密码</span>
         </template>
         <el-form :model="passwordForm" label-width="100px" class="max-w-[400px]">
           <el-form-item label="当前邮箱">
@@ -49,7 +51,7 @@
 
       <el-card shadow="never">
         <template #header>
-          <span class="text-base font-semibold text-slate-800">基本信息</span>
+          <span class="settings-card-title">基本信息</span>
         </template>
         <el-form :model="profileForm" label-width="80px" class="max-w-[400px]">
           <el-form-item label="邮箱">
@@ -66,38 +68,49 @@
 
       <el-card shadow="never">
         <template #header>
-          <span class="text-base font-semibold text-slate-800">主题背景</span>
+          <span class="settings-card-title">主题背景</span>
         </template>
-        <div class="grid grid-cols-4 gap-4">
+        <div class="grid grid-cols-4 gap-3">
           <div
             v-for="preset in themePresets"
             :key="preset.name"
-            class="flex flex-col items-center gap-1.5 cursor-pointer py-3 px-2 rounded-xl border-2 transition-all duration-200"
+            class="theme-swatch flex flex-col items-center gap-1.5 cursor-pointer rounded-xl border-2 transition-all duration-200"
             :class="{
-              '!border-sky-500 !bg-sky-50': currentThemeColor === preset.variables['--bg-color'],
-              'border-transparent hover:bg-slate-100 hover:border-slate-200': currentThemeColor !== preset.variables['--bg-color']
+              'swatch-selected': currentThemeColor === preset.variables['--bg-color'],
+              'swatch-idle': currentThemeColor !== preset.variables['--bg-color']
             }"
             @click="selectTheme(preset)"
           >
+            <!-- Preview panel: bg + sample text + inner card -->
             <div
-              class="w-16 h-16 rounded-xl flex-shrink-0 flex items-center justify-center"
+              class="swatch-preview"
               :style="{
                 backgroundColor: preset.variables['--bg-color'],
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                outline: '1px solid ' + (preset.variables['--bg-color'] === '#ffffff' ? '#d1d5db' : '#e5e7eb')
+                borderColor: preset.variables['--border-color']
               }"
             >
-              <el-icon
-                v-if="currentThemeColor === preset.variables['--bg-color']"
-                :size="24"
-                :color="preset.isDark ? '#67c23a' : '#0284c7'"
+              <!-- Simulated card surface on the background -->
+              <div
+                class="swatch-card"
+                :style="{
+                  backgroundColor: preset.isDark ? '#252525' : 'rgba(255,255,255,0.7)',
+                  color: preset.variables['--text-primary']
+                }"
               >
-                <Check />
-              </el-icon>
+                <span class="swatch-char">文</span>
+              </div>
+              <!-- Check mark for selected -->
+              <div
+                v-if="currentThemeColor === preset.variables['--bg-color']"
+                class="swatch-check"
+                :style="{ color: preset.isDark ? '#67c23a' : '#0284c7' }"
+              >
+                <el-icon :size="14"><Check /></el-icon>
+              </div>
             </div>
             <span
-              class="text-xs font-medium whitespace-nowrap transition-colors"
-              :class="currentThemeColor === preset.variables['--bg-color'] ? 'text-sky-600' : 'text-slate-500'"
+              class="swatch-label"
+              :class="currentThemeColor === preset.variables['--bg-color'] ? 'label-active' : 'label-idle'"
             >{{ preset.label }}</span>
           </div>
         </div>
@@ -235,8 +248,132 @@ async function savePassword() {
 </script>
 
 <style scoped>
-/* Page header space */
-.page-header {
-  margin-bottom: 24px;
+.settings-page {
+  padding: 28px 32px 40px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
+.settings-card {
+  background: var(--bg-overlay) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
+}
+
+.settings-card-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-card :deep(.el-card__header) {
+  border-bottom: 1px solid var(--border-color);
+  padding: 16px 20px;
+}
+
+/* ── Theme swatch previews ── */
+.theme-swatch {
+  padding: 12px 6px 10px;
+  border-color: transparent;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.theme-swatch.swatch-idle {
+  border-color: transparent;
+  background: transparent;
+}
+.theme-swatch.swatch-idle:hover {
+  border-color: var(--border-color);
+  background: var(--bg-overlay);
+}
+.theme-swatch.swatch-selected {
+  border-color: var(--accent-primary) !important;
+  background: var(--accent-light) !important;
+}
+
+.swatch-preview {
+  position: relative;
+  width: 72px;
+  height: 64px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+
+.swatch-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 32px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.swatch-char {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.swatch-check {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.swatch-label {
+  font-size: 11px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.swatch-label.label-active {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+.swatch-label.label-idle {
+  color: var(--text-tertiary);
 }
 </style>

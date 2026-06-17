@@ -17,9 +17,8 @@
         />
       </div>
 
-      <div class="left-footer">
-        <router-link to="/forgot-password">忘记密码</router-link>
-        <router-link to="/register">注册账号</router-link>
+      <div class="typewriter-wrapper">
+        <TypewriterHeader />
       </div>
 
       <div class="decor-blur-1" />
@@ -29,6 +28,11 @@
 
     <!-- 右侧：登录表单 -->
     <div class="right-panel">
+      <div class="right-decor-blur-1" />
+      <div class="right-decor-blur-2" />
+      <div class="right-decor-blur-3" />
+      <div class="right-decor-grid" />
+
       <div class="form-wrapper">
         <div class="mobile-logo">
           <div class="mobile-logo-icon">
@@ -37,82 +41,101 @@
           <span>InkLight 研墨</span>
         </div>
 
-        <div class="form-header">
-          <h1 class="form-title">登录到工作台</h1>
-          <p class="form-subtitle">研墨文献 · 智能研读平台</p>
-        </div>
-
-        <el-form
-          ref="loginFormRef"
-          :model="loginForm"
-          :rules="rules"
-          class="login-form"
-          hide-required-asterisk
-          @keyup.enter="handleLogin"
-        >
-          <div class="field-label">邮箱</div>
-          <el-form-item prop="email">
-            <el-input
-              v-model="loginForm.email"
-              placeholder="输入您的邮箱"
-              :prefix-icon="Message"
-              size="large"
-              @focus="isTyping = true"
-              @blur="isTyping = false"
-            />
-          </el-form-item>
-
-          <div class="field-label">密码</div>
-          <el-form-item prop="password">
-            <el-input
-              v-model="loginForm.password"
-              :type="showPassword ? 'text' : 'password'"
-              placeholder="输入您的密码"
-              :prefix-icon="Lock"
-              size="large"
-              @input="onPasswordInput"
-              @focus="isTyping = true"
-              @blur="isTyping = false"
-            >
-              <template #suffix>
-                <span class="eye-toggle" @click="showPassword = !showPassword">
-                  <el-icon v-if="showPassword"><View /></el-icon>
-                  <el-icon v-else><Hide /></el-icon>
-                </span>
-              </template>
-            </el-input>
-          </el-form-item>
-
-          <div v-if="errorMsg" class="error-box">
-            <el-icon><WarningFilled /></el-icon>
-            <span>{{ errorMsg }}</span>
+        <div class="form-card">
+          <div class="form-header">
+            <div class="form-greeting">欢迎回来</div>
+            <h1 class="form-title">登录到工作台</h1>
+            <p class="form-subtitle">研墨文献 · 智能研读 · 高效写作</p>
           </div>
 
-          <el-form-item style="margin-bottom: 0">
-            <el-button
-              type="primary"
-              :loading="loading"
-              class="submit-btn"
-              @click="handleLogin"
-            >
-              {{ loading ? '登录中...' : '登录' }}
-            </el-button>
-          </el-form-item>
-        </el-form>
+          <el-form
+            ref="loginFormRef"
+            :model="loginForm"
+            :rules="rules"
+            class="login-form"
+            hide-required-asterisk
+            @keyup.enter="handleLogin"
+          >
+            <div class="field-label">邮箱</div>
+            <el-form-item prop="email">
+              <el-input
+                v-model="loginForm.email"
+                placeholder="输入您的邮箱"
+                :prefix-icon="Message"
+                size="large"
+                @focus="isTyping = true"
+                @blur="isTyping = false"
+              />
+            </el-form-item>
 
-        <div class="divider">
-          <span>或</span>
+            <div class="field-label">密码</div>
+            <el-form-item prop="password">
+              <el-input
+                v-model="loginForm.password"
+                :type="showPassword ? 'text' : 'password'"
+                placeholder="输入您的密码"
+                :prefix-icon="Lock"
+                size="large"
+                @input="onPasswordInput"
+                @focus="isTyping = true"
+                @blur="isTyping = false"
+              >
+                <template #suffix>
+                  <span class="eye-toggle" @click="showPassword = !showPassword">
+                    <el-icon v-if="showPassword"><View /></el-icon>
+                    <el-icon v-else><Hide /></el-icon>
+                  </span>
+                </template>
+              </el-input>
+            </el-form-item>
+
+            <div v-if="errorMsg" class="error-box">
+              <el-icon><WarningFilled /></el-icon>
+              <span>{{ errorMsg }}</span>
+            </div>
+
+            <el-form-item style="margin-bottom: 0">
+              <el-button
+                type="primary"
+                :loading="loading"
+                class="submit-btn"
+                @click="handleLogin"
+              >
+                {{ loading ? '登录中...' : '登录' }}
+              </el-button>
+            </el-form-item>
+          </el-form>
+
+          <div class="divider">
+            <span>或</span>
+          </div>
+
+          <div class="signup-row">
+            <span class="signup-primary">还没有账号？<router-link to="/register" class="signup-link">立即注册</router-link></span>
+            <router-link to="/forgot-password" class="forgot-link">忘记密码</router-link>
+          </div>
         </div>
 
-        <div class="signup-row">
-          还没有账号？
-          <router-link to="/register" class="signup-link">立即注册</router-link>
+        <div class="feature-badges">
+          <div class="feature-badge">
+            <span class="feature-dot" style="background: var(--accent-primary)"></span>
+            AI 文献分析
+          </div>
+          <div class="feature-badge">
+            <span class="feature-dot" style="background: var(--mint-500, #10b981)"></span>
+            智能翻译
+          </div>
+          <div class="feature-badge">
+            <span class="feature-dot" style="background: var(--amber-500, #f59e0b)"></span>
+            学术写作
+          </div>
         </div>
       </div>
 
-      <div class="icp-footer">
-        <a href="http://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">渝ICP备2026008976号</a>
-      </div>
+    </div>
+
+    <div class="icp-footer">
+      <a href="http://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">渝ICP备2026008976号</a>
     </div>
   </div>
 </template>
@@ -124,6 +147,7 @@ import { ElMessage } from 'element-plus'
 import { Message, Lock, View, Hide, WarningFilled } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import AnimatedCharacters from '@/components/business/AnimatedCharacters.vue'
+import TypewriterHeader from '@/components/business/TypewriterHeader.vue'
 import quillLogo from '@/assets/quill.png'
 
 const router = useRouter()
@@ -178,7 +202,9 @@ async function handleLogin() {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  position: relative;
 }
+
 
 /* ═══════════════════════════════════════════════════════════════
    左侧面板
@@ -188,9 +214,9 @@ async function handleLogin() {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   padding: 48px;
-  background: linear-gradient(145deg, #0f172a 0%, #075985 50%, #0284c7 100%);
+  background: linear-gradient(to right, #0f172a 0%, #162d50 25%, #1a5a70 50%, #5a7a75 78%, #9aaca0 100%);
   overflow: hidden;
 }
 
@@ -201,7 +227,9 @@ async function handleLogin() {
 }
 
 .left-top {
-  position: relative;
+  position: absolute;
+  top: 48px;
+  left: 48px;
   z-index: 20;
   display: flex;
   align-items: center;
@@ -238,19 +266,31 @@ async function handleLogin() {
 }
 
 .brand-name {
+  font-family: 'Cinzel', 'Georgia', serif;
   color: #ffffff;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+.typewriter-wrapper {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100px;
+  z-index: 25;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .characters-area {
   position: relative;
   z-index: 20;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  height: 500px;
 }
 
 .left-footer {
@@ -318,13 +358,70 @@ async function handleLogin() {
   align-items: center;
   justify-content: center;
   padding: 32px;
-  background: #ffffff;
+  background: linear-gradient(to right, #9aaca0 0%, #b8bdb2 18%, #d5cec2 38%, #ede8df 65%, #f5f1eb 100%);
   position: relative;
+  overflow: hidden;
+}
+
+.right-decor-blur-1 {
+  position: absolute;
+  top: 8%;
+  left: -8%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(90,117,112,0.1) 0%, rgba(2,132,199,0.04) 40%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.right-decor-blur-2 {
+  position: absolute;
+  bottom: 5%;
+  right: 8%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.right-decor-blur-3 {
+  position: absolute;
+  top: 40%;
+  right: 15%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(245,158,11,0.05) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.right-decor-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(42,35,30,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42,35,30,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .form-wrapper {
   width: 100%;
   max-width: 400px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 20px;
 }
 
 .mobile-logo {
@@ -334,8 +431,8 @@ async function handleLogin() {
   gap: 8px;
   font-size: 18px;
   font-weight: 700;
-  color: #0f172a;
-  margin-bottom: 48px;
+  color: var(--text-primary);
+  margin-bottom: 36px;
 }
 
 @media (max-width: 1024px) {
@@ -348,29 +445,59 @@ async function handleLogin() {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: #f0fdfa;
+  background: rgba(2,132,199,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* ─── Form Card ─── */
+
+.form-card {
+  width: 100%;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(221,214,200,0.25);
+  border-radius: 16px;
+  padding: 36px 32px 28px;
+  box-shadow:
+    0 1px 3px rgba(42,35,30,0.04),
+    0 8px 32px rgba(42,35,30,0.06);
+  transition: box-shadow 0.3s;
+}
+
+.form-card:hover {
+  box-shadow:
+    0 1px 3px rgba(42,35,30,0.04),
+    0 12px 40px rgba(42,35,30,0.08);
+}
+
 .form-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
+}
+
+.form-greeting {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
 }
 
 .form-title {
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #0f172a;
-  margin: 0 0 10px 0;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
   line-height: 1.3;
 }
 
 .form-subtitle {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: var(--text-muted);
   margin: 0;
   line-height: 1.6;
 }
@@ -380,7 +507,7 @@ async function handleLogin() {
 .field-label {
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   margin-bottom: 6px;
   letter-spacing: 0.2px;
 }
@@ -391,8 +518,8 @@ async function handleLogin() {
 
 .login-form :deep(.el-input__wrapper) {
   height: 48px;
-  background: #fafafa !important;
-  border: 1px solid #e5e7eb !important;
+  background: rgba(255,255,255,0.7) !important;
+  border: 1px solid rgba(221,214,200,0.3) !important;
   border-radius: 10px !important;
   box-shadow: none !important;
   transition: border-color 0.2s, box-shadow 0.2s !important;
@@ -405,14 +532,14 @@ async function handleLogin() {
 
 .login-form :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary) !important;
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.08) !important;
-  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(2,132,199,0.08) !important;
+  background: rgba(255,255,255,0.9) !important;
 }
 
 .login-form :deep(.el-input__inner) {
   background: transparent !important;
   font-size: 14px !important;
-  color: #111827 !important;
+  color: var(--text-primary) !important;
 }
 
 .login-form :deep(.el-input__inner::placeholder) {
@@ -437,7 +564,7 @@ async function handleLogin() {
 /* ─── Password eye toggle ─── */
 
 .eye-toggle {
-  color: #6b7280;
+  color: #9ca3af;
   cursor: pointer;
   font-size: 16px;
   display: flex;
@@ -447,7 +574,7 @@ async function handleLogin() {
 }
 
 .eye-toggle:hover {
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 /* ─── Error box ─── */
@@ -475,7 +602,7 @@ async function handleLogin() {
   border-radius: 10px;
   background: var(--accent-primary) !important;
   border-color: var(--accent-primary) !important;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .submit-btn:hover {
@@ -504,11 +631,11 @@ async function handleLogin() {
   content: '';
   flex: 1;
   height: 1px;
-  background: #e5e7eb;
+  background: rgba(221,214,200,0.4);
 }
 
 .divider span {
-  color: #9ca3af;
+  color: var(--text-muted);
   white-space: nowrap;
 }
 
@@ -517,8 +644,13 @@ async function handleLogin() {
 .signup-row {
   text-align: center;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-muted);
   margin-top: 28px;
+}
+
+.signup-primary {
+  display: block;
+  line-height: 1.6;
 }
 
 .signup-link {
@@ -532,28 +664,81 @@ async function handleLogin() {
   color: var(--accent-hover);
 }
 
+.forgot-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(42, 35, 30, 0.18);
+  transition: color 0.2s, text-decoration-color 0.2s;
+}
+
+.forgot-link:hover {
+  color: var(--accent-primary);
+  text-decoration-color: var(--accent-primary);
+}
+
+/* ─── Feature Badges ─── */
+
+.feature-badges {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.feature-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.35);
+  border: 1px solid rgba(221,214,200,0.2);
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.3px;
+}
+
+.feature-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* ─── ICP footer ─── */
 
 .icp-footer {
   position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 20px;
+  left: 0;
+  right: 0;
   text-align: center;
   white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
 }
 
 .icp-footer a {
+  pointer-events: auto;
+  display: inline-block;
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.3);
+  color: rgba(42, 35, 30, 0.3);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 .icp-footer a:hover {
-  color: rgba(0, 0, 0, 0.6);
+  color: rgba(42, 35, 30, 0.6);
   text-decoration: underline;
 }
+
 
 /* ═══════════════════════════════════════════════════════════════
    移动端响应
@@ -572,6 +757,10 @@ async function handleLogin() {
     font-size: 22px;
   }
 
+  .form-card {
+    padding: 28px 24px 24px;
+  }
+
   .icp-footer {
     bottom: 16px;
   }
@@ -586,13 +775,27 @@ async function handleLogin() {
     max-width: 100%;
   }
 
+  .form-card {
+    padding: 24px 20px 20px;
+    border-radius: 12px;
+  }
+
   .form-header {
-    margin-bottom: 32px;
+    margin-bottom: 24px;
   }
 
   .submit-btn {
     height: 44px;
     font-size: 14px;
+  }
+
+  .feature-badges {
+    gap: 8px;
+  }
+
+  .feature-badge {
+    padding: 4px 10px;
+    font-size: 10px;
   }
 }
 </style>

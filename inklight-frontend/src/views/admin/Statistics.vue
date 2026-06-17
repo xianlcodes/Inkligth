@@ -1,7 +1,9 @@
 <template>
-  <div style="max-width:1200px">
-    <div class="page-header">
-      <h2 class="text-xl font-bold text-slate-800 m-0">数据统计</h2>
+  <div class="admin-page">
+    <div class="section-bar">
+      <div class="section-bar-line"></div>
+      <h2 class="section-title">数据统计</h2>
+      <span class="section-accent">STATISTICS</span>
     </div>
 
     <div class="mb-6">
@@ -58,7 +60,7 @@
       </div>
     </div>
 
-    <div class="bg-white border rounded-xl overflow-hidden" v-loading="chartLoading">
+    <div class="chart-section" v-loading="chartLoading">
       <div class="px-6 pt-6 pb-4">
         <div class="flex items-center gap-3 mb-5">
           <div class="rounded-md flex items-center justify-center flex-shrink-0" style="width:36px;height:36px;background:linear-gradient(135deg,#ecfeff,#ccfbf1);color:#0d9488">
@@ -244,4 +246,102 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.admin-page {
+  max-width: 1200px;
+}
+
+/* ── Section Bar ── */
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
+/* ── Stats Grid ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(221,214,200,0.25);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.2s;
+}
+
+.stat-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+
+.stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Chart Section ── */
+.chart-section {
+  background: rgba(255,255,255,0.5);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(221,214,200,0.2);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
 </style>

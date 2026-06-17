@@ -1,7 +1,9 @@
 <template>
-  <div style="max-width:1200px">
-    <div class="page-header">
-      <h2 class="text-xl font-bold text-slate-800 m-0">操作日志</h2>
+  <div class="admin-page">
+    <div class="section-bar">
+      <div class="section-bar-line"></div>
+      <h2 class="section-title">操作日志</h2>
+      <span class="section-accent">LOGS</span>
     </div>
 
     <div class="flex gap-3 mb-4">
@@ -107,4 +109,38 @@ onMounted(() => { loadLogs() })
 </script>
 
 <style scoped>
+.admin-page {
+  max-width: 1200px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
 </style>

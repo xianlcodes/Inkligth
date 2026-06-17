@@ -1,10 +1,12 @@
 <template>
   <div class="mx-auto" style="max-width:1100px;padding:32px">
-    <div class="page-header">
-      <div class="page-header-content">
-        <h1 class="page-title">组会看板</h1>
-        <p class="page-subtitle">选择论文，一键生成专业学术 PPT</p>
+    <div class="presentation-header">
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h1 class="section-title">组会看板</h1>
+        <span class="section-accent">PRESENTATION</span>
       </div>
+      <p class="section-subtitle">选择论文，一键生成专业学术 PPT</p>
     </div>
 
     <div class="flex items-center justify-between gap-6 p-7 mb-6 rounded-2xl border" style="background:linear-gradient(135deg,var(--sky-50),#ecfdf5);border-color:var(--sky-200)">
@@ -343,13 +345,56 @@ async function handleDownload() {
 </script>
 
 <style scoped>
+.presentation-header {
+  margin-bottom: 24px;
+}
+
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
+.section-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 0 18px;
+  letter-spacing: 0.01em;
+}
+
 /* ── Preview slide card ── */
 .preview-slide-card {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(226, 232, 240, 0.4);
   border-radius: var(--radius-xl);
   padding: 24px;
   min-height: 180px;
+  backdrop-filter: blur(4px);
 }
 
 /* ── History card spacing ── */

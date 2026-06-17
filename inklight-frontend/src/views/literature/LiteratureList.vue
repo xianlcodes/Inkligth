@@ -1,10 +1,12 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <div class="page-header-content">
-        <h1 class="page-title">我的文献库</h1>
-        <p class="page-subtitle">管理和阅读您的学术资料</p>
+      <div class="section-bar">
+        <div class="section-bar-line"></div>
+        <h1 class="section-title">我的文献库</h1>
+        <span class="section-accent">LIBRARY</span>
       </div>
+      <p class="page-subtitle">管理、阅读和翻译您的学术文献</p>
       <div class="flex items-center gap-2">
         <el-select
           v-model="uploadFolderId"
@@ -771,43 +773,90 @@ async function handleCopyCitation(id: string) {
 </script>
 
 <style scoped>
-/* ── 贴近左侧侧边栏 ── */
+/* ═══════════════════════════════════════════════════════════════
+   InkLight — Literature Library (Reading-First)
+   Warm paper aesthetic, consistent with Dashboard
+   ═══════════════════════════════════════════════════════════════ */
+
 .page-container {
-  padding-left: 20px;
-  margin-left: 0;
+  padding: 28px 32px 40px;
+  min-height: 100%;
+}
+
+/* ── Section bar (matching Dashboard pattern) ── */
+.section-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.section-bar-line {
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-accent {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--sky-300);
+  letter-spacing: 0.12em;
+}
+
+.page-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: 0 0 22px 18px;
+  letter-spacing: 0.01em;
 }
 
 /* ── Folder sidebar ── */
 .folder-sidebar {
   width: 210px;
   flex-shrink: 0;
-  background: var(--bg-primary);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  padding: 12px 0;
+  border-radius: var(--radius-2xl);
+  padding: 16px 0;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 160px);
+  max-height: calc(100vh - 180px);
   position: sticky;
   top: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
 
 .folder-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px 14px;
+  margin: 0 6px;
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 13px;
   color: var(--text-secondary);
-  transition: all 0.15s;
+  transition: all 0.15s ease;
 }
-.folder-item:hover { background: var(--bg-tertiary); }
+.folder-item:hover { background: var(--bg-overlay-hover); }
 .folder-item.active {
-  background: var(--sky-50);
+  background: linear-gradient(135deg, var(--accent-light), var(--bg-overlay-heavy));
   color: var(--accent-primary);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(2,132,199,0.06);
 }
 .folder-item .el-icon { font-size: 15px; flex-shrink: 0; }
 
@@ -822,7 +871,7 @@ async function handleCopyCitation(id: string) {
 .folder-count {
   font-size: 11px;
   color: var(--text-muted);
-  background: var(--bg-tertiary);
+  background: var(--bg-hover);
   padding: 1px 8px;
   border-radius: 10px;
   flex-shrink: 0;
@@ -835,9 +884,10 @@ async function handleCopyCitation(id: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--sky-50);
+  background: linear-gradient(135deg, var(--accent-light), var(--bg-overlay-heavy));
   border-radius: var(--radius-md);
   color: var(--accent-primary);
+  box-shadow: 0 1px 2px rgba(2,132,199,0.06);
 }
 
 /* ── Card title with line-clamp ── */
@@ -862,7 +912,29 @@ async function handleCopyCitation(id: string) {
   text-overflow: ellipsis;
 }
 
-/* ── Processing animation (仅限标签内的图标，不波及 el-button) ── */
+/* ── Add top accent to each literature card (complementing el-card overrides) ── */
+.el-card :deep(.el-card__body) {
+  position: relative;
+}
+
+.el-card::before {
+  display: none; /* Clean — el-card already has border-radius from theme.css */
+}
+
+/* ── Override el-card in literature grid for warmer feel ── */
+.el-card {
+  background: var(--bg-overlay-heavy) !important;
+  backdrop-filter: blur(2px);
+  border: 1px solid var(--border-color) !important;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.el-card:hover {
+  background: var(--bg-overlay-hover) !important;
+  border-color: var(--sky-200) !important;
+}
+
+/* ── Processing animation ── */
 .el-icon.is-loading {
   animation: spin 1.5s linear infinite;
   margin-right: 2px;
@@ -877,16 +949,38 @@ async function handleCopyCitation(id: string) {
 .search-input :deep(.el-input__wrapper) {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
+  background: var(--bg-overlay);
+  box-shadow: none !important;
+}
+.search-input :deep(.el-input__wrapper:hover) {
+  border-color: var(--sky-300);
+  background: var(--bg-overlay-hover);
+}
+.search-input :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1) !important;
+  background: var(--bg-overlay-heavy);
 }
 .filter-select { width: 140px; }
-.filter-select :deep(.el-input__wrapper) { border-radius: var(--radius-lg); }
+.filter-select :deep(.el-input__wrapper) {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-overlay);
+  box-shadow: none !important;
+}
 
 /* ── Small status select ── */
 .status-select { width: 80px; }
-.status-select :deep(.el-input__wrapper) { border-radius: var(--radius-md); }
+.status-select :deep(.el-input__wrapper) {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  box-shadow: none !important;
+}
 
 /* ── Mobile responsive ── */
 @media (max-width: 768px) {
+  .page-container { padding: 20px 16px 32px; }
   .folder-sidebar { display: none; }
   .search-input { width: 100%; }
   .filter-select { flex: 1; min-width: 0; }
