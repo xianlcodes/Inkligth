@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<{
   deleteSpeed?: number
   pauseAfter?: number
 }>(), {
-  text: 'InkLight · 研墨文献 · 智能研读',
+  text: '研墨文献 · 智能研读',
   speed: 65,
   deleteSpeed: 30,
   pauseAfter: 2500,
@@ -98,6 +98,7 @@ function scheduleStep() {
   letter-spacing: 3px;
   white-space: nowrap;
   user-select: none;
+  transform: translateX(-48px);
 }
 
 /* ─── Shimmer — glowing on dark background ───

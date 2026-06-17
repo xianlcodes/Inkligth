@@ -299,7 +299,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Upload, Document, Reading, Search, Collection,
@@ -364,68 +364,31 @@ onMounted(() => {
   loadAllCount()
 })
 
-let pollTimer: ReturnType<typeof setInterval> | null = null
 const processingLiteratureIds = new Map<string, number>()
 const notifiedUploadIds = new Set<string>()
-// Track recently-uploaded IDs so polling continues for Phase 2 AI enrichment (60s)
-const recentUploadTimestamps = new Map<string, number>()
 
-onMounted(() => {
-  pollTimer = setInterval(async () => {
-    // Clean up uploads older than 60s
-    const now = Date.now()
-    for (const [id, ts] of recentUploadTimestamps) {
-      if (now - ts > 60000) recentUploadTimestamps.delete(id)
-    }
-
-    const processingItems = literatureStore.literatures.filter(
-      (item) => isProcessingTitle(item),
-    )
-
-    // Poll if: items in processing, or recent uploads waiting for AI enrichment
-    const shouldPoll = processingItems.length > 0 || recentUploadTimestamps.size > 0
-
-    const newSuccess = uploadQueue.items.filter(
-      (item) => item.status === 'success' && item.literatureId && !notifiedUploadIds.has(item.id),
-    )
-
-    if (newSuccess.length > 0 || shouldPoll) {
-      loadFolders()
-      handleSearch()
-      loadAllCount()
-      for (const item of newSuccess) {
-        notifiedUploadIds.add(item.id)
-        if (item.literatureId) {
-          recentUploadTimestamps.set(item.literatureId, Date.now())
+// Watch for newly completed uploads → refresh list immediately
+watch(
+  () => uploadQueue.items.filter(i => i.status === 'success' && i.literatureId).length,
+  (count, prev) => {
+    if (count > prev) {
+      // Find new items that haven't been notified
+      const newItems = uploadQueue.items.filter(
+        i => i.status === 'success' && i.literatureId && !notifiedUploadIds.has(i.id),
+      )
+      if (newItems.length > 0) {
+        loadFolders()
+        handleSearch()
+        loadAllCount()
+        for (const item of newItems) {
+          notifiedUploadIds.add(item.id)
         }
+        // Refresh once after 10s to catch background AI title/authors enrichment
+        setTimeout(() => handleSearch(), 10000)
       }
     }
-
-    for (const item of processingItems) {
-      const startTime = processingLiteratureIds.get(item.id)
-      if (startTime && now - startTime > 30000) {
-        processingLiteratureIds.delete(item.id)
-        const expired = new Set(JSON.parse(sessionStorage.getItem('lit_expired') || '[]'))
-        expired.add(item.id)
-        sessionStorage.setItem('lit_expired', JSON.stringify([...expired]))
-        continue
-      }
-      if (!startTime) {
-        processingLiteratureIds.set(item.id, now)
-      }
-    }
-  }, 2000)
-
-  onUnmounted(() => {
-    if (pollTimer) {
-      clearInterval(pollTimer)
-      pollTimer = null
-    }
-    processingLiteratureIds.clear()
-    notifiedUploadIds.clear()
-    recentUploadTimestamps.clear()
-  })
-})
+  },
+)
 
 function triggerFileSelect() {
   fileInputRef.value?.click()
@@ -626,12 +589,13 @@ function isProcessingTitle(lit: Literature): boolean {
   if (!lit.title) return false
   if (lit.title === '未识别标题') return false
   if (lit.title.length > 200) return false
-  if (lit.authors && lit.abstract) return false
+  // Has abstract → metadata is sufficient, no spinner needed (authors are bonus)
+  if (lit.abstract) return false
+  // Looks like a real title → not in processing state
   const extPattern = /\.pdf$/i
   const looksLikeFilename = extPattern.test(lit.title) || lit.title.includes('_') && !lit.title.includes(' ')
   if (!looksLikeFilename) return false
-  const expired = new Set(JSON.parse(sessionStorage.getItem('lit_expired') || '[]'))
-  if (expired.has(lit.id)) return false
+  // Old item still stuck with filename-only title, give 30s grace then stop
   const startTime = processingLiteratureIds.get(lit.id)
   return !(startTime && Date.now() - startTime > 30000)
 }

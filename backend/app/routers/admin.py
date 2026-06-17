@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_user_db as get_db
+from app.db.database import get_user_db as get_db, get_tencent_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.admin import (
@@ -41,10 +41,11 @@ def _check_admin(current_user: User):
 @router.get("/stats/overview", response_model=StatsOverview)
 async def get_stats_overview(
     db: AsyncSession = Depends(get_db),
+    tencent_db: AsyncSession = Depends(get_tencent_db),
     current_user: User = Depends(get_current_user),
 ):
     _check_admin(current_user)
-    data = await AdminService.get_overview(db)
+    data = await AdminService.get_overview(db, tencent_db=tencent_db)
     return StatsOverview(**data)
 
 
@@ -52,10 +53,11 @@ async def get_stats_overview(
 async def get_stats_timeseries(
     period: str = Query("day", pattern="^(day|week|month|year)$"),
     db: AsyncSession = Depends(get_db),
+    tencent_db: AsyncSession = Depends(get_tencent_db),
     current_user: User = Depends(get_current_user),
 ):
     _check_admin(current_user)
-    data = await AdminService.get_timeseries_stats(db, period)
+    data = await AdminService.get_timeseries_stats(db, period, tencent_db=tencent_db)
     return TimeSeriesStats(**data)
 
 
@@ -68,10 +70,11 @@ async def list_users(
     limit: int = Query(50, ge=1, le=200),
     search: str = Query(""),
     db: AsyncSession = Depends(get_db),
+    tencent_db: AsyncSession = Depends(get_tencent_db),
     current_user: User = Depends(get_current_user),
 ):
     _check_admin(current_user)
-    total, items = await AdminService.list_users(db, skip=skip, limit=limit, search=search)
+    total, items = await AdminService.list_users(db, tencent_db=tencent_db, skip=skip, limit=limit, search=search)
     return UserListResponse(
         total=total,
         items=[UserListItem(**item) for item in items],

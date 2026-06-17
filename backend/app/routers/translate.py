@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
 from app.core.deps import get_current_user
-from app.core.ai_client import get_cached_user_ai_client_and_model, invalidate_user_ai_cache
+from app.core.ai_client import get_cached_user_ai_client_and_model, has_user_ai_engine, invalidate_user_ai_cache
 from app.core.ai_providers.translator import OpenAITranslator, beautify_translation_error
 from app.services.formula_protection_service import FormulaProtectionService, detect_formula_features
 
@@ -56,6 +56,9 @@ async def translate_text(
         t_client_start = time.perf_counter()
         ai_client, model = await get_cached_user_ai_client_and_model(db, str(current_user.id))
         t_client_ms = (time.perf_counter() - t_client_start) * 1000
+
+        if not await has_user_ai_engine(str(current_user.id)):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"})
 
         translator = OpenAITranslator(client=ai_client, model=model)
 
@@ -110,6 +113,9 @@ async def translate_text_protected(
         t_client_start = time.perf_counter()
         ai_client, model = await get_cached_user_ai_client_and_model(db, str(current_user.id))
         t_client_ms = (time.perf_counter() - t_client_start) * 1000
+
+        if not await has_user_ai_engine(str(current_user.id)):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"})
 
         translator = OpenAITranslator(client=ai_client, model=model)
         formula_service = FormulaProtectionService()
@@ -189,6 +195,10 @@ async def translate_text_stream(
                 yield f"data: [ERROR] {beautify_translation_error(str(e))}\n\n"
                 return
             t_client_ms = (time.perf_counter() - t_client_start) * 1000
+
+            if not await has_user_ai_engine(str(current_user.id)):
+                yield f"data: [ERROR] 请先配置 AI 引擎后再使用翻译功能\n\n"
+                return
 
             translator = OpenAITranslator(client=ai_client, model=model, cancel_check=cancel_check)
 

@@ -155,12 +155,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAiEngineStore } from '@/stores/aiEngine'
+import { useRouter } from 'vue-router'
 import { DataAnalysis, MagicStick, Loading, CircleCheck, ChatLineSquare, Download, View, Collection, Clock, Delete } from '@element-plus/icons-vue'
 import { getPresentations, deletePresentation, type PresentationItem } from '@/api/presentation'
 import { getLiteratures, type Literature } from '@/api/literature'
 import { startPPTGeneration, getPPTStatus, downloadPPT, type SlideData, type PPTTaskResponse } from '@/api/outline'
 import { formatDateTime } from '@/utils/time'
 
+const router = useRouter()
+const aiEngineStore = useAiEngineStore()
 const loading = ref(false)
 const generating = ref(false)
 const downloading = ref(false)
@@ -208,6 +212,18 @@ async function fetchAllLiterature() {
 
 async function handleGeneratePPT() {
   if (!selectedLiteratureId.value) return
+
+  if (!aiEngineStore.defaultEngine) {
+    try {
+      await ElMessageBox.confirm('请先配置 AI 引擎后再使用 PPT 生成功能，是否前往设置？', '提示', {
+        confirmButtonText: '去配置',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+      router.push('/settings/ai')
+    } catch { /* cancelled */ }
+    return
+  }
 
   generating.value = true
   lastResult.value = null

@@ -42,6 +42,23 @@ def invalidate_user_ai_cache(user_id: str) -> None:
     _user_ai_cache.pop(user_id, None)
 
 
+
+async def has_user_ai_engine(user_id: str) -> bool:
+    """Check if user has a real AI engine in DB (not dummy fallback).
+    Returns False when user has no engine and no global fallback is set.
+    """
+    try:
+        async with AlibabaSessionLocal() as user_db:
+            from app.services.ai_engine_service import AIEngineService
+            engine = await AIEngineService.get_default_engine(user_db, user_id)
+        if engine:
+            return True
+    except Exception:
+        pass
+    # No user engine — use global fallback if configured
+    return bool(settings.DEFAULT_AI_KEY)
+
+
 async def get_cached_user_ai_client_and_model(
     _db: AsyncSession, user_id: str
 ) -> tuple[AsyncOpenAI, str]:

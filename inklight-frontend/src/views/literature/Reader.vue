@@ -609,6 +609,7 @@ import { getLiteratureTags, addTagToLiterature, removeTagFromLiterature, type Ta
 import { recordReading } from '@/api/stats'
 import { chatWithPaper, type SkillChatResponse } from '@/api/skills'
 import { getBeijingAgeDays } from '@/utils/time'
+import { useAiEngineStore } from '@/stores/aiEngine'
 
 const _blobCache = new Map<string, string>()
 
@@ -1124,6 +1125,17 @@ function translateSelection() {
   const rawText = floatingMenu.value.quotedText
   floatingMenu.value.visible = false
   if (rawText) {
+    const aiEngineStore = useAiEngineStore()
+    if (!aiEngineStore.defaultEngine) {
+      ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
+        confirmButtonText: '去配置',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }).then(() => {
+        router.push('/settings/ai')
+      }).catch(() => {})
+      return
+    }
     const mergedText = rawText
       .replace(/[\r\n]+/g, ' ')
       .replace(/\s{2,}/g, ' ')
@@ -1439,6 +1451,19 @@ async function handleFullTranslate() {
     return
   }
 
+  const aiEngineStore = useAiEngineStore()
+  if (!aiEngineStore.defaultEngine) {
+    try {
+      await ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
+        confirmButtonText: '去配置',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+      router.push('/settings/ai')
+    } catch { /* cancelled */ }
+    return
+  }
+
   fullTranslating.value = true
   activeTab.value = 'translate'
   try {
@@ -1704,6 +1729,19 @@ async function handleAIParse() {
 
   if (!literature.value.raw_text) {
     ElMessage.warning('该文献暂无文本内容，无法分析')
+    return
+  }
+
+  const aiEngineStore = useAiEngineStore()
+  if (!aiEngineStore.defaultEngine) {
+    try {
+      await ElMessageBox.confirm('请先配置 AI 引擎后再使用 AI 解析功能，是否前往设置？', '提示', {
+        confirmButtonText: '去配置',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+      router.push('/settings/ai')
+    } catch { /* cancelled */ }
     return
   }
 

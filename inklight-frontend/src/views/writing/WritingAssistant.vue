@@ -143,8 +143,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { useAiEngineStore } from '@/stores/aiEngine'
 import { Loading, UploadFilled, Delete, Promotion, Plus } from '@element-plus/icons-vue'
 import { formatRelative } from '@/utils/time'
 import { getSkills, type Skill } from '@/api/skills'
@@ -242,6 +243,19 @@ const messageListRef = ref<HTMLElement | null>(null)
 async function sendMessage() {
   const msg = inputText.value.trim()
   if (!msg) return
+
+  const aiEngineStore = useAiEngineStore()
+  if (!aiEngineStore.defaultEngine) {
+    try {
+      await ElMessageBox.confirm('请先配置 AI 引擎后再使用学术写作功能，是否前往设置？', '提示', {
+        confirmButtonText: '去配置',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+      router.push('/settings/ai')
+    } catch { /* cancelled */ }
+    return
+  }
 
   sending.value = true
   messages.value.push({ role: 'user', content: msg })

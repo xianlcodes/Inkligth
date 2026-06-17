@@ -311,6 +311,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAiEngineStore } from '@/stores/aiEngine'
 import {
   ArrowLeft,
   List,
@@ -432,6 +433,17 @@ async function loadReview() {
 
 function handleBuildLedger() {
   if (ledgerBuilding.value) return
+  const aiEngineStore = useAiEngineStore()
+  if (!aiEngineStore.defaultEngine) {
+    ElMessageBox.confirm('请先配置 AI 引擎后再使用论文评审功能，是否前往设置？', '提示', {
+      confirmButtonText: '去配置',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }).then(() => {
+      router.push('/settings/ai')
+    }).catch(() => {})
+    return
+  }
   ledgerBuilding.value = true
   sseProgress.value = { visible: true, status: 'running', message: '正在构建承诺台账...' }
   ledger.value = null
@@ -467,6 +479,17 @@ function handleBuildLedger() {
 
 function handleRunReview() {
   if (reviewRunning.value) return
+  const aiEngineStore = useAiEngineStore()
+  if (!aiEngineStore.defaultEngine) {
+    ElMessageBox.confirm('请先配置 AI 引擎后再使用论文评审功能，是否前往设置？', '提示', {
+      confirmButtonText: '去配置',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }).then(() => {
+      router.push('/settings/ai')
+    }).catch(() => {})
+    return
+  }
   reviewRunning.value = true
   sseProgress.value = { visible: true, status: 'running', message: '正在运行多角度评审...' }
   reviewSession.value = null

@@ -21,7 +21,11 @@ class AdminService:
     # Statistics
     # ------------------------------------------------------------------
     @staticmethod
-    async def get_overview(db: AsyncSession) -> dict:
+    async def get_overview(db: AsyncSession, tencent_db: AsyncSession = None) -> dict:
+        """Statistics overview. db=Alibaba for User, tencent_db=Tencent for Literature/Note/Presentation."""
+        if tencent_db is None:
+            tencent_db = db
+
         total_users_q = select(func.count(User.id))
         total_lit_q = select(func.count(Literature.id))
         read_q = select(func.count(Literature.id)).where(Literature.status == "read")
@@ -31,12 +35,12 @@ class AdminService:
         pres_q = select(func.count(Presentation.id))
 
         total_users_r = await db.execute(total_users_q)
-        total_lit_r = await db.execute(total_lit_q)
-        read_r = await db.execute(read_q)
-        unread_r = await db.execute(unread_q)
-        reading_r = await db.execute(reading_q)
-        notes_r = await db.execute(notes_q)
-        pres_r = await db.execute(pres_q)
+        total_lit_r = await tencent_db.execute(total_lit_q)
+        read_r = await tencent_db.execute(read_q)
+        unread_r = await tencent_db.execute(unread_q)
+        reading_r = await tencent_db.execute(reading_q)
+        notes_r = await tencent_db.execute(notes_q)
+        pres_r = await tencent_db.execute(pres_q)
 
         return {
             "total_users": total_users_r.scalar() or 0,
@@ -49,7 +53,10 @@ class AdminService:
         }
 
     @staticmethod
-    async def get_timeseries_stats(db: AsyncSession, period: str = "day") -> dict:
+    async def get_timeseries_stats(db: AsyncSession, period: str = "day", tencent_db: AsyncSession = None) -> dict:
+        """Time-series stats. db=Alibaba for User, tencent_db=Tencent for Literature/ReadingRecord."""
+        if tencent_db is None:
+            tencent_db = db
         trunc_field_map = {
             "day": "day",
             "week": "week",
@@ -69,8 +76,8 @@ class AdminService:
             since = now - timedelta(days=365 * 3)
 
         new_users = await AdminService._trend_query(db, User, User.created_at, trunc_field, since)
-        new_lits = await AdminService._trend_query(db, Literature, Literature.created_at, trunc_field, since)
-        reading_act = await AdminService._trend_query(db, ReadingRecord, ReadingRecord.created_at, trunc_field, since)
+        new_lits = await AdminService._trend_query(tencent_db, Literature, Literature.created_at, trunc_field, since)
+        reading_act = await AdminService._trend_query(tencent_db, ReadingRecord, ReadingRecord.created_at, trunc_field, since)
 
         return {
             "new_users": new_users,
@@ -97,40 +104,50 @@ class AdminService:
     # User management
     # ------------------------------------------------------------------
     @staticmethod
-    async def list_users(db: AsyncSession, skip: int = 0, limit: int = 50, search: str = "") -> tuple[int, list]:
-        lit_subq = (
-            select(Literature.user_id, func.count(Literature.id).label("lit_count"))
-            .group_by(Literature.user_id)
-            .subquery()
-        )
-        q = (
-            select(
-                User.id, User.email, User.username, User.is_admin,
-                User.created_at, User.updated_at,
-                func.coalesce(lit_subq.c.lit_count, 0).label("literature_count"),
-            )
-            .outerjoin(lit_subq, User.id == lit_subq.c.user_id)
-        )
+    async def list_users(db: AsyncSession, skip: int = 0, limit: int = 50, search: str = "", tencent_db: AsyncSession = None) -> tuple[int, list]:
+        """List users with literature count. db=Alibaba for User, tencent_db=Tencent for Literature count."""
+        if tencent_db is None:
+            tencent_db = db
+
+        # Query lit counts from TencentDB separately (cross-database)
+        lit_count_q = select(Literature.user_id, func.count(Literature.id).label("lit_count")).group_by(Literature.user_id)
+        lit_count_res = await tencent_db.execute(lit_count_q)
+        lit_counts = {row.user_id: row.lit_count for row in lit_count_res.all()}
+
+        # Query users from AlibabaDB
         count_q = select(func.count(User.id))
 
         if search:
             filter_clause = User.email.ilike(f"%{search}%")
-            q = q.where(filter_clause)
             count_q = count_q.where(filter_clause)
-
-        q = q.order_by(User.created_at.desc()).offset(skip).limit(limit)
 
         total_res = await db.execute(count_q)
         total = total_res.scalar() or 0
-        items_res = await db.execute(q)
+
+        # Get matching user IDs first
+        ids_q = select(User.id).order_by(User.created_at.desc())
+        if search:
+            ids_q = ids_q.where(User.email.ilike(f"%{search}%"))
+        ids_q = ids_q.offset(skip).limit(limit)
+        ids_res = await db.execute(ids_q)
+        user_ids = [row[0] for row in ids_res.all()]
+
+        if not user_ids:
+            return total, []
+
+        user_q = select(
+            User.id, User.email, User.username, User.is_admin,
+            User.created_at, User.updated_at,
+        ).where(User.id.in_(user_ids)).order_by(User.created_at.desc())
+        user_res = await db.execute(user_q)
         items = []
-        for row in items_res.all():
+        for row in user_res.all():
             items.append({
                 "id": row.id,
                 "email": row.email,
                 "username": row.username,
                 "is_admin": row.is_admin,
-                "literature_count": row.literature_count,
+                "literature_count": lit_counts.get(row.id, 0),
                 "created_at": row.created_at,
                 "updated_at": row.updated_at,
             })

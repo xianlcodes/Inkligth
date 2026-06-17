@@ -75,7 +75,9 @@ export async function uploadChunk(
 }
 
 export async function mergeChunks(uploadId: string): Promise<ChunkMergeResponse> {
-  const res = await apiClient.post<ChunkMergeResponse>(`/upload/chunks/${uploadId}/merge`)
+  const res = await apiClient.post<ChunkMergeResponse>(`/upload/chunks/${uploadId}/merge`, {}, {
+    timeout: 120000,
+  })
   return res.data
 }
 

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_user_db as get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.core.ai_client import get_cached_user_ai_client_and_model
+from app.core.ai_client import get_cached_user_ai_client_and_model, has_user_ai_engine
 
 from app.skills.schemas import (
     SkillCreate, SkillUpdate, SkillResponse, SkillListResponse,
@@ -385,7 +385,11 @@ async def writing_chat(
     current_user: User = Depends(get_current_user),
 ):
     """学术写作助手对话——用户选择技能、自由输入，AI按技能规则响应"""
-    client, model = await get_cached_user_ai_client_and_model(db, str(current_user.id))
+    if not await has_user_ai_engine(str(current_user.id)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用学术写作功能"},
+        )
 
     skills = await SkillService.get_by_names(db, req.skill_names)
     skills.sort(key=lambda s: s.priority, reverse=True)

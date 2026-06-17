@@ -5,7 +5,7 @@ import time
 import uuid
 import shutil
 import logging
-from typing import Optional
+from typing import Optional, Dict
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -83,12 +83,15 @@ class LiteratureService:
         return file_path
 
     @staticmethod
-    def extract_text_from_pdf(file_path: str) -> str:
+    def extract_text_from_pdf(file_path: str, max_pages: int = None) -> str:
+        """Extract text from PDF. When max_pages is set, only processes that many pages (faster)."""
         try:
             import fitz
             text = ""
             with fitz.open(file_path) as doc:
-                for page in doc:
+                for i, page in enumerate(doc):
+                    if max_pages is not None and i >= max_pages:
+                        break
                     text += page.get_text("text", sort=True)
             return text.replace("\x00", "")
         except Exception as e:
@@ -410,7 +413,7 @@ class LiteratureService:
         return False
 
     @staticmethod
-    def extract_title_from_text(text: str) -> Optional[str]:
+    def extract_title_from_text(text: str, font_sizes: Optional[Dict[int, float]] = None) -> Optional[str]:
         """Extract the most probable title from the first 50 lines of text.
 
         Uses multi-signal scoring, re-ranks candidates by position,
@@ -420,6 +423,12 @@ class LiteratureService:
         lines = [line.strip() for line in raw_lines if line.strip()]
         if not lines:
             return None
+
+        # Build mapping from lines index -> raw_lines index (for font_size lookup)
+        _line_to_raw = []
+        for _ri, _rl in enumerate(raw_lines):
+            if _rl.strip():
+                _line_to_raw.append(_ri)
 
         # ------------------------------------------------------------------
         # Phase 1: score every line
@@ -523,6 +532,21 @@ class LiteratureService:
                 score += 3
             elif i <= 15:
                 score += 1
+
+            # --- Font-size signal (if available): title is typically the largest text on page ---
+            if font_sizes and i < len(_line_to_raw):
+                _raw_idx = _line_to_raw[i]
+                if _raw_idx in font_sizes:
+                    _fs = font_sizes[_raw_idx]
+                    _max_font = max(font_sizes.values())
+                    if _max_font > 0:
+                        _ratio = _fs / _max_font
+                        if _ratio >= 0.85:
+                            score += 20          # almost certainly the title
+                        elif _ratio >= 0.70:
+                            score += 10          # likely the title or subtitle
+                        elif _ratio <= 0.50:
+                            score -= 5           # likely header/footer noise
 
             # --- DOI / arXiv / URL penalty ---
             if DOI_PATTERN.search(line) or ARXIV_URL_PATTERN.search(line) or ARXIV_ID_PATTERN.search(line):
@@ -805,6 +829,46 @@ class LiteratureService:
         except Exception as e:
             logger.warning(f"Layout-aware page extraction failed: {e}")
             return ""
+
+    @staticmethod
+    def _extract_first_page_font_sizes(file_path: str):
+        """Extract first page text with per-line font size information.
+
+        Returns (text_string, {line_index: avg_font_size}) where line_index
+        corresponds to the index in text_string.splitlines().
+        Returns (None, {}) on failure so callers can degrade gracefully.
+        """
+        try:
+            import fitz
+            with fitz.open(file_path) as doc:
+                if doc.page_count == 0:
+                    return None, {}
+                page = doc[0]
+                blocks = page.get_text("dict")["blocks"]
+                lines = []
+                font_sizes = {}
+                for block in blocks:
+                    if block.get("type") != 0:  # skip images
+                        continue
+                    for line in block.get("lines", []):
+                        spans = line.get("spans", [])
+                        if not spans:
+                            continue
+                        total_chars = sum(len(s.get("text", "")) for s in spans)
+                        if total_chars == 0:
+                            continue
+                        avg_size = sum(
+                            len(s.get("text", "")) * s.get("size", 0)
+                            for s in spans
+                        ) / total_chars
+                        line_text = "".join(s.get("text", "") for s in spans)
+                        lines.append(line_text)
+                        font_sizes[len(lines) - 1] = avg_size
+                return "\n".join(lines), font_sizes
+        except Exception as e:
+            logger.warning(f"Font size extraction failed: {e}")
+            return None, {}
+
     @staticmethod
     def extract_abstract_from_text(text: str, file_path: str = None) -> Optional[str]:
         """Heuristic extraction of abstract from text.
@@ -849,6 +913,7 @@ class LiteratureService:
                 abstract = " ".join(words[:250]) + "..."
             return abstract[:2000] if abstract else None
         return None
+
     # ------------------------------------------------------------------
     # AI-based metadata extraction
     # ------------------------------------------------------------------

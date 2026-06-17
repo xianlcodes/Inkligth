@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_tencent_db as get_db, get_user_db, TencentSessionLocal, AlibabaSessionLocal
 from app.core.deps import get_current_user
-from app.core.ai_client import get_user_ai_client, get_user_default_model
+from app.core.ai_client import get_user_ai_client, get_user_default_model, get_cached_user_ai_client_and_model, has_user_ai_engine
 from app.core.ai_providers.translator import OpenAITranslator, beautify_translation_error
 from app.core.ai_providers.analyzer import OpenAIAnalyzer
 from app.core.ai_providers.outline_generator import OutlineGenerator
@@ -64,13 +64,18 @@ def _resolve_file_path(file_path: str) -> str:
 
 @router.post("", response_model=LiteratureResponse)
 async def upload_literature(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     folder_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
-    background_tasks: BackgroundTasks = None,
     user_db: AsyncSession = Depends(get_user_db),
 ):
+    """
+    Upload a PDF file directly (non-chunked).
+    Priority: AI > raw_filename > heuristic (last resort).
+    AI refinement (longer timeout) runs in background so the user isn't blocked.
+    """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are allowed")
 
@@ -96,32 +101,164 @@ async def upload_literature(
     file_path = LiteratureService.save_upload_file(file)
     raw_filename = file.filename.rsplit(".", 1)[0]
 
+    # ---------------------------------------------------------------
+    # Fast metadata extraction from first 3 pages
+    # Priority: AI > raw_filename > heuristic (last resort)
+    # ---------------------------------------------------------------
+    first_pages_text = LiteratureService.extract_text_from_pdf(file_path, max_pages=3)
+    title = raw_filename
+    authors = None
+    abstract = None
+
+    if first_pages_text:
+        # ---------------------------------------------------------------
+        # Heuristic abstract extraction (fallback)
+        # ---------------------------------------------------------------
+        heuristic_abstract = LiteratureService.extract_abstract_from_text(first_pages_text, file_path=file_path)
+
+        # ---------------------------------------------------------------
+        # AI extraction (primary method, short 8s timeout)
+        #     Extracts title + authors + abstract in one call
+        #     Only runs if user has a real AI engine configured.
+        # ---------------------------------------------------------------
+        ai_title = None
+        ai_authors = None
+        ai_abstract = None
+        try:
+            from app.core.ai_client import has_user_ai_engine
+            has_engine = await has_user_ai_engine(str(current_user.id))
+        except Exception:
+            has_engine = False
+
+        if has_engine:
+            try:
+                from app.core.ai_client import get_cached_user_ai_client_and_model
+                ai_client, model = await get_cached_user_ai_client_and_model(None, str(current_user.id))
+                if ai_client:
+                    snippet = first_pages_text[:3000]
+                    response = await asyncio.wait_for(
+                        ai_client.chat.completions.create(
+                            model=model,
+                            messages=[{"role": "user", "content":
+                                "Extract the title, authors, and abstract from this academic paper text.\n"
+                                "Respond with exactly three lines:\n"
+                                "Title: <the exact paper title>\n"
+                                "Authors: <all author names, comma-separated>\n"
+                                "Abstract: <the complete abstract text>\n\n"
+                                f"Paper text:\n{snippet}"}],
+                            temperature=0.1,
+                            max_tokens=1000,
+                        ),
+                        timeout=8,
+                    )
+                    content = response.choices[0].message.content or ""
+                    if content:
+                        m = re.search(r"Title[:\s]+(.+)", content, re.IGNORECASE | re.DOTALL)
+                        if m:
+                            ai_title = m.group(1).strip().strip('"\'\'*\n ')
+                            ai_title = ai_title.split("\n")[0].strip()[:300]
+                        m = re.search(r"Authors[:\s]+(.+)", content, re.IGNORECASE | re.DOTALL)
+                        if m:
+                            ai_authors = m.group(1).strip().strip('"\'\'*\n ')[:300]
+                        m = re.search(r"Abstract[:\s]+(.+)", content, re.IGNORECASE | re.DOTALL)
+                        if m:
+                            ai_abstract = m.group(1).strip().strip('"\'\'*\n ')
+                            ai_abstract = re.split(r"\n\s*(?:Keywords|Index\s+Terms|CCS\s+Concepts)\s*[:：]", ai_abstract, maxsplit=1, flags=re.IGNORECASE)[0].strip()[:5000]
+            except asyncio.TimeoutError:
+                logger.warning(f"AI extraction timed out (8s), using filename as title")
+            except Exception as e:
+                logger.warning(f"AI extraction failed: {e}")
+
+        if ai_title and len(ai_title) > 5:
+            title = ai_title
+            authors = ai_authors
+        # else: title stays as raw_filename (recognizable)
+
+        # AI abstract takes priority, fall back to heuristic
+        if ai_abstract and len(ai_abstract) > 20:
+            abstract = ai_abstract
+        elif heuristic_abstract:
+            abstract = heuristic_abstract
+
+        # ---------------------------------------------------------------
+        # Font-size-aware heuristic title extraction
+        #     Uses font size as primary signal: the paper title is almost
+        #     always the largest text on the first page. No API key needed.
+        #     Only fires when AI didn't give a good title.
+        # ---------------------------------------------------------------
+        if (not ai_title or len(ai_title) <= 5):
+            font_text, font_sizes = LiteratureService._extract_first_page_font_sizes(file_path)
+            if font_text:
+                h_title = LiteratureService.extract_title_from_text(font_text, font_sizes=font_sizes)
+                if h_title:
+                    title = h_title
+                    h_authors = LiteratureService.extract_authors_from_text(font_text, h_title)
+                    if h_authors:
+                        authors = h_authors
+                    if not abstract:
+                        h_abstract = LiteratureService.extract_abstract_from_text(font_text)
+                        if h_abstract:
+                            abstract = h_abstract
+
+        # ---------------------------------------------------------------
+        # DOI/arXiv API lookup (free, no API key needed)
+        #     Fills gaps when AI unavailable or failed
+        # ---------------------------------------------------------------
+        if (not ai_title or len(ai_title) <= 5) and not (title == raw_filename and len(raw_filename) >= 3):
+            try:
+                ids = LiteratureService.extract_identifiers(first_pages_text)
+                api_meta = {}
+                if ids.get("doi"):
+                    api_meta = await LiteratureService.fetch_crossref_metadata(ids["doi"])
+                elif ids.get("arxiv"):
+                    api_meta = await LiteratureService.fetch_arxiv_metadata(ids["arxiv"])
+                if api_meta and api_meta.get("title"):
+                    title = api_meta["title"]
+                    authors = api_meta.get("authors")
+                    if not abstract and api_meta.get("abstract"):
+                        abstract = api_meta["abstract"]
+                    logger.info(f"DOI/arXiv lookup filled metadata: {ids.get('doi') or ids.get('arxiv')}")
+            except Exception as e:
+                logger.warning(f"DOI/arXiv lookup failed: {e}")
+
+        # Heuristic title/authors (last resort -- only if raw_filename is empty)
+        if title == raw_filename and (not raw_filename or len(raw_filename) < 3):
+            h_title = LiteratureService.extract_title_from_text(first_pages_text)
+            if h_title:
+                title = h_title
+                h_authors = LiteratureService.extract_authors_from_text(first_pages_text, h_title)
+                if h_authors:
+                    authors = h_authors
+
     literature = await LiteratureService.create_literature(
         db=db,
         user_id=current_user.id,
         file=file,
         literature_in=LiteratureCreate(
-            title=raw_filename,
+            title=title,
+            authors=authors,
+            abstract=abstract,
+            raw_text=first_pages_text or "",
             file_path=file_path,
             file_size=file_size,
-            raw_text=None,
             folder_id=folder_id,
         ),
+    )
+
+    # Background: AI refinement (longer timeout) + full-text + chunk indexing
+    from app.routers.upload import _post_process_upload
+    background_tasks.add_task(
+        _post_process_upload,
+        literature_id=str(literature.id),
+        user_id=str(current_user.id),
+        file_path=file_path,
+        first_pages_text=first_pages_text or "",
     )
 
     await StorageService.add_used_space(user_db, current_user.id, file_size)
     await db.commit()
 
-    if background_tasks:
-        background_tasks.add_task(
-            _process_uploaded_literature,
-            literature_id=literature.id,
-            file_path=file_path,
-            raw_filename=raw_filename,
-            folder_id=folder_id,
-            user_id=str(current_user.id),
-        )
-
+    logger.info(f"Literature uploaded (direct): {literature.id}")
     return literature
 
 
@@ -321,6 +458,12 @@ async def start_full_translate(
 
     if not literature.raw_text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该文献暂无文本内容，无法翻译")
+
+    if not await has_user_ai_engine(str(current_user.id)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"},
+        )
 
     async with _active_translations_lock:
         existing_task_id = _active_translations.get(literature_id)
@@ -745,16 +888,17 @@ async def _process_uploaded_literature(
         # ---------------------------------------------------------------
         # 5. Phase 2 — AI enrichment (non-streaming, short response)
         #    Updates DB only if AI finds better title/authors.
+        #    Only runs if user has a real AI engine configured.
         # ---------------------------------------------------------------
         try:
+            from app.core.ai_client import has_user_ai_engine
+            has_engine = await has_user_ai_engine(user_id)
+        except Exception:
+            has_engine = False
+
+        if has_engine:
             from app.core.ai_client import get_cached_user_ai_client_and_model
             ai_client, model = await get_cached_user_ai_client_and_model(None, user_id)
-        except Exception as e:
-            logger.warning(f"AI client not available for enrichment: {e}")
-            ai_client = None
-            model = None
-
-        if ai_client and model:
             snippet = raw_text[:5000]
             try:
                 response = await ai_client.chat.completions.create(
@@ -920,6 +1064,12 @@ async def start_analyze(
     if not literature.raw_text:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该文献暂无文本内容，无法分析")
 
+    if not await has_user_ai_engine(str(current_user.id)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用 AI 解析功能"},
+        )
+
     existing = await AnalysisService.get_analysis_by_literature(db, current_user.id, literature_id)
     if existing:
         return AnalyzeResponse(
@@ -1023,6 +1173,12 @@ async def generate_ppt(
     if not literature.raw_text:
         raise HTTPException(status_code=400, detail="该文献暂无文本内容")
 
+    if not await has_user_ai_engine(str(current_user.id)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用 PPT 生成功能"},
+        )
+
     task = await task_store.create_task("ppt_generation", user_id=str(current_user.id))
     await task_store.update_task(task.task_id, status=TaskStatus.RUNNING, progress=0, total=100)
 
@@ -1118,8 +1274,7 @@ async def _run_ppt_generation(
         async with async_session_factory() as db:
             literature = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
             if not literature or not literature.raw_text:
-                await task_store.update_task(task_id, status=TaskStatus.FAILED,
-                                              error="文献不存在或无文本内容")
+                await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
                 return
 
             # 1. 提取视觉资产（第一次慢，后续走缓存）
@@ -1229,6 +1384,12 @@ async def start_pdf_translate(
     file_path = _resolve_file_path(literature.file_path)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献文件不存在")
+
+    if not await has_user_ai_engine(str(current_user.id)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"},
+        )
 
     task = await task_store.create_task("pdf_translate", user_id=str(current_user.id))
     await task_store.update_task(task.task_id, status=TaskStatus.RUNNING, progress=0, total=100)
@@ -1582,12 +1743,3 @@ async def _run_pdf_translate(
     except Exception as e:
         if cancel_event.is_set():
             logger.info("PDF translate task cancelled after error: %s", task_id)
-            await task_store.update_task(
-                task_id,
-                status=TaskStatus.CANCELLED,
-                error="任务已被取消",
-            )
-        else:
-            logger.error("PDF translate task failed: %s, error: %s", task_id, e, exc_info=True)
-            await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
-    final

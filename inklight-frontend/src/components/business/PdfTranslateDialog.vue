@@ -151,7 +151,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAiEngineStore } from '@/stores/aiEngine'
+import { useRouter } from 'vue-router'
 import { Download, VideoPlay, SwitchButton, Close, View, Refresh } from '@element-plus/icons-vue'
 import {
   startPdfTranslate,
@@ -174,6 +176,8 @@ const visible = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val),
 })
+
+const router = useRouter()
 
 const STORAGE_KEY = 'pdf_translate_task'
 const POLL_INTERVAL = 5000
@@ -307,6 +311,19 @@ function startNewTranslation() {
 async function handleStartTranslate() {
   if (sourceLang.value === targetLang.value) {
     ElMessage.warning('源语言和目标语言不能相同')
+    return
+  }
+
+  const aiEngineStore = useAiEngineStore()
+  if (!aiEngineStore.defaultEngine) {
+    try {
+      await ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
+        confirmButtonText: '去配置',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+      router.push('/settings/ai')
+    } catch { /* cancelled */ }
     return
   }
 
