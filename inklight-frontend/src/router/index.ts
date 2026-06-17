@@ -177,6 +177,10 @@ const router = createRouter({
       name: 'PrivacyPolicy',
       component: () => import('@/views/legal/PrivacyPolicy.vue'),
       meta: { title: '隐私政策' }
+    },
+    {
+      path: '/index.html',
+      redirect: '/'
     }
   ]
 })
@@ -214,29 +218,36 @@ router.afterEach((to) => {
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
-  // 如果有 token 但未加载用户信息，先验证 token 有效性
-  if (authStore.token && !authStore.user) {
-    try {
-      await authStore.fetchUser()
-    } catch {
-      // token 无效或已过期，本地清除登录状态
-      authStore.token = null
-      authStore.user = null
-      clearAuth()
+  if (to.meta.requiresAuth) {
+    // 需要登录的页面，无论 user 是否已加载，都验证 token 有效性
+    if (authStore.token) {
+      try {
+        await authStore.fetchUser()
+      } catch {
+        // token 无效或已过期，清除状态并跳转到登录页
+        authStore.token = null
+        authStore.user = null
+        clearAuth()
+        next('/login')
+        return
+      }
+    } else {
+      next('/login')
+      return
     }
   }
 
-  const isLoggedIn = authStore.isLoggedIn
-
-  if (to.meta.requiresAuth && !isLoggedIn) {
-    next('/login')
-  } else if (to.meta.adminOnly && !authStore.user?.is_admin) {
+  if (to.meta.adminOnly && !authStore.user?.is_admin) {
     next('/')
-  } else if (to.meta.guestOnly && isLoggedIn) {
-    next('/')
-  } else {
-    next()
+    return
   }
+
+  if (to.meta.guestOnly && authStore.isLoggedIn) {
+    next('/')
+    return
+  }
+
+  next()
 })
 
 export default router
