@@ -431,7 +431,7 @@ async function loadReview() {
   }
 }
 
-function handleBuildLedger() {
+async function handleBuildLedger() {
   if (ledgerBuilding.value) return
   const aiEngineStore = useAiEngineStore()
   await aiEngineStore.loadEngines()
@@ -478,7 +478,7 @@ function handleBuildLedger() {
   })
 }
 
-function handleRunReview() {
+async function handleRunReview() {
   if (reviewRunning.value) return
   const aiEngineStore = useAiEngineStore()
   await aiEngineStore.loadEngines()
