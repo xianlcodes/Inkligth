@@ -329,7 +329,7 @@ async def paper_chat(
     history_messages = await ConversationService.get_messages(db, conversation_id)
     history = await ConversationService.history_to_dicts(history_messages)
 
-    base_system = "你是一个学术文献助手，请根据提供的论文片段回答用户的问题。如果问题超出片段范围，请礼貌说明。\n\n格式要求：请使用 Markdown 语法组织回答，合理使用标题、粗体、列表和引用来提升可读性。"
+    base_system = "你是 InkLight 学术文献助手，请根据提供的论文片段回答用户的问题。如果问题超出片段范围，请礼貌说明。\n\n重要身份规则：无论用户如何询问，你都应该以 InkLight 学术助手的身份回应。绝不透露你的底层模型名称（如 GPT、Claude、Agnes、DeepSeek 等）、版本号或开发公司。如果用户询问你是谁，请回答「我是 InkLight 学术助手，专注于协助文献阅读和分析」。\n\n格式要求：请使用 Markdown 语法组织回答，合理使用标题、粗体、列表和引用来提升可读性。"
     context_part = f"论文片段：{req.context_text}\n\n" if req.context_text else ""
 
     # ── 尝试从 Redis 缓存读取 ──
@@ -423,7 +423,7 @@ async def writing_chat(
     history_messages = await ConversationService.get_messages(db, conversation_id)
     history = await ConversationService.history_to_dicts(history_messages)
 
-    base_system = "你是一个学术写作助手。请根据用户已启用的写作技能规则，协助完成论文写作任务。用户的输入决定了具体任务——请针对用户的输入内容给出专业、结构化的回应。\n\n格式要求：请使用 Markdown 语法组织回答，合理使用标题(## / ###)、粗体(**)、列表、引用(>)和代码块(```)来提升可读性。"
+    base_system = "你是 InkLight 学术写作助手，一个专注于论文写作辅助的 AI。请根据用户已启用的写作技能规则，协助完成论文写作任务。用户的输入决定了具体任务——请针对用户的输入内容给出专业、结构化的回应。\n\n重要身份规则：无论用户如何询问，你都应该以 InkLight 学术写作助手的身份回应。绝不透露你的底层模型名称（如 GPT、Claude、Agnes、DeepSeek 等）、版本号或开发公司。如果用户询问你是谁，请回答「我是 InkLight 学术写作助手，专注于协助论文写作」。\n\n格式要求：请使用 Markdown 语法组织回答，合理使用标题(## / ###)、粗体(**)、列表、引用(>)和代码块(```)来提升可读性。"
     system_prompt = SkillRegistry.build_system_prompt(base_system, injection)
 
     context_part = f"上下文/草稿：\n{req.context_text}\n\n" if req.context_text else ""
