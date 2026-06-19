@@ -90,6 +90,9 @@ TENCENT_MIGRATIONS = [
     ")",
     "CREATE INDEX IF NOT EXISTS ix_pdf_translations_literature_user "
     "ON pdf_translations (literature_id, user_id)",
+
+    # presentations 表 — ppt_file_path 持久化
+    "ALTER TABLE presentations ADD COLUMN IF NOT EXISTS ppt_file_path VARCHAR(1024)",
 ]
 
 ALIBABA_MIGRATIONS = [

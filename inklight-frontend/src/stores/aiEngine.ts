@@ -21,12 +21,15 @@ export const useAiEngineStore = defineStore('aiEngine', () => {
 
   const defaultEngine = computed(() => engines.value.find((e) => e.is_default) || null)
 
-  async function loadEngines() {
+  let _loaded = false
+  async function loadEngines(force = false) {
+    if (!force && _loaded) return
     loading.value = true
     error.value = null
     try {
       const res = await fetchEngines()
       engines.value = res.items
+      _loaded = true
     } catch (e: any) {
       error.value = e?.response?.data?.detail || '加载引擎失败'
     } finally {

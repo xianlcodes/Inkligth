@@ -315,6 +315,7 @@ async function handleStartTranslate() {
   }
 
   const aiEngineStore = useAiEngineStore()
+  await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     try {
       await ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {

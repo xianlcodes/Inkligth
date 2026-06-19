@@ -142,7 +142,7 @@
       <template #footer>
         <div class="flex items-center justify-between w-full">
           <span class="text-xs text-slate-600">共 {{ previewSlides.length }} 页</span>
-          <el-button type="primary" :loading="downloading" @click="handleDownload" :disabled="!previewTaskId">
+          <el-button type="primary" :loading="downloading" @click="handleDownload">
             <el-icon><Download /></el-icon>
             下载 PPT
           </el-button>
@@ -158,7 +158,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
 import { useRouter } from 'vue-router'
 import { DataAnalysis, MagicStick, Loading, CircleCheck, ChatLineSquare, Download, View, Collection, Clock, Delete } from '@element-plus/icons-vue'
-import { getPresentations, deletePresentation, type PresentationItem } from '@/api/presentation'
+import { getPresentations, deletePresentation, downloadPresentationPPT, type PresentationItem } from '@/api/presentation'
 import { getLiteratures, type Literature } from '@/api/literature'
 import { startPPTGeneration, getPPTStatus, downloadPPT, type SlideData, type PPTTaskResponse } from '@/api/outline'
 import { formatDateTime } from '@/utils/time'
@@ -180,6 +180,7 @@ const previewVisible = ref(false)
 const previewTitle = ref('')
 const previewSlides = ref<SlideData[]>([])
 const previewTaskId = ref('')
+const previewPresentationId = ref('')
 
 const formatDate = formatDateTime
 
@@ -300,13 +301,15 @@ function openPreview(result: PPTTaskResponse) {
   previewTitle.value = lit?.title || '汇报 PPT'
   previewSlides.value = result.slides || []
   previewTaskId.value = currentTaskId.value
+  previewPresentationId.value = ''
   previewVisible.value = true
 }
 
 function openPreviewFromHistory(pres: PresentationItem) {
   previewTitle.value = pres.literature_title || '汇报大纲'
   previewSlides.value = (pres.slides || []) as SlideData[]
-  previewTaskId.value = ''  // 历史记录的 PPT 文件可能已不存在
+  previewTaskId.value = ''
+  previewPresentationId.value = pres.id
   previewVisible.value = true
 }
 
@@ -331,14 +334,23 @@ async function handleDelete(pres: PresentationItem) {
 }
 
 async function handleDownload() {
-  if (!previewTaskId.value) {
+  if (!previewTaskId.value && !previewPresentationId.value) {
     ElMessage.warning('请先生成 PPT')
     return
   }
 
   downloading.value = true
   try {
-    const resp = await downloadPPT(selectedLiteratureId.value || '', previewTaskId.value)
+    let resp: any
+    if (previewTaskId.value) {
+      // 刚生成的任务，使用 task ID 下载
+      resp = await downloadPPT(selectedLiteratureId.value || '', previewTaskId.value)
+    } else if (previewPresentationId.value) {
+      // 历史记录，使用 presentation ID 下载
+      resp = await downloadPresentationPPT(previewPresentationId.value, previewTitle.value)
+    } else {
+      return
+    }
     const blob = new Blob([resp.data], {
       type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     })
@@ -349,11 +361,8 @@ async function handleDownload() {
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    ElMessage.success('下载成功')
-  } catch (error: any) {
-    console.error('下载失败:', error)
-    ElMessage.error(error?.response?.data?.detail || error?.message || '下载失败')
+  } catch (e) {
+    ElMessage.error('下载失败')
   } finally {
     downloading.value = false
   }
@@ -406,11 +415,32 @@ async function handleDownload() {
 /* ── Preview slide card ── */
 .preview-slide-card {
   background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(226, 232, 240, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: var(--radius-xl);
   padding: 24px;
   min-height: 180px;
   backdrop-filter: blur(4px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+}
+
+.preview-slide-card:hover {
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.07);
+  transform: translateY(-2px);
+}
+
+/* ── Slide number badge ── */
+.preview-slide-card > div > span:first-child {
+  min-width: 36px !important;
+  min-height: 36px !important;
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #0e7490 100%) !important;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
 }
 
 /* ── History card spacing ── */

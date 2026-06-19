@@ -434,6 +434,7 @@ async function loadReview() {
 function handleBuildLedger() {
   if (ledgerBuilding.value) return
   const aiEngineStore = useAiEngineStore()
+  await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     ElMessageBox.confirm('请先配置 AI 引擎后再使用论文评审功能，是否前往设置？', '提示', {
       confirmButtonText: '去配置',
@@ -480,6 +481,7 @@ function handleBuildLedger() {
 function handleRunReview() {
   if (reviewRunning.value) return
   const aiEngineStore = useAiEngineStore()
+  await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     ElMessageBox.confirm('请先配置 AI 引擎后再使用论文评审功能，是否前往设置？', '提示', {
       confirmButtonText: '去配置',
@@ -1005,50 +1007,4 @@ function rebuttalStatusLabel(s: string): string {
   gap: 12px;
 }
 
-.rebuttal-point-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rebuttal-point-title {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.rebuttal-point-desc {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.rebuttal-history {
-  padding: 10px 14px;
-  background: var(--amber-50);
-  border-radius: var(--radius-md);
-  border-left: 3px solid var(--amber-500);
-}
-
-.rebuttal-history-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin: 0 0 4px;
-}
-
-.rebuttal-history-text {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-primary);
-  line-height: 1.5;
-}
-
-/* ── Dark mode adjustments ── */
-@media (prefers-color-scheme: dark) {
-  .review-point-card {
-    border-color: var(--border-muted);
-  }
-}
 </style>

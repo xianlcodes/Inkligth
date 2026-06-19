@@ -391,6 +391,8 @@ async def writing_chat(
             detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用学术写作功能"},
         )
 
+    client, model = await get_cached_user_ai_client_and_model(db, str(current_user.id))
+
     skills = await SkillService.get_by_names(db, req.skill_names)
     skills.sort(key=lambda s: s.priority, reverse=True)
 

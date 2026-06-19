@@ -1,0 +1,234 @@
+<template>
+  <div class="legal-page">
+    <div class="legal-card">
+      <div class="card-accent-bar" />
+      <div class="card-body">
+        <h1 class="legal-title">用户服务协议</h1>
+        <p class="legal-meta">更新日期：2026年6月3日 &nbsp;|&nbsp; 生效日期：2026年6月3日</p>
+        <div class="legal-content">
+          <p class="lead-text"><strong>欢迎使用 InkLight 研墨（以下简称"本平台"或"我们"）！</strong></p>
+          <p>本协议是您（以下简称"用户"或"您"）与本平台之间关于使用本平台服务的法律协议。请您仔细阅读并充分理解本协议各条款，特别是以加粗或下划线方式提示您注意的条款。您通过注册页面勾选"我已阅读并同意"即视为您已阅读、理解并接受本协议的全部内容。如果您不同意本协议的任何条款，请立即停止注册或使用本平台服务。</p>
+
+          <section class="clause">
+            <h2>一、服务说明</h2>
+            <p>本平台是一个面向学术研究者的专业文献管理与阅读辅助工具（以下简称"本服务"），主要功能包括：</p>
+            <ol>
+              <li>PDF 文献上传、存储与管理（含文件夹分类、标签管理、元数据自动提取）；</li>
+              <li>PDF 在线阅读与页面导航；</li>
+              <li>AI 翻译（段落级翻译与全文翻译，支持流式输出）；</li>
+              <li>AI 智能分析（结构化摘要生成、创新点识别、方法步骤提取等）；</li>
+              <li>笔记与高亮标注管理；</li>
+              <li>组会汇报 PPT 大纲生成；</li>
+              <li>阅读日历与阅读统计追踪；</li>
+              <li>每日签到获取存储空间奖励；</li>
+              <li>其他我们后续增加的与本平台定位一致的功能。</li>
+            </ol>
+            <p>我们保留根据业务发展需要调整、变更、增加或停止某项服务的权利，并在合理期限内通知用户。</p>
+          </section>
+
+          <section class="clause">
+            <h2>二、用户账号</h2>
+            <ol>
+              <li><strong>注册条件</strong>：您必须具有完全民事行为能力。注册时需提供真实、准确的邮箱地址，并完成邮箱验证码验证和图形验证码验证。您提供的注册信息必须真实、有效、完整，如有变更应及时更新。</li>
+              <li><strong>账号安全</strong>：您应对您账号下的所有操作行为承担全部责任。账号仅限您本人使用，不得以任何方式转让、转借、出租、出售或赠与您的账号。如您发现账号被他人未经授权使用，应立即通知我们。</li>
+              <li><strong>密码安全</strong>：您应妥善保管密码。因您密码泄露或与他人共享账号导致的任何损失，由您自行承担。</li>
+              <li><strong>账号注销</strong>：您可以随时申请注销您的账号。账号注销后，我们将根据法律法规要求和本平台隐私政策的规定处理您的个人数据。注销账号不可逆转，请谨慎操作。</li>
+              <li><strong>信息真实性</strong>：根据《互联网用户账号信息管理规定》，您注册、使用账号信息应遵守法律法规，不得假冒、仿冒、捏造组织名称或个人姓名，不得使用含有违法和不良信息的内容。如您的账号信息存在不实或违规情形，我们有权采取限制功能、暂停使用或关闭账号等措施。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>三、用户上传内容</h2>
+            <ol>
+              <li><strong>合法使用权</strong>：您保证对上传到本平台的文献（PDF 文件）及其内容拥有合法的使用权，或者您的使用行为符合《中华人民共和国著作权法》第二十四条规定的合理使用情形（包括但不限于为个人学习、研究之目的）。</li>
+              <li><strong>个人使用</strong>：您上传的文献仅供您个人学习、研究使用。我们不会将您上传的文献公开传播或分享给其他用户。</li>
+              <li><strong>禁止上传内容</strong>：您不得上传或通过本服务发布以下内容：
+                <ol class="sub-list-type">
+                  <li>违反宪法或法律法规的；</li>
+                  <li>危害国家安全、泄露国家秘密、颠覆国家政权、破坏国家统一的；</li>
+                  <li>损害国家荣誉和利益的；</li>
+                  <li>煽动民族仇恨、民族歧视，破坏民族团结的；</li>
+                  <li>破坏国家宗教政策，宣扬邪教和封建迷信的；</li>
+                  <li>散布谣言，扰乱社会秩序，破坏社会稳定的；</li>
+                  <li>散布淫秽、色情、赌博、暴力、凶杀、恐怖或者教唆犯罪的；</li>
+                  <li>侮辱或者诽谤他人，侵害他人合法权益的；</li>
+                  <li>含有法律、行政法规禁止的其他内容的。</li>
+                </ol>
+              </li>
+              <li><strong>知识产权纠纷</strong>：因您上传内容引发的任何知识产权纠纷（包括但不限于著作权侵权），由您自行承担全部法律责任。我们有权在收到权利人有效通知后，依法删除涉嫌侵权的内容。</li>
+              <li><strong>存储空间</strong>：我们为每位用户提供一定的免费存储空间。超出存储空间限制的，您可能无法继续上传新文献。您可以通过每日签到和邀请好友等方式扩展存储空间。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>四、AI 服务使用条款</h2>
+            <ol>
+              <li><strong>第三方 AI 服务</strong>：本平台的 AI 翻译、AI 智能分析等功能依赖您自行配置的第三方 AI 服务（如 OpenAI、DeepSeek、通义千问、智谱 GLM 等）。您需要自行获取相应 AI 服务商提供的 API Key，并自行承担使用该第三方服务所产生的费用。</li>
+              <li><strong>第三方服务条款</strong>：您使用第三方 AI 服务时，应同时遵守该第三方服务商的使用条款、隐私政策及相关法律法规。我们建议您在使用前仔细阅读相关条款。</li>
+              <li><strong>数据传输</strong>：您理解并同意，当您使用 AI 翻译或 AI 分析功能时，您的文献内容（包括全文或段落文本）将被发送至您所配置的第三方 AI 服务商服务器进行处理。您应自行评估并承担数据跨境传输和第三方处理的风险，选择符合您隐私和安全要求的 AI 服务提供商。</li>
+              <li><strong>AI 生成内容免责</strong>：AI 生成的内容（包括但不限于翻译结果、摘要、创新点分析等）基于机器学习模型生成，<strong>我们不对此类内容的准确性、完整性、可靠性、合法性或适用性作出任何明示或默示的保证</strong>。AI 生成内容仅供参考，不应被视为专业翻译、学术判断或法律建议。</li>
+              <li><strong>用户审核义务</strong>：您在论文写作、学术发表、组会汇报等场景中使用 AI 生成内容前，应自行核实内容的准确性和适当性。因依赖 AI 生成内容导致的任何损失，我们不承担任何责任。</li>
+              <li><strong>禁止滥用</strong>：您不得利用本平台的 AI 功能生成、传播违反法律法规、社会公德或侵犯他人合法权益的内容，包括但不限于：
+                <ol class="sub-list-type">
+                  <li>生成虚假信息、误导性内容；</li>
+                  <li>生成歧视性、仇恨性言论；</li>
+                  <li>生成侵犯他人知识产权的内容；</li>
+                  <li>用于任何非法目的。</li>
+                </ol>
+              </li>
+              <li><strong>AI 生成内容标识</strong>：根据《生成式人工智能服务管理暂行办法》及《互联网信息服务深度合成管理规定》，AI 生成的图片、视频等内容应当进行标识。本平台可能会对 AI 生成的内容添加适当的标识或说明。</li>
+              <li><strong>未成年人保护</strong>：AI 功能不适用于未成年人单独使用。如您是未成年人，应在监护人的指导和监督下使用本服务，且监护人应对未成年人的使用行为承担全部责任。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>五、知识产权</h2>
+            <ol>
+              <li><strong>平台知识产权</strong>：本平台软件、代码、界面设计、LOGO、品牌名称等的所有权利（包括但不限于著作权、商标权、专利权）归本平台所有。未经我们书面许可，您不得以任何方式复制、修改、传播或用于商业目的。</li>
+              <li><strong>用户上传内容的知识产权</strong>：您上传的文献、文件的知识产权归原权利人所有。本平台不主张对该等内容的所有权。</li>
+              <li><strong>用户生成内容的知识产权</strong>：您在使用本平台过程中产生的笔记、标注、翻译结果、AI 分析结果等内容的权利归您所有。您授予我们非排他性的、全球范围内的、免许可费的许可，以便我们为向您提供服务之目的（如存储、显示、同步）使用这些内容。</li>
+              <li><strong>反馈与建议</strong>：如果您向我们就本平台提供任何建议、反馈或改进意见，我们有权为改进服务之目的自由使用该等反馈，而无需对您承担任何义务或补偿。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>六、用户行为规范</h2>
+            <ol>
+              <li>您在使用本服务时，应遵守国家法律法规、社会公德和本协议约定。</li>
+              <li>您不得利用本平台从事任何违法活动，包括但不限于传播违法信息、侵犯他人合法权益、干扰平台正常运行等。</li>
+              <li>您不得通过任何自动化手段（包括但不限于爬虫、脚本、机器人）访问、抓取或干扰本平台的正常运行。</li>
+              <li>如您违反本协议或相关法律法规，我们有权根据情节严重程度，采取警告、限制功能、暂停服务、终止服务、删除违法内容、封闭账号等措施，并保留向有关部门报告的权利。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>七、免责声明</h2>
+            <ol>
+              <li>本平台按"现状"和"可用"的基础提供服务，不对服务的连续性、及时性、安全性和无错误性作出任何承诺。</li>
+              <li>因以下原因导致的服务中断或数据丢失，我们不承担责任：
+                <ol class="sub-list-type">
+                  <li>不可抗力（包括但不限于自然灾害、战争、政府行为、网络基础设施故障等）；</li>
+                  <li>第三方服务故障（包括但不限于 AI 服务商、云服务商、电信运营商等）；</li>
+                  <li>您自身的原因（包括但不限于操作不当、密码泄露、账号转借等）；</li>
+                  <li>系统维护或升级期间的正常服务中断。</li>
+                </ol>
+              </li>
+              <li><strong>在适用法律允许的最大范围内，我们不承担因使用或无法使用本服务而产生的任何直接、间接、偶然、特殊或后果性损害赔偿责任</strong>，包括但不限于数据丢失、学术延误、研究成果受影响等。</li>
+              <li>本平台非专业翻译机构或学术服务机构，AI 生成内容仅供参考，不构成专业意见。用户应独立判断和核实所有内容。</li>
+              <li>用户上传的文献内容不代表本平台的立场或观点，本平台不对用户内容的真实性、合法性、准确性承担责任。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>八、协议修改与终止</h2>
+            <ol>
+              <li><strong>协议修改</strong>：我们有权根据法律法规变化或业务发展需要修改本协议。修改后的协议将在本平台公布。对于重大变更，我们还将通过站内通知、邮件等方式通知您。如您不同意修改后的协议，您有权停止使用本服务；如您继续使用本服务，即视为您同意接受修改后的协议。</li>
+              <li><strong>服务终止</strong>：我们有权在提前合理通知的情况下，终止或暂停本服务的全部或部分。对于因您违反本协议而导致的账号封禁，我们可能不提供事先通知。</li>
+              <li><strong>协议终止后的处理</strong>：本协议终止后，您将无法继续使用本服务。我们将根据隐私政策的规定处理您的个人信息，法律法规另有要求的除外。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>九、法律适用与争议解决</h2>
+            <ol>
+              <li>本协议的订立、生效、履行、解释及争议解决均适用中华人民共和国法律（为本协议之目的，不包括香港特别行政区、澳门特别行政区和台湾地区的法律）。</li>
+              <li>因本协议引起的或与本协议有关的任何争议，双方应首先友好协商解决。协商不成的，任何一方均可将争议提交至本平台运营者所在地有管辖权的人民法院诉讼解决。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>十、其他</h2>
+            <ol>
+              <li>本协议条款的标题仅为方便阅读而设，不具有法律解释意义。</li>
+              <li>如本协议的任何条款被认定为无效或不可执行，其余条款仍然有效并具有约束力。</li>
+              <li>本协议构成您与我们之间关于使用本服务的完整协议，取代您与我们之前就同一事项达成的任何口头或书面协议。</li>
+              <li>我们未执行或行使本协议中的任何权利，不构成对该权利的放弃。</li>
+            </ol>
+          </section>
+
+          <section class="clause">
+            <h2>十一、联系方式</h2>
+            <p>如您对本协议有任何疑问、意见或投诉，请通过以下方式与我们联系：</p>
+            <div class="contact-info">
+              <span class="contact-label">电子邮件：</span>
+              <a href="mailto:872948566@qq.com" class="contact-link">872948566@qq.com</a>
+            </div>
+            <p>我们将在收到您的联系信息后合理期限内回复。</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+</script>
+
+<style scoped>
+.legal-page {
+  min-height: 100dvh;
+  background: var(--bg-secondary);
+  padding: var(--space-8) var(--space-5);
+  display: flex;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.legal-card {
+  width: 100%; max-width: 800px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  align-self: flex-start;
+}
+.card-accent-bar { height: 4px; background: var(--gradient-primary); }
+.card-body { padding: var(--space-10) var(--space-12); }
+.legal-title {
+  font-size: var(--text-3xl); font-weight: 700;
+  color: var(--text-primary); text-align: center;
+  margin: 0 0 var(--space-2) 0;
+  letter-spacing: var(--tracking-tight);
+}
+.legal-meta {
+  font-size: var(--text-sm); color: var(--text-tertiary);
+  text-align: center; margin: 0 0 var(--space-8) 0;
+}
+.legal-content {
+  max-height: 68vh; overflow-y: auto; padding-right: var(--space-2);
+}
+.legal-content::-webkit-scrollbar { width: 5px; }
+.legal-content::-webkit-scrollbar-track { background: transparent; }
+.legal-content::-webkit-scrollbar-thumb { background: var(--slate-200); border-radius: 3px; }
+.lead-text { font-size: var(--text-lg); color: var(--text-primary); line-height: var(--leading-relaxed); margin-bottom: var(--space-4); }
+.legal-content p { font-size: var(--text-base); color: var(--text-secondary); line-height: var(--leading-relaxed); margin: var(--space-3) 0; }
+.clause { margin-top: var(--space-8); padding-top: var(--space-6); border-top: 1px solid var(--border-light); }
+.clause h2 {
+  font-size: var(--text-lg); font-weight: 600; color: var(--text-primary);
+  margin: 0 0 var(--space-4) 0; padding-left: var(--space-3);
+  border-left: 3px solid var(--accent-primary); line-height: var(--leading-tight);
+}
+.legal-content ol { padding-left: var(--space-5); margin: var(--space-3) 0; }
+.legal-content li { font-size: var(--text-base); color: var(--text-secondary); line-height: var(--leading-relaxed); margin-bottom: var(--space-2); }
+.legal-content li strong { color: var(--text-primary); font-weight: 600; }
+.sub-list-type { list-style-type: lower-alpha; margin: var(--space-2) 0 var(--space-2) var(--space-4) !important; }
+.contact-info {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin: var(--space-3) 0; padding: var(--space-3) var(--space-4);
+  background: var(--accent-light); border-radius: var(--radius-lg);
+}
+.contact-label { font-size: var(--text-base); color: var(--text-secondary); font-weight: 500; }
+.contact-link { font-size: var(--text-base); color: var(--accent-primary); text-decoration: none; font-weight: 500; }
+.contact-link:hover { color: var(--accent-hover); text-decoration: underline; }
+.legal-content a { color: var(--accent-primary); text-decoration: none; transition: color var(--transition-fast); }
+.legal-content a:hover { color: var(--accent-hover); text-decoration: underline; }
+@media (max-width: 768px) {
+  .legal-page { padding: var(--space-4); }
+  .card-body { padding: var(--space-6) var(--space-5); }
+  .legal-title { font-size: var(--text-2xl); }
+}
+@media (max-width: 480px) {
+  .card-body { padding: var(--space-5) var(--space-4); }
+  .legal-content { max-height: 72vh; }
+  .clause h2 { font-size: var(--text-base); }
+}
+</style>

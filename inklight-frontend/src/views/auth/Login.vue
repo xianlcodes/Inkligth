@@ -187,7 +187,7 @@ async function handleLogin() {
   try {
     await authStore.login(loginForm.email, loginForm.password)
     ElMessage.success('登录成功')
-    router.push('/')
+    router.push('/dashboard')
   } catch (e: any) {
     errorMsg.value = e.response?.data?.detail || '邮箱或密码错误，请重新输入'
     ElMessage.error(errorMsg.value)

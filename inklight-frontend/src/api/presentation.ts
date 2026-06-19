@@ -7,6 +7,7 @@ export interface PresentationItem {
   literature_title: string | null
   slides: OutlineData['slides']
   slide_count: string | null
+  ppt_file_path: string | null
   created_at: string
   updated_at: string
 }
@@ -28,4 +29,12 @@ export function getPresentation(id: string) {
 
 export function deletePresentation(id: string) {
   return apiClient.delete(`/presentations/${id}`)
+}
+
+/** 通过汇报记录 ID 下载 PPT 文件（支持历史记录下载） */
+export function downloadPresentationPPT(presentationId: string, fileName: string) {
+  return apiClient.get(
+    `/presentations/${presentationId}/download`,
+    { responseType: 'blob' },
+  )
 }

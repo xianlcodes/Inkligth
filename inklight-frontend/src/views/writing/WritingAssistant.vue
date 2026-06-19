@@ -245,6 +245,7 @@ async function sendMessage() {
   if (!msg) return
 
   const aiEngineStore = useAiEngineStore()
+  await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     try {
       await ElMessageBox.confirm('请先配置 AI 引擎后再使用学术写作功能，是否前往设置？', '提示', {
@@ -794,87 +795,4 @@ watch(selectedSkillNames, (val) => {
   margin-bottom: 0;
 }
 
-/* Headings */
-.writing-assistant .msg-bubble h2,
-.writing-assistant .msg-bubble h3,
-.writing-assistant .msg-bubble h4,
-.writing-assistant .msg-bubble h5 {
-  margin: 16px 0 8px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.4;
-}
-.writing-assistant .msg-bubble h2 { font-size: 16px; }
-.writing-assistant .msg-bubble h3 { font-size: 15px; }
-.writing-assistant .msg-bubble h4 { font-size: 14px; }
-.writing-assistant .msg-bubble h5 { font-size: 13px; }
-
-/* Inline formatting */
-.writing-assistant .msg-bubble strong { font-weight: 600; }
-.writing-assistant .msg-bubble em { font-style: italic; }
-.writing-assistant .msg-bubble code {
-  background: rgba(221,214,200,0.3);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 13px;
-  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-}
-
-/* Code blocks */
-.writing-assistant .msg-bubble pre {
-  margin: 12px 0;
-  padding: 0;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #2a231e;
-}
-.writing-assistant .msg-bubble pre code {
-  display: block;
-  padding: 14px 16px;
-  background: #2a231e;
-  color: #ddd2c4;
-  font-size: 13px;
-  line-height: 1.6;
-  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-  overflow-x: auto;
-  white-space: pre;
-  border-radius: 0;
-}
-
-/* Blockquotes */
-.writing-assistant .msg-bubble blockquote {
-  margin: 10px 0;
-  padding: 8px 14px;
-  border-left: 3px solid var(--mint-500, #10b981);
-  background: rgba(240,253,244,0.5);
-  border-radius: 0 6px 6px 0;
-  color: var(--text-secondary);
-  font-style: italic;
-  line-height: 1.6;
-}
-.writing-assistant .msg-bubble blockquote p {
-  margin: 4px 0;
-}
-
-/* Lists */
-.writing-assistant .msg-bubble ul,
-.writing-assistant .msg-bubble ol {
-  margin: 8px 0;
-  padding-left: 24px;
-}
-.writing-assistant .msg-bubble li {
-  padding: 2px 0;
-  line-height: 1.6;
-}
-.writing-assistant .msg-bubble li > p {
-  margin: 2px 0;
-  display: inline;
-}
-
-/* Horizontal rule */
-.writing-assistant .msg-bubble hr {
-  margin: 16px 0;
-  border: none;
-  border-top: 1px solid rgba(221,214,200,0.4);
-}
 </style>

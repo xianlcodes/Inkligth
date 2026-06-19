@@ -1312,7 +1312,7 @@ async def _run_ppt_generation(
 
             # 4. 保存大纲到数据库（历史记录）
             slides_models = [SlideData(**s) for s in slides_data]
-            await PresentationService.create_presentation(
+            presentation = await PresentationService.create_presentation(
                 db, user_id,
                 PresentationCreate(
                     literature_id=literature_id,
@@ -1337,9 +1337,13 @@ async def _run_ppt_generation(
             os.makedirs(output_dir, exist_ok=True)
             safe_name = "".join(c for c in (literature.title or "presentation") if c.isalnum() or c in "._- ").strip()
             output_filename = f"{safe_name}.pptx"
-            output_path = os.path.join(output_dir, f"{task_id}_{output_filename}")
+            output_path = os.path.join(output_dir, f"{presentation.id}_{output_filename}")
             with open(output_path, "wb") as f:
                 f.write(pptx_bytes)
+
+            # 6a. 将文件路径保存到数据库，供后续下载使用
+            presentation.ppt_file_path = output_path
+            await db.commit()
 
         # 7. 标记完成
         await task_store.update_task(

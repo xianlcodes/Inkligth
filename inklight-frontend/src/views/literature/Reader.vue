@@ -1121,11 +1121,12 @@ function openNoteEditor() {
   noteEditorVisible.value = true
 }
 
-function translateSelection() {
+async function translateSelection() {
   const rawText = floatingMenu.value.quotedText
   floatingMenu.value.visible = false
   if (rawText) {
     const aiEngineStore = useAiEngineStore()
+    await aiEngineStore.loadEngines()
     if (!aiEngineStore.defaultEngine) {
       ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
         confirmButtonText: '去配置',
@@ -1452,6 +1453,7 @@ async function handleFullTranslate() {
   }
 
   const aiEngineStore = useAiEngineStore()
+  await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     try {
       await ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
@@ -1733,6 +1735,7 @@ async function handleAIParse() {
   }
 
   const aiEngineStore = useAiEngineStore()
+  await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     try {
       await ElMessageBox.confirm('请先配置 AI 引擎后再使用 AI 解析功能，是否前往设置？', '提示', {
@@ -2895,134 +2898,5 @@ function stopResize() {
   background: var(--sky-50);
   padding: 8px 12px;
   border-radius: var(--radius-md);
-}
-
-.slide-notes .el-icon {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-/* ========== AI 对话 ========== */
-.chat-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.chat-context-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.chat-context-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-message-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.chat-msg {
-  display: flex;
-}
-
-.chat-msg-user {
-  justify-content: flex-end;
-}
-
-.chat-msg-ai {
-  justify-content: flex-start;
-}
-
-.chat-msg-bubble {
-  max-width: 85%;
-  padding: 10px 14px;
-  border-radius: var(--radius-lg);
-  font-size: 13px;
-  line-height: 1.6;
-  word-break: break-word;
-}
-
-.chat-msg-user .chat-msg-bubble {
-  background: var(--sky-500);
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-
-.chat-msg-ai .chat-msg-bubble {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border-bottom-left-radius: 4px;
-}
-
-.chat-msg-content {
-  white-space: pre-wrap;
-}
-
-.chat-msg-context {
-  font-size: 11px;
-  opacity: 0.7;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-msg-ai .chat-msg-context {
-  border-top-color: var(--border-color);
-}
-
-.chat-msg-thinking {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.chat-input-area {
-  flex-shrink: 0;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-light);
-}
-
-.chat-input-wrapper {
-  position: relative;
-}
-
-.send-inner-btn {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  z-index: 1;
-}
-
-.send-inner-btn.is-loading {
-  /* loading 状态下保持位置 */
-}
-
-.chat-input-actions {
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  margin-top: 6px;
 }
 </style>

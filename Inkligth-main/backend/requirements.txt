@@ -1,0 +1,56 @@
+# ============================================================
+# InkLight 后端核心依赖
+# ============================================================
+# 注意：PDFMathTranslate (pdf2zh) 作为独立包安装，其依赖（PyMuPDF、pdfminer-six、
+# babeldoc、onnxruntime、huggingface_hub、opencv-python-headless、fonttools、tqdm、
+# tenacity、numpy、rich、pikepdf 等）由 pdf2zh 自带，不在此处重复列出。
+# ============================================================
+
+# Web 框架
+fastapi>=0.115.2
+uvicorn[standard]==0.32.0
+pydantic>=2.10.6
+pydantic-settings==2.6.1
+python-multipart==0.0.27
+
+# 数据库
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+
+# 缓存
+redis==5.2.0
+
+# 认证与安全
+python-jose[cryptography]==3.5.0
+passlib==1.7.4
+bcrypt==4.0.1
+cryptography==43.0.0
+certifi>=2024.0.0
+
+# AI/LLM 客户端
+httpx==0.27.0
+
+# 工具库
+python-dotenv==1.0.1
+email-validator==2.3.0
+captcha==0.7.1
+
+# 文档生成
+python-pptx==1.0.2
+
+# SSE 流式推送
+sse-starlette>=2.2.1
+
+# Word 导出
+python-docx>=1.1.2
+
+# LaTeX 模板渲染
+jinja2>=3.1.0
+
+# 邮件服务
+sib-api-v3-sdk==7.6.0
+
+# 向量嵌入（移入 requirements-base.txt，避免 PyTorch 重复下载）
+
+# 定时任务
+apscheduler>=3.10.0

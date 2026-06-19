@@ -269,43 +269,4 @@ onMounted(() => { loadAnnouncements() })
   gap: 14px;
 }
 
-.section-bar-line {
-  width: 4px;
-  height: 22px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, var(--accent-primary) 0%, var(--sky-400) 100%);
-  flex-shrink: 0;
-}
-
-.section-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
-
-.section-accent {
-  margin-left: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--sky-300);
-  letter-spacing: 0.12em;
-}
-
-.status-badge {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.status-badge.published {
-  background: rgba(240,253,244,0.6);
-  color: #16a34a;
-}
-
-.status-badge.draft {
-  background: rgba(245,245,244,0.5);
-  color: #78716c;
-}
 </style>

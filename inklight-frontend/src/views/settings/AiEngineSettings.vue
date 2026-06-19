@@ -55,6 +55,7 @@
             <el-option label="DeepSeek" value="deepseek" />
             <el-option label="Qwen (通义千问)" value="qwen" />
             <el-option label="GLM (智谱)" value="glm" />
+            <el-option label="Agnes" value="agnes" />
           </el-select>
         </el-form-item>
 
@@ -135,6 +136,7 @@ const providerDefaults: Record<string, { apiBase: string; model: string }> = {
   deepseek: { apiBase: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
   qwen: { apiBase: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
   glm: { apiBase: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4.7-flash' },
+  agnes: { apiBase: 'https://apihub.agnes-ai.com/v1/chat/completions', model: 'agnes-2.0-flash' },
 }
 
 const apiBasePlaceholder = computed(() => {

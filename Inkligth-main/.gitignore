@@ -1,0 +1,107 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Project Specific
+杂项文件/
+参考/
+文献管理与阅读翻译网站/
+.trae/
+doc/
+*.zip
+docker-compose.yml
+DEPLOY.md
+
+# Backend
+backend/all-MiniLM-L6-v2/
+backend/uploads/
+backend/migrations/
+backend/doc/
+backend/tests/
+backend/export_files/
+
+# Frontend
+
+# 敏感信息及临时文件
+favicon.pub/
+羽毛笔.png
+羽毛笔.svg
+icons.svg
+# 排除所有 .txt 文件（保留 requirements.txt 及前端公开静态文件）
+*.txt
+!requirements.txt
+!**/requirements.txt
+!requirements-base.txt
+!**/requirements-base.txt
+!inklight-frontend/public/robots.txt
+!inklight-frontend/public/sitemap.xml
+# 排除所有 .md 文件（除 README.md 外）
+*.md
+!README.md
+!**/README.md
+
+# PDFMathTranslate 整个项目（仅作为依赖安装，无需纳入版本控制）
+PDFMathTranslate-main/
+
+# 专家文件目录
+expert_files/
+
+# 配置文件备份（已通过 *.txt 排除，这里显式声明）
+配置文件备份.txt
+配置文件备份2.txt
+服务器地址密码.txt

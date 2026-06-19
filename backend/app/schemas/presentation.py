@@ -51,6 +51,7 @@ class PresentationResponse(BaseModel):
     literature_title: Optional[str] = None
     slides: List[SlideData] = []
     slide_count: Optional[str] = None
+    ppt_file_path: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

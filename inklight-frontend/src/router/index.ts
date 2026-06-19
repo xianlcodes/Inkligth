@@ -237,6 +237,12 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
+  // 已登录用户访问首页 → 跳转仪表盘（避免 Landing.vue 一闪而过）
+  if (to.path === '/' && authStore.isLoggedIn) {
+    next('/dashboard')
+    return
+  }
+
   if (to.meta.adminOnly && !authStore.user?.is_admin) {
     next('/')
     return

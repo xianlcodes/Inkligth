@@ -14,5 +14,6 @@ class Presentation(TencentBase):
     literature_title = Column(String(500), nullable=True)
     slides = Column(JSON, nullable=False, default=list)
     slide_count = Column(String, nullable=True)
+    ppt_file_path = Column(String(1024), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
