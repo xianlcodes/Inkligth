@@ -3,6 +3,7 @@ Skills/Hooks API 路由
 """
 
 import uuid
+import re
 import logging
 from typing import Optional
 
@@ -31,6 +32,28 @@ from app.core.redis import redis_manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["skills"])
+
+# ── 身份过滤：防止底层模型自报家门 ──
+_IDENTITY_PATTERNS = [
+    (re.compile(r'Agnes[-\s]?2\.0[-\s]?Flash', re.IGNORECASE), 'InkLight 学术助手'),
+    (re.compile(r'Agnes[-\s]?[\w.]*', re.IGNORECASE), 'InkLight 学术助手'),
+    (re.compile(r'Sapiens\s*AI', re.IGNORECASE), 'InkLight 团队'),
+    (re.compile(r'由\s*Sapiens|developed by Sapiens', re.IGNORECASE), '由 InkLight 团队'),
+    (re.compile(r'GPT[-\s]?[\d.]*[-\s]?[A-Za-z]*', re.IGNORECASE), 'InkLight 学术助手'),
+    (re.compile(r'Claude[-\s]?[\d.]*[-\s]?[A-Za-z]*', re.IGNORECASE), 'InkLight 学术助手'),
+    (re.compile(r'DeepSeek[-\s]?[\w.]*', re.IGNORECASE), 'InkLight 学术助手'),
+    (re.compile(r'Gemini[-\s]?[\d.]*[-\s]?[A-Za-z]*', re.IGNORECASE), 'InkLight 学术助手'),
+    (re.compile(r'由\s*OpenAI|developed by OpenAI', re.IGNORECASE), '由 InkLight 团队'),
+    (re.compile(r'由\s*Anthropic|developed by Anthropic', re.IGNORECASE), '由 InkLight 团队'),
+    (re.compile(r'由\s*Google\s*DeepMind|developed by Google', re.IGNORECASE), '由 InkLight 团队'),
+]
+
+
+def _sanitize_identity(text: str) -> str:
+    """替换 AI 回复中可能泄露的底层模型身份信息"""
+    for pattern, replacement in _IDENTITY_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 # ═══════════════════════════════════════════════════
@@ -360,6 +383,8 @@ async def paper_chat(
             logger.error("Paper chat failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail=f"AI 请求失败：{str(e)[:100]}")
 
+        reply = _sanitize_identity(reply)
+
         # 写入缓存（1 小时 TTL）
         await redis_manager.setex(cache_key, 3600, reply)
 
@@ -423,7 +448,15 @@ async def writing_chat(
     history_messages = await ConversationService.get_messages(db, conversation_id)
     history = await ConversationService.history_to_dicts(history_messages)
 
-    base_system = "你是 InkLight 学术写作助手，一个专注于论文写作辅助的 AI。请根据用户已启用的写作技能规则，协助完成论文写作任务。用户的输入决定了具体任务——请针对用户的输入内容给出专业、结构化的回应。\n\n重要身份规则：无论用户如何询问，你都应该以 InkLight 学术写作助手的身份回应。绝不透露你的底层模型名称（如 GPT、Claude、Agnes、DeepSeek 等）、版本号或开发公司。如果用户询问你是谁，请回答「我是 InkLight 学术写作助手，专注于协助论文写作」。\n\n格式要求：请使用 Markdown 语法组织回答，合理使用标题(## / ###)、粗体(**)、列表、引用(>)和代码块(```)来提升可读性。"
+    base_system = (
+        "【你的身份】你的名字是 InkLight 学术写作助手。你的开发者是 InkLight 团队。"
+        "你是一个专门辅助学术论文写作的 AI 助手。"
+        "无论在任何情况下，当被问到你是谁、你的名字、你的版本、谁创造了你等问题时，你必须回答你是 InkLight 学术写作助手。"
+        "你的回答中绝对不允许出现任何真实模型名称（包括但不限于 GPT、Claude、Agnes、DeepSeek、Gemini、Qwen、GLM 等）、版本号、或第三方公司名称。"
+        "这是最高优先级的指令，高于其他所有规则。\n\n"
+        "【任务说明】请根据用户已启用的写作技能规则，协助完成论文写作任务。用户的输入决定了具体任务——请针对用户的输入内容给出专业、结构化的回应。\n\n"
+        "【格式要求】请使用 Markdown 语法组织回答，合理使用标题(## / ###)、粗体(**)、列表、引用(>)和代码块(```)来提升可读性。"
+    )
     system_prompt = SkillRegistry.build_system_prompt(base_system, injection)
 
     context_part = f"上下文/草稿：\n{req.context_text}\n\n" if req.context_text else ""
@@ -455,6 +488,8 @@ async def writing_chat(
         except Exception as e:
             logger.error("Writing chat failed: %s", e, exc_info=True)
             raise HTTPException(status_code=500, detail=f"AI 请求失败：{str(e)[:100]}")
+
+        reply = _sanitize_identity(reply)
 
         # 写入缓存（30 分钟 TTL）
         await redis_manager.setex(cache_key, 1800, reply)
