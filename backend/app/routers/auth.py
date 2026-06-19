@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -116,6 +117,8 @@ async def login(
         )
     access_token = create_access_token(subject=user.id)
     refresh_token = await RefreshTokenService.create_refresh_token(db, str(user.id))
+    user.last_login_at = datetime.utcnow()
+    await db.commit()
     logger.info(f"User logged in: {user.email}")
     return {
         "access_token": access_token,

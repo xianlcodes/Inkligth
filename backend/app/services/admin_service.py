@@ -137,7 +137,7 @@ class AdminService:
 
         user_q = select(
             User.id, User.email, User.username, User.is_admin,
-            User.created_at, User.updated_at,
+            User.created_at, User.updated_at, User.last_login_at,
         ).where(User.id.in_(user_ids)).order_by(User.created_at.desc())
         user_res = await db.execute(user_q)
         items = []
@@ -148,6 +148,7 @@ class AdminService:
                 "username": row.username,
                 "is_admin": row.is_admin,
                 "literature_count": lit_counts.get(row.id, 0),
+                "last_login_at": row.last_login_at,
                 "created_at": row.created_at,
                 "updated_at": row.updated_at,
             })

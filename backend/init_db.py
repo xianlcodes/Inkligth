@@ -102,6 +102,7 @@ ALIBABA_MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS agreed_terms_at TIMESTAMP",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS theme_color VARCHAR DEFAULT '#e8f2e2'",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP",
     "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_invite_code ON users (invite_code) WHERE invite_code IS NOT NULL",
 
     # announcements 表

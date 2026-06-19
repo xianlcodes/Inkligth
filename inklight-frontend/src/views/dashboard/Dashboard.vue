@@ -1062,39 +1062,39 @@ onMounted(() => {
 }
 
 .paper-card {
-  --card-accent: rgba(2, 132, 199, 0.3);
+  --card-accent: rgba(2, 132, 199, 0.35);
   background:
     linear-gradient(to bottom,
       var(--card-accent) 0px,
-      var(--card-accent) 2px,
-      rgba(255, 255, 255, 0.7) 2px,
-      rgba(255, 255, 255, 0.7) 100%);
-  backdrop-filter: blur(2px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+      var(--card-accent) 3px,
+      rgba(255, 255, 255, 0.85) 3px,
+      rgba(255, 255, 255, 0.85) 100%);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: var(--radius-lg);
   padding: 20px 22px;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.02);
   position: relative;
 }
 
 /* Alternate accent colors across cards */
-.paper-card:nth-child(3n-1) { --card-accent: rgba(16, 185, 129, 0.3); }
-.paper-card:nth-child(3n) { --card-accent: rgba(245, 158, 11, 0.25); }
+.paper-card:nth-child(3n-1) { --card-accent: rgba(16, 185, 129, 0.35); }
+.paper-card:nth-child(3n) { --card-accent: rgba(245, 158, 11, 0.3); }
 
 .paper-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 28px -6px rgba(2, 132, 199, 0.12), 0 2px 4px -2px rgba(0,0,0,0.03);
-  border-color: var(--accent-primary);
+  box-shadow: 0 8px 28px -6px rgba(2, 132, 199, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-color: rgba(2, 132, 199, 0.45);
   background:
     linear-gradient(to bottom,
       var(--card-accent) 0px,
-      var(--card-accent) 2px,
-      rgba(255, 255, 255, 0.9) 2px,
-      rgba(255, 255, 255, 0.9) 100%);
+      var(--card-accent) 3px,
+      rgba(255, 255, 255, 0.95) 3px,
+      rgba(255, 255, 255, 0.95) 100%);
 }
 
 .paper-tag {
@@ -1127,6 +1127,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid rgba(226, 232, 240, 0.5);
@@ -1135,5 +1136,18 @@ onMounted(() => {
 .paper-authors {
   font-size: var(--text-xs);
   color: var(--text-secondary);
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.paper-date {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 </style>

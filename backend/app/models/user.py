@@ -16,5 +16,6 @@ class User(AlibabaBase):
     agreed_terms_at = Column(DateTime, nullable=True)
     theme_color = Column(String, default="#e8f2e2")
     invite_code = Column(String, unique=True, nullable=True, index=True)
+    last_login_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -27,6 +27,7 @@ export interface AdminUser {
   username: string | null
   is_admin: boolean
   literature_count: number
+  last_login_at: string | null
   created_at: string
   updated_at: string
 }

@@ -30,6 +30,7 @@ class UserListItem(BaseModel):
     username: Optional[str] = None
     is_admin: bool
     literature_count: int
+    last_login_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

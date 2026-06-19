@@ -6,53 +6,59 @@
       <span class="section-accent">USERS</span>
     </div>
 
-    <div class="flex gap-3 mb-4">
+    <div class="table-toolbar">
       <el-input
         v-model="searchQuery"
         placeholder="搜索邮箱..."
         clearable
-        style="width:280px"
+        class="search-input"
         @change="loadUsers"
       >
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
+      <span class="toolbar-hint">共 {{ total }} 个用户</span>
     </div>
 
-    <el-table :data="users" v-loading="loading" stripe>
-      <el-table-column prop="email" label="邮箱" min-width="200" />
-      <el-table-column prop="username" label="用户名" min-width="120">
-        <template #default="{ row }">{{ row.username || '-' }}</template>
-      </el-table-column>
-      <el-table-column prop="literature_count" label="文献数" width="80" align="center" />
-      <el-table-column prop="is_admin" label="管理员" width="90" align="center">
-        <template #default="{ row }">
-          <el-tag :type="row.is_admin ? 'danger' : 'info'" size="small">
-            {{ row.is_admin ? '是' : '否' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="created_at" label="注册时间" width="160">
-        <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="240" align="center">
-        <template #default="{ row }">
-          <el-button size="small" text type="primary" @click="openEditUser(row)">
-            <el-icon><Edit /></el-icon>
-            编辑
-          </el-button>
-          <el-button
-            size="small"
-            text
-            :type="row.is_admin ? 'warning' : 'success'"
-            @click="toggleAdmin(row)"
-          >
-            {{ row.is_admin ? '取消管理员' : '设为管理员' }}
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="table-wrap">
+      <el-table :data="users" v-loading="loading" stripe class="user-table">
+        <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="username" label="用户名" width="100" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.username || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="literature_count" label="文献数" width="80" align="center" />
+        <el-table-column prop="is_admin" label="管理员" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.is_admin ? 'danger' : 'info'" size="small">
+              {{ row.is_admin ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="注册时间" width="170">
+          <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
+        </el-table-column>
+        <el-table-column prop="last_login_at" label="最后登录" width="170">
+          <template #default="{ row }">{{ formatDate(row.last_login_at) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="220" align="center">
+          <template #default="{ row }">
+            <el-button size="small" text type="primary" @click="openEditUser(row)">
+              <el-icon><Edit /></el-icon>
+              编辑
+            </el-button>
+            <el-button
+              size="small"
+              text
+              :type="row.is_admin ? 'warning' : 'success'"
+              @click="toggleAdmin(row)"
+            >
+              {{ row.is_admin ? '取消管理员' : '设为管理员' }}
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
-    <div class="flex justify-end mt-4">
+    <div class="table-footer">
       <el-pagination
         v-model:current-page="currentPage"
         :page-size="pageSize"
@@ -162,3 +168,88 @@ onMounted(() => {
   loadUsers()
 })
 </script>
+
+<style scoped>
+/* ── Toolbar ── */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 280px;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-overlay);
+  box-shadow: none !important;
+}
+
+.search-input :deep(.el-input__wrapper:hover) {
+  border-color: var(--sky-300);
+  background: var(--bg-overlay-hover);
+}
+
+.search-input :deep(.el-input__wrapper.is-focus) {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1) !important;
+  background: var(--bg-overlay-heavy);
+}
+
+.toolbar-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Table wrapper ── */
+.table-wrap {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-overlay);
+}
+
+/* ── Table ── */
+.user-table {
+  --el-table-border-color: transparent;
+}
+
+.user-table :deep(.el-table__header-wrapper th) {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--border-color);
+  padding: 14px 0;
+  letter-spacing: 0.02em;
+}
+
+.user-table :deep(.el-table__body-wrapper td) {
+  font-size: 14px;
+  color: var(--text-primary);
+  padding: 12px 0;
+}
+
+.user-table :deep(.el-table__body tr) {
+  transition: background 0.15s;
+}
+
+.user-table :deep(.el-table__body tr:hover > td) {
+  background: var(--bg-overlay-hover) !important;
+}
+
+.user-table :deep(.el-table__row--striped td) {
+  background: rgba(0, 0, 0, 0.012);
+}
+
+/* ── Footer ── */
+.table-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+</style>
