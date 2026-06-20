@@ -273,13 +273,13 @@
       <div class="pdf-panel" :style="{ width: pdfPanelWidth + 'px' }">
         <div class="pdf-toolbar">
           <el-button-group>
-            <el-button size="small" :disabled="scale <= 0.5" @click="scale -= 0.25">
+            <el-button size="small" :disabled="userZoom <= 0.5" @click="zoomOut">
               <el-icon><ZoomOut /></el-icon>
             </el-button>
             <el-button size="small" disabled>
-              {{ Math.round(scale * 100) }}%
+              {{ Math.round(userZoom * 100) }}%
             </el-button>
-            <el-button size="small" :disabled="scale >= 3" @click="scale += 0.25">
+            <el-button size="small" :disabled="userZoom >= 3" @click="zoomIn">
               <el-icon><ZoomIn /></el-icon>
             </el-button>
           </el-button-group>
@@ -302,34 +302,52 @@
           @click="handlePdfClick"
           @mousemove="handlePdfMouseMove"
         >
-          <VuePdfEmbed
-            v-if="pdfBlobUrl"
-            :source="pdfBlobUrl"
-            :scale="scale"
-            :text-layer="true"
-            @loaded="onPdfLoaded"
-            @loading-failed="onPdfError"
-          />
+          <div
+            class="pdf-zoom-wrapper"
+            ref="zoomWrapperRef"
+            :style="{
+              width: pdfContentWidth + 'px',
+              transform: `scale(${userZoom})`,
+              transformOrigin: 'top left'
+            }"
+          >
+            <VuePdfEmbed
+              v-if="pdfBlobUrl"
+              :source="pdfBlobUrl"
+              :scale="baseScale"
+              :text-layer="true"
+              @loaded="onPdfLoaded"
+              @loading-failed="onPdfError"
+            />
+          </div>
 
           <!-- 浮动菜单（文本选中） -->
           <Teleport to="body">
             <div
               v-if="floatingMenu.visible"
               class="floating-menu"
-              :style="{ left: floatingMenu.x + 'px', top: floatingMenu.y + 'px' }"
+              :class="{ 'floating-menu--center': continuousSelections.length > 0 }"
+              :style="continuousSelections.length > 0 ? {} : { left: floatingMenu.x + 'px', top: floatingMenu.y + 'px' }"
               @click.stop
             >
-              <button class="floating-menu-btn highlight-btn" @click="createHighlight">
+              <span v-if="continuousSelections.length > 0" class="text-xs text-sky-600 font-medium mb-1 block">
+                已选中 {{ continuousSelections.length }} 段文字
+              </span>
+              <button v-if="continuousSelections.length === 0" class="floating-menu-btn highlight-btn" @click="createHighlight">
                 <el-icon><EditPen /></el-icon>
                 高亮
               </button>
-              <button class="floating-menu-btn note-btn" @click="openNoteEditor">
+              <button v-if="continuousSelections.length === 0" class="floating-menu-btn note-btn" @click="openNoteEditor">
                 <el-icon><Notebook /></el-icon>
                 记笔记
               </button>
               <button class="floating-menu-btn translate-btn" @click="translateSelection">
                 <el-icon><Document /></el-icon>
-                翻译
+                翻译{{ continuousSelections.length > 0 ? '(' + continuousSelections.length + '段)' : '' }}
+              </button>
+              <button v-if="continuousSelections.length > 0" class="floating-menu-btn clear-btn" @click="clearContinuousHighlights(); continuousSelections.length = 0">
+                <el-icon><Close /></el-icon>
+                清除
               </button>
             </div>
           </Teleport>
@@ -597,7 +615,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, Plus, Download, ArrowDown, Refresh, ChatDotSquare, Promotion } from '@element-plus/icons-vue'
+import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, Plus, Download, ArrowDown, Refresh, ChatDotSquare, Promotion, Close } from '@element-plus/icons-vue'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
 import { getLiterature, getLiteratureFileBlob, updateLiterature, type Literature } from '@/api/literature'
@@ -619,20 +637,27 @@ const router = useRouter()
 const literature = ref<Literature | null>(null)
 const pdfBlobUrl = ref('')
 const pdfLoading = ref(true)
-const scale = ref(1)
+const baseScale = ref(1)
+const userZoom = ref(1)
+const pdfContentWidth = computed(() => Math.round(Math.max(100, (pdfPanelWidth.value - 48) * userZoom.value)))
+const pdfInitialLoadDone = ref(false)
 const activeTab = ref('translate')
 const translating = ref(false)
 const streamingTarget = ref('')
 const parsing = ref(false)
 const continuousMode = ref(false)
 const translationHistory = ref<{ source: string; target: string }[]>([])
+const continuousSelections = ref<{ text: string; pageNumber: string; rectCoords: RectCoords }[]>([])
 
 watch(continuousMode, (newVal) => {
   if (!newVal) {
     translationHistory.value = []
+    clearContinuousHighlights()
+    continuousSelections.value.length = 0
   }
 })
 const pdfViewerRef = ref<HTMLElement | null>(null)
+const zoomWrapperRef = ref<HTMLElement | null>(null)
 
 const resizerWidth = 6
 const sidePanelWidth = ref(0)
@@ -804,7 +829,9 @@ onUnmounted(() => {
 })
 
 function onDocumentClick() {
-  floatingMenu.value.visible = false
+  if (!continuousMode.value || continuousSelections.value.length === 0) {
+    floatingMenu.value.visible = false
+  }
   highlightMenu.value.visible = false
 }
 
@@ -915,8 +942,16 @@ function highlightSearchChunk() {
   })
 }
 
-watch(scale, () => {
-  nextTick(() => renderHighlights())
+watch(userZoom, () => {
+  nextTick(() => {
+    renderHighlights()
+    const viewer = pdfViewerRef.value
+    const wrapper = zoomWrapperRef.value
+    if (viewer && wrapper) {
+      const excess = wrapper.offsetWidth - viewer.clientWidth
+      viewer.scrollLeft = Math.max(0, excess / 2)
+    }
+  })
 })
 
 function onWindowResize() {
@@ -971,10 +1006,12 @@ function onPdfLoaded(doc: { numPages: number; getPage: (n: number) => Promise<{ 
   doc.getPage(1).then((page) => {
     const viewport = page.getViewport({ scale: 1 })
     pdfPageWidth = viewport.width
-    fitToWidth()
+    if (!pdfInitialLoadDone.value) {
+      pdfInitialLoadDone.value = true
+      fitToWidth()
+    }
     nextTick(() => {
       renderHighlights()
-      // Restore reading progress
       if (literature.value?.last_read_page && !route.query.page) {
         scrollToPage(literature.value.last_read_page)
       }
@@ -986,7 +1023,21 @@ function fitToWidth() {
   if (pdfPageWidth === 0) return
   const availableWidth = pdfPanelWidth.value - 48
   if (availableWidth <= 0) return
-  scale.value = Math.max(0.1, availableWidth / pdfPageWidth)
+  baseScale.value = Math.max(0.1, availableWidth / pdfPageWidth)
+  userZoom.value = 1
+}
+
+let zoomTimer: ReturnType<typeof setTimeout> | null = null
+function zoomIn() {
+  if (zoomTimer) return
+  userZoom.value = Math.min(3, userZoom.value + 0.25)
+  zoomTimer = setTimeout(() => { zoomTimer = null }, 200)
+}
+
+function zoomOut() {
+  if (zoomTimer) return
+  userZoom.value = Math.max(0.25, userZoom.value - 0.25)
+  zoomTimer = setTimeout(() => { zoomTimer = null }, 200)
 }
 
 function onPdfError() {
@@ -1033,8 +1084,10 @@ function handleDownloadOriginal() {
 function handleWheel(e: WheelEvent) {
   if (e.ctrlKey || e.metaKey) {
     e.preventDefault()
+    if (zoomTimer) return
     const delta = e.deltaY > 0 ? -0.1 : 0.1
-    scale.value = Math.max(0.5, Math.min(3, scale.value + delta))
+    userZoom.value = Math.max(0.25, Math.min(3, userZoom.value + delta))
+    zoomTimer = setTimeout(() => { zoomTimer = null }, 150)
   }
 }
 
@@ -1042,12 +1095,16 @@ function handleTextSelection() {
   setTimeout(() => {
     const selection = window.getSelection()
     if (!selection || selection.isCollapsed || !selection.rangeCount) {
-      floatingMenu.value.visible = false
+      if (!continuousMode.value) {
+        floatingMenu.value.visible = false
+      }
       return
     }
     const text = selection.toString().trim()
     if (!text) {
-      floatingMenu.value.visible = false
+      if (!continuousMode.value) {
+        floatingMenu.value.visible = false
+      }
       return
     }
 
@@ -1071,13 +1128,23 @@ function handleTextSelection() {
       }
     }
 
-    floatingMenu.value = {
-      visible: true,
-      x: rect.left + rect.width / 2,
-      y: rect.top - 12,
-      quotedText: text,
-      pageNumber,
-      rectCoords,
+    if (continuousMode.value && rectCoords) {
+      // 连续翻译模式：累积选区，绘制持久高亮
+      continuousSelections.value.push({ text, pageNumber, rectCoords })
+      addContinuousHighlight(pageElement as HTMLElement, rectCoords, pageNumber)
+      selection.removeAllRanges()
+      floatingMenu.value.visible = true
+      floatingMenu.value.quotedText = continuousSelections.value.map(s => s.text).join('\n---\n')
+      floatingMenu.value.pageNumber = ''
+    } else {
+      floatingMenu.value = {
+        visible: true,
+        x: rect.left + rect.width / 2,
+        y: rect.top - 12,
+        quotedText: text,
+        pageNumber,
+        rectCoords,
+      }
     }
 
     chatContextText.value = text
@@ -1122,8 +1189,12 @@ function openNoteEditor() {
 }
 
 async function translateSelection() {
-  const rawText = floatingMenu.value.quotedText
+  const rawText = continuousSelections.value.length > 0
+    ? continuousSelections.value.map(s => s.text).join('\n\n')
+    : floatingMenu.value.quotedText
   floatingMenu.value.visible = false
+  clearContinuousHighlights()
+  continuousSelections.value = []
   if (rawText) {
     const aiEngineStore = useAiEngineStore()
     await aiEngineStore.loadEngines()
@@ -1389,6 +1460,29 @@ function clearHighlights() {
   const pdfViewer = pdfViewerRef.value
   if (!pdfViewer) return
   pdfViewer.querySelectorAll('.pdf-highlight-overlay').forEach(el => el.remove())
+}
+
+function addContinuousHighlight(pageEl: HTMLElement, coords: RectCoords, pageNumber: string) {
+  const highlightDiv = document.createElement('div')
+  highlightDiv.className = 'pdf-highlight-overlay pdf-continuous-select'
+  highlightDiv.dataset.pageNumber = pageNumber
+  highlightDiv.style.position = 'absolute'
+  highlightDiv.style.left = `${coords.x * 100}%`
+  highlightDiv.style.top = `${coords.y * 100}%`
+  highlightDiv.style.width = `${coords.width * 100}%`
+  highlightDiv.style.height = `${coords.height * 100}%`
+  highlightDiv.style.backgroundColor = 'rgba(2, 132, 199, 0.3)'
+  highlightDiv.style.borderRadius = '2px'
+  highlightDiv.style.pointerEvents = 'none'
+  highlightDiv.style.zIndex = '5'
+  pageEl.style.position = pageEl.style.position || 'relative'
+  pageEl.appendChild(highlightDiv)
+}
+
+function clearContinuousHighlights() {
+  const pdfViewer = pdfViewerRef.value
+  if (!pdfViewer) return
+  pdfViewer.querySelectorAll('.pdf-continuous-select').forEach(el => el.remove())
 }
 
 async function doTranslate(text: string, sourceText: string) {
@@ -2102,6 +2196,15 @@ function stopResize() {
   flex: 1;
   overflow: auto;
   padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.pdf-zoom-wrapper {
+  min-width: 100px;
+  flex-shrink: 0;
+  transition: transform 0.08s ease-out;
+  will-change: transform;
 }
 
 .pdf-viewer :deep(.vue-pdf-embed) {
@@ -2592,6 +2695,17 @@ function stopResize() {
 .translate-btn:hover {
   color: var(--accent-primary);
   background: var(--sky-50);
+}
+
+.clear-btn:hover {
+  color: var(--rose-600);
+  background: var(--rose-50);
+}
+
+.floating-menu--center {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .notes-panel {

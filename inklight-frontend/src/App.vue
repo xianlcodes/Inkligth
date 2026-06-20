@@ -13,7 +13,7 @@
           <img :src="quillLogo" alt="InkLight" class="sidebar-logo-img" />
         </div>
         <span class="sidebar-logo-text font-bold whitespace-nowrap">InkLight</span>
-        <button class="sidebar-toggle-btn flex items-center justify-center w-[30px] h-[30px] border rounded-md ml-auto flex-shrink-0 cursor-pointer"
+        <button class="sidebar-toggle-btn flex items-center justify-center w-[36px] h-[36px] border rounded-lg ml-auto flex-shrink-0 cursor-pointer"
                 @click="toggleSidebar" :title="sidebarCollapsed ? '展开菜单' : '折叠菜单'">
           <el-icon><component :is="sidebarCollapsed ? Expand : Fold" /></el-icon>
         </button>
@@ -87,19 +87,16 @@
       </div>
     </el-aside>
 
-    <!-- 侧边栏展开按钮 -->
-    <div v-if="authStore.isLoggedIn && sidebarCollapsed" class="sidebar-expand-fab">
-      <el-button class="expand-fab-btn" @click="toggleSidebar">
-        <el-icon :size="20"><Expand /></el-icon>
-      </el-button>
-    </div>
 
     <!-- 右侧主区域 -->
     <el-container class="main-container flex flex-col">
+      <!-- 侧边栏折叠展开按钮 — 固定在左上角 -->
+      <button v-if="authStore.isLoggedIn && sidebarCollapsed" class="sidebar-expand-fab" @click="toggleSidebar" title="展开菜单">
+        <el-icon :size="22"><Expand /></el-icon>
+      </button>
       <!-- 顶部导航 -->
       <el-header v-if="authStore.isLoggedIn" class="app-header flex items-center justify-between h-14 px-6 flex-shrink-0">
         <div class="header-left flex items-center gap-4 flex-1 min-w-0">
-          <h2 class="page-brand text-base font-bold flex-shrink-0 m-0">InkLight 研墨</h2>
           <div v-if="showSearchBar" class="header-search relative w-[300px]" ref="searchRef">
             <el-input
               v-model="searchQuery"
@@ -421,7 +418,38 @@ watchEffect(() => {
   z-index: 100;
 }
 
-.app-sidebar.collapsed { border-right: none; }
+.app-sidebar.collapsed {
+  border-right: none;
+  overflow: hidden;
+}
+
+/* ── Sidebar expand FAB ── */
+.sidebar-expand-fab {
+  position: fixed;
+  left: 12px;
+  top: 14px;
+  z-index: 9999;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #1e1b18;
+  border: 1px solid #4d4038;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a7a6c;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+.sidebar-expand-fab:hover {
+  color: #38bdf8;
+  border-color: rgba(56,189,248,0.4);
+  box-shadow: 0 4px 20px rgba(2,132,199,0.35);
+  transform: scale(1.08);
+}
 
 .sidebar-header {
   border-bottom: 1px solid #3d332c;
@@ -468,37 +496,6 @@ watchEffect(() => {
   color: #38bdf8;
   border-color: rgba(56,189,248,0.3);
   background: rgba(2,132,199,0.12);
-}
-
-/* ── Sidebar expand FAB ── */
-.sidebar-expand-fab {
-  position: fixed;
-  left: 8px;
-  top: 12px;
-  z-index: 1000;
-  animation: fadeIn var(--transition-slow) ease;
-}
-
-.expand-fab-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-lg);
-  background: #322b25;
-  border: 1px solid #4d4038;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #8a7a6c;
-  transition: all var(--transition-base);
-}
-
-.expand-fab-btn:hover {
-  color: #38bdf8;
-  border-color: rgba(56,189,248,0.3);
-  box-shadow: 0 4px 16px rgba(2,132,199,0.15);
-  transform: scale(1.05);
 }
 
 /* ── Sidebar menu — Element Plus overrides ── */
