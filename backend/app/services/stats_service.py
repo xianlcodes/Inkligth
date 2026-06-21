@@ -140,14 +140,22 @@ class StatsService:
                 ReadingRecord.literature_id == literature_id,
                 ReadingRecord.record_date == today,
             )
-        )
+        ).order_by(ReadingRecord.id.desc())
         result = await db.execute(q)
-        record = result.scalar_one_or_none()
+        records = result.scalars().all()
 
-        if record:
+        if records:
+            # 合并多条记录（处理历史重复数据）
+            record = records[0]
+            for dup in records[1:]:
+                record.pages_read = max(record.pages_read, dup.pages_read)
+                record.reading_time_seconds += dup.reading_time_seconds
+                record.last_page = max(record.last_page, dup.last_page)
+                await db.delete(dup)
             record.pages_read = max(record.pages_read, current_page)
             record.reading_time_seconds += duration_seconds
             record.last_page = current_page
+            await db.flush()
         else:
             record = ReadingRecord(
                 user_id=user_id,

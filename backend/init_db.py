@@ -73,6 +73,14 @@ TENCENT_MIGRATIONS = [
     "ALTER TABLE reading_records DROP CONSTRAINT IF EXISTS reading_records_user_id_fkey",
     "ALTER TABLE notes DROP CONSTRAINT IF EXISTS notes_user_id_fkey",
     "ALTER TABLE pdf_translations DROP CONSTRAINT IF EXISTS pdf_translations_user_id_fkey",
+    "ALTER TABLE argument_ledgers DROP CONSTRAINT IF EXISTS argument_ledgers_user_id_fkey",
+    "ALTER TABLE argument_promises DROP CONSTRAINT IF EXISTS argument_promises_user_id_fkey",
+    "ALTER TABLE argument_review_sessions DROP CONSTRAINT IF EXISTS argument_review_sessions_user_id_fkey",
+
+    # reading_records 去重：保留每组 (user_id, literature_id, record_date) 中 pages_read 最大的记录
+    "DELETE FROM reading_records a USING reading_records b WHERE a.id < b.id AND a.user_id = b.user_id AND a.literature_id = b.literature_id AND a.record_date = b.record_date",
+    # 防止未来再产生重复
+    "CREATE UNIQUE INDEX IF NOT EXISTS ix_reading_records_user_lit_date ON reading_records (user_id, literature_id, record_date)",
 
     # pdf_translations 表（user_id 无 FK 约束 — 跨库引用 users.id）
     "CREATE TABLE IF NOT EXISTS pdf_translations ("
