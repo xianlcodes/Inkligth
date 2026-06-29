@@ -43,7 +43,7 @@
           <el-icon><DataAnalysis /></el-icon>
           <span>组会</span>
         </el-menu-item>
-        <el-menu-item index="/settings/ai">
+        <el-menu-item index="/settings/ai" data-tour="sidebar-ai">
           <el-icon><Setting /></el-icon>
           <span>AI 设置</span>
         </el-menu-item>
@@ -64,6 +64,17 @@
           <span>使用教程</span>
         </el-menu-item>
       </el-menu>
+
+      <div class="sidebar-qq-group">
+        <div class="qq-group-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide">
+          <el-icon :size="14"><ChatDotSquare /></el-icon>
+          <span>用户交流群</span>
+        </div>
+        <el-button size="small" text class="qq-join-btn mt-1" @click="qqDialogVisible = true">
+          点击加入群聊
+          <el-icon :size="12"><ArrowRight /></el-icon>
+        </el-button>
+      </div>
 
       <div class="sidebar-storage" v-if="storageInfo">
         <div class="sidebar-storage-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide mb-2">
@@ -199,6 +210,29 @@
     </el-container>
   </el-container>
   <FeedbackButton v-if="authStore.isLoggedIn" />
+
+  <!-- QQ 群二维码弹窗 -->
+  <el-dialog
+    v-model="qqDialogVisible"
+    title="加入用户交流群"
+    width="360px"
+    :close-on-click-modal="true"
+    center
+  >
+    <div class="qq-dialog-body">
+      <div class="qq-qr-wrapper">
+        <img src="/QQ_QR.jpg" alt="QQ群二维码" class="qq-qr-image" />
+      </div>
+      <p class="qq-dialog-desc">打开 QQ 扫描二维码，加入研墨用户群</p>
+      <div class="qq-dialog-number">
+        <span>群号：375217209</span>
+        <el-button size="small" text type="primary" @click="copyQQGroupNumber">
+          <el-icon :size="14"><CopyDocument /></el-icon>
+          复制群号
+        </el-button>
+      </div>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -206,6 +240,7 @@ import { ref, computed, onMounted, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { useTutorial } from '@/composables/useTutorial'
 import { searchLiterature, type SearchResultItem } from '@/api/search'
 import { getActiveAnnouncements, getPublicAnnouncements, type Announcement } from '@/api/announcement'
 import { getStorage } from '@/api/storage'
@@ -234,11 +269,15 @@ import {
   Management,
   Help,
   Tools,
+  ChatDotSquare,
+  CopyDocument,
+  ArrowRight,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const tutorial = useTutorial()
 const searchQuery = ref('')
 const searchResults = ref<SearchResultItem[]>([])
 const searching = ref(false)
@@ -282,6 +321,29 @@ async function fetchStorageInfo() {
 function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
   localStorage.setItem('sidebar_collapsed', sidebarCollapsed.value ? '1' : '0')
+}
+
+// QQ 群
+const qqDialogVisible = ref(false)
+const qqCopyText = ref('复制')
+
+function copyQQGroupNumber() {
+  navigator.clipboard.writeText('375217209').then(() => {
+    qqCopyText.value = '已复制'
+    setTimeout(() => { qqCopyText.value = '复制' }, 2000)
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea')
+    ta.value = '375217209'
+    ta.style.position = 'fixed'
+    ta.style.left = '-9999px'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    document.body.removeChild(ta)
+    qqCopyText.value = '已复制'
+    setTimeout(() => { qqCopyText.value = '复制' }, 2000)
+  })
 }
 
 const headerAnnouncements = ref<Announcement[]>([])
@@ -343,17 +405,29 @@ function goToResult(item: SearchResultItem) {
 
 onMounted(async () => {
   if (authStore.isLoggedIn && !authStore.user) {
-    authStore.fetchUser().catch(() => {
+    try {
+      await authStore.fetchUser()
+    } catch {
       authStore.logout()
       router.push('/login')
-    })
+      loadHeaderAnnouncements()
+      return
+    }
   }
 
   if (authStore.isLoggedIn) {
     fetchStorageInfo()
+    if (!tutorial.isDone()) {
+      setTimeout(() => tutorial.start(), 600)
+    }
   }
 
   loadHeaderAnnouncements()
+})
+
+// 跨页面恢复新手指引
+watch(() => route.path, () => {
+  tutorial.onRouteChanged()
 })
 
 watch(() => authStore.isLoggedIn, (loggedIn) => {
@@ -593,6 +667,83 @@ watchEffect(() => {
 .sidebar-storage-remaining { color: #8a7a6c; }
 .sidebar-storage-remaining.warning { color: #f87171; font-weight: 500; }
 
+/* ── Sidebar QQ group ── */
+.sidebar-qq-group {
+  padding: 10px 16px;
+  border-top: 1px solid #3d332c;
+  background: #1e1916;
+  flex-shrink: 0;
+}
+
+.sidebar-qq-group .qq-group-header {
+  color: #8a7a6c;
+}
+
+.sidebar-qq-group .qq-group-header .el-icon {
+  color: #0284c7;
+}
+
+.sidebar-qq-group .qq-join-btn {
+  color: #38bdf8;
+  padding: 1px 0;
+  font-size: 12px;
+  height: auto;
+  transition: color var(--transition-fast);
+}
+
+.sidebar-qq-group .qq-join-btn:hover {
+  color: #7dd3fc;
+}
+
+.sidebar-qq-group .qq-join-btn .el-icon {
+  font-size: 12px;
+}
+
+.sidebar-qq-group .qq-join-btn .el-icon {
+  font-size: 12px;
+}
+
+/* ── QQ dialog ── */
+.qq-dialog-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.qq-qr-wrapper {
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  padding: 8px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
+}
+
+.qq-qr-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.qq-dialog-desc {
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  margin: 0 0 12px 0;
+}
+
+.qq-dialog-number {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary, #1f2937);
+}
+
 /* ── Header — translucent glass ── */
 .app-header {
   position: relative;
@@ -692,5 +843,118 @@ watchEffect(() => {
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+<style>
+/* ══════════════════════════════════════════════
+   Driver.js 新手指引弹出框样式覆盖
+   ══════════════════════════════════════════════ */
+
+.driver-popover.inklight-driver-popover {
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  background: #fff;
+  border-radius: 14px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: 20px 22px 18px;
+  max-width: 320px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  animation: driverFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes driverFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-title {
+  font-size: 16px;
+  font-weight: 650;
+  color: #1a1512;
+  margin: 0 0 6px 0;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-description {
+  font-size: 13px;
+  color: #5c4f45;
+  line-height: 1.6;
+  margin: 0 0 16px 0;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-progress-text {
+  font-size: 11px;
+  color: #9a8c80;
+  font-weight: 500;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-navigation-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-btn {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-next-btn {
+  background: #2c6b5e;
+  color: #fff;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-next-btn:hover {
+  background: #24584d;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-prev-btn {
+  background: transparent;
+  color: #6b5d53;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-prev-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: #2c2420;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-close-btn {
+  background: transparent;
+  color: #9a8c80;
+  font-size: 13px;
+  padding: 6px 12px;
+}
+
+.driver-popover.inklight-driver-popover .driver-popover-arrow {
+  border-width: 8px;
+}
+
+.driver-overlay {
+  background: rgba(26, 21, 18, 0.5) !important;
+}
+
+.driver-active-element {
+  border-radius: 12px !important;
+  outline: 3px solid rgba(2, 132, 199, 0.85) !important;
+  outline-offset: 6px;
+  box-shadow: 0 0 0 10px rgba(2, 132, 199, 0.2), 0 0 24px rgba(2, 132, 199, 0.3) !important;
+  position: relative;
+  z-index: 10002 !important;
 }
 </style>

@@ -22,6 +22,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 async def main():
     from app.db.database import TencentSessionLocal
     from app.services.featured_paper_service import fetch_and_store_featured_papers
+    from app.core.config import settings
+
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 工作目录: {os.getcwd()}")
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] .env 文件存在: {os.path.isfile('.env')}")
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 数据库地址: {settings.DATABASE_URL_FINAL}")
 
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 开始拉取 arXiv 精选论文...")
 

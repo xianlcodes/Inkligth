@@ -20,6 +20,7 @@
     "@tiptap/starter-kit": "^3.23.4",
     "@tiptap/vue-3": "^3.23.4",
     "axios": "^1.16.0",
+    "driver.js": "^1.6.0",
     "echarts": "^6.0.0",
     "element-plus": "^2.13.7",
     "pinia": "^3.0.4",

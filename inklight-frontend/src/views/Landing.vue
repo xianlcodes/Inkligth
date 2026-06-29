@@ -1,5 +1,6 @@
 <template>
-  <div class="il-container">
+  <div class="il-wrapper">
+    <div class="il-container">
 
         <!-- ═══ Header ═══ -->
         <header class="il-header">
@@ -275,6 +276,7 @@
         </footer>
 
       </div>
+      </div>
 </template>
 
 <script setup lang="ts">
@@ -303,19 +305,15 @@ onMounted(() => {
 
       html { scroll-behavior: smooth; }
 
-      /* ── Container ── */
-      .il-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 28px;
-        position: relative;
-        z-index: 1;
+      /* ── Full-width wrapper with paper background and grain ── */
+      .il-wrapper {
         background: #faf7f2;
         min-height: 100vh;
+        position: relative;
       }
 
       /* Paper grain texture overlay */
-      .il-container::after {
+      .il-wrapper::after {
         content: '';
         position: fixed;
         inset: 0;
@@ -328,9 +326,17 @@ onMounted(() => {
         mix-blend-mode: multiply;
       }
 
-      .il-container > * {
+      .il-wrapper > * {
         position: relative;
         z-index: 1;
+      }
+
+      /* ── Container ── */
+      .il-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 28px;
+        position: relative;
       }
 
       /* ════════════════
