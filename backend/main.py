@@ -60,7 +60,6 @@ async def startup_event():
 
     try:
         from app.services.layout_analysis_service import layout_analysis_service
-        import logging
         _logger = logging.getLogger(__name__)
         _logger.info("Preloading ONNX layout model...")
         layout_analysis_service.load_model()
@@ -68,7 +67,6 @@ async def startup_event():
     except FileNotFoundError:
         pass
     except Exception:
-        import logging
         logging.getLogger(__name__).warning("ONNX layout model preload skipped", exc_info=True)
 
     # 启动每日精选论文定时任务 + 立即拉取一次
