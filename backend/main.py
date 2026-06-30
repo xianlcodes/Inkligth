@@ -76,7 +76,6 @@ async def startup_event():
         # 后台立即拉取一次（不阻塞启动）
         asyncio.create_task(run_initial_fetch())
     except Exception:
-        import logging
         logging.getLogger(__name__).warning("Featured papers scheduler failed to start", exc_info=True)
 
     # 确保翻译文件记录表存在（新部署时 init_db.py 可能未运行）
@@ -85,7 +84,6 @@ async def startup_event():
         async with tencent_engine.begin() as conn:
             await conn.run_sync(TencentBase.metadata.create_all)
     except Exception:
-        import logging
         logging.getLogger(__name__).warning("TencentBase create_all failed", exc_info=True)
 
     # 清理重启后遗留的 stale task（跨进程/重启）
@@ -93,7 +91,6 @@ async def startup_event():
         from app.utils.task_store import task_store
         await task_store.cleanup_stale_tasks()
     except Exception:
-        import logging
         logging.getLogger(__name__).warning("Task cleanup failed", exc_info=True)
 
     # 初始化 Redis 连接
@@ -101,7 +98,6 @@ async def startup_event():
         from app.core.redis import redis_manager
         await redis_manager.initialize()
     except Exception:
-        import logging
         logging.getLogger(__name__).warning("Redis init failed", exc_info=True)
 
 
@@ -111,7 +107,6 @@ async def shutdown_event():
         from app.core.redis import redis_manager
         await redis_manager.close()
     except Exception:
-        import logging
         logging.getLogger(__name__).warning("Redis shutdown failed", exc_info=True)
 
 
