@@ -54,3 +54,13 @@ class UserService:
         await db.commit()
         await db.refresh(user)
         return user
+
+    @staticmethod
+    async def update_tutorial_complete(db: AsyncSession, user_id: str, completed: bool) -> User:
+        user = await UserService.get_user_by_id(db, user_id)
+        if not user:
+            raise ValueError("User not found")
+        user.tutorial_completed = completed
+        await db.commit()
+        await db.refresh(user)
+        return user

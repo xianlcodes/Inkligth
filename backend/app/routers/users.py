@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 from app.core.deps import get_current_user
 from app.db.database import get_user_db as get_db
 from app.schemas import UserResponse
@@ -74,3 +75,17 @@ async def change_password(
     await db.commit()
     logger.info(f"Password changed for user {current_user.email}")
     return {"message": "密码修改成功"}
+
+
+class TutorialCompleteRequest(BaseModel):
+    tutorial_completed: bool = True
+
+
+@router.patch("/me/tutorial")
+async def mark_tutorial_complete(
+    data: TutorialCompleteRequest,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user = await UserService.update_tutorial_complete(db, current_user.id, data.tutorial_completed)
+    return {"tutorial_completed": user.tutorial_completed}

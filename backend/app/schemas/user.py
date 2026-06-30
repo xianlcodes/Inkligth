@@ -22,6 +22,7 @@ class UserResponse(UserBase):
     is_admin: bool = False
     avatar_style: str | None = None
     theme_color: str | None = None
+    tutorial_completed: bool = False
     created_at: datetime
     updated_at: datetime
 

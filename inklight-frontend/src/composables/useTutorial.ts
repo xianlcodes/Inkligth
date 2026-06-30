@@ -2,8 +2,8 @@ import { ref, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { driver, type Driver, type DriveStep } from 'driver.js'
 import 'driver.js/dist/driver.css'
-
-const TUTORIAL_DONE_KEY = 'inklight_tutorial_done'
+import { useAuthStore } from '@/stores/auth'
+import apiClient from '@/api/client'
 
 export interface TutorialStep extends DriveStep {
   route?: string
@@ -51,7 +51,6 @@ const steps: TutorialStep[] = [
     },
   },
   {
-    // 最后一步：无高亮元素，纯文字总结，停留在当前页面
     popover: {
       title: '一切就绪',
       description: '选中文本即可翻译，全文支持原位翻译，还能 AI 分析论文摘要和创新点。开始你的高效研读吧。',
@@ -68,6 +67,7 @@ const pendingStep = ref(-1)
 export function useTutorial() {
   const router = useRouter()
   const route = useRoute()
+  const authStore = useAuthStore()
 
   function buildDriver(fromStep: number) {
     if (driverInstance) {
@@ -93,7 +93,6 @@ export function useTutorial() {
         const idx = driverInstance?.getActiveIndex?.() ?? fromStep
         const next = steps[idx + 1]
 
-        // 最后一步：销毁并跳回首页
         if (!next) {
           driverInstance?.destroy()
           driverInstance = null
@@ -174,16 +173,35 @@ export function useTutorial() {
     })
   }
 
-  function markDone() {
-    try { localStorage.setItem(TUTORIAL_DONE_KEY, '1') } catch { /* ignore */ }
+  async function markDone() {
+    try {
+      await apiClient.patch('/users/me/tutorial', { tutorial_completed: true })
+      if (authStore.user) {
+        authStore.user.tutorial_completed = true
+      }
+    } catch {
+      // 网络异常时仍标记本地状态，避免无限弹出
+      if (authStore.user) {
+        authStore.user.tutorial_completed = true
+      }
+    }
   }
 
-  function clearDone() {
-    try { localStorage.removeItem(TUTORIAL_DONE_KEY) } catch { /* ignore */ }
+  async function clearDone() {
+    try {
+      await apiClient.patch('/users/me/tutorial', { tutorial_completed: false })
+      if (authStore.user) {
+        authStore.user.tutorial_completed = false
+      }
+    } catch {
+      if (authStore.user) {
+        authStore.user.tutorial_completed = false
+      }
+    }
   }
 
   function isDone(): boolean {
-    try { return localStorage.getItem(TUTORIAL_DONE_KEY) === '1' } catch { return false }
+    return authStore.user?.tutorial_completed === true
   }
 
   return { active, isDone, start, restart, onRouteChanged }

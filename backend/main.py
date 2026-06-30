@@ -46,6 +46,15 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
+    # 打印数据库连接地址，方便与定时脚本日志对比
+    from app.core.config import settings as app_settings
+    logging.getLogger(__name__).warning(
+        "[Startup] 腾讯云数据库地址: %s", app_settings.DATABASE_URL_FINAL
+    )
+    logging.getLogger(__name__).warning(
+        "[Startup] 阿里云数据库地址: %s", app_settings.LOCAL_DATABASE_URL_FINAL
+    )
+
     from app.core.ai_providers.provider_registry import AIProviderRegistry
     AIProviderRegistry.bootstrap()
 

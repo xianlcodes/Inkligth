@@ -10,6 +10,7 @@ interface User {
   is_admin: boolean
   avatar_style: string | null
   theme_color: string | null
+  tutorial_completed: boolean
   created_at: string
   updated_at: string
 }
@@ -39,6 +40,7 @@ export const useAuthStore = defineStore('auth', () => {
       email,
       username: null,
       is_admin: is_admin === true,
+      tutorial_completed: false,
       created_at: '',
       updated_at: '',
     }
