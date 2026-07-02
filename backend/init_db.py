@@ -141,6 +141,8 @@ ALIBABA_MIGRATIONS = [
     "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'writing'",
     "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS literature_id VARCHAR",
     "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS skill_names JSON DEFAULT NULL",
+    # 删除 SQLAlchemy create_all 自动创建的跨库外键约束
+    "ALTER TABLE conversations DROP CONSTRAINT IF EXISTS conversations_literature_id_fkey",
 
     # conversation_messages 表
     "ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS context_text TEXT",
