@@ -214,6 +214,7 @@ async function fetchAllLiterature() {
 async function handleGeneratePPT() {
   if (!selectedLiteratureId.value) return
 
+  await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     try {
       await ElMessageBox.confirm('请先配置 AI 引擎后再使用 PPT 生成功能，是否前往设置？', '提示', {
@@ -258,6 +259,12 @@ async function pollTask(litId: string, taskId: string) {
         ElMessage.success(`PPT 生成完成，共 ${task.slides?.length || 0} 页`)
         openPreview(task)
         await fetchPresentations()
+        // 从刚拉取的历史记录中匹配 presentationId，下载时走持久化路径
+        const match = presentations.value.find(p => p.literature_id === litId)
+        if (match) {
+          previewPresentationId.value = match.id
+          previewTaskId.value = ''
+        }
         sessionStorage.removeItem('ppt_task_id')
         sessionStorage.removeItem('ppt_literature_id')
         generating.value = false
