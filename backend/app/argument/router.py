@@ -58,7 +58,7 @@ async def _create_call_llm(_db: AsyncSession, user_id: str):
             logger.warning("No valid API key for user %s", user_id)
             return None, None
 
-        async def call_llm(prompt: str, system: str = "") -> str:
+        async def call_llm(prompt: str, system: str = "", max_tokens: int = 4096) -> str:
             resp = await ai_client.chat.completions.create(
                 model=model,
                 messages=[
@@ -66,7 +66,7 @@ async def _create_call_llm(_db: AsyncSession, user_id: str):
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
-                max_tokens=4096,
+                max_tokens=max_tokens,
             )
             return resp.choices[0].message.content or ""
 

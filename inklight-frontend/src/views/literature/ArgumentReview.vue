@@ -74,8 +74,8 @@
 
             <div v-if="ledger && ledger.promises.length > 0" class="promise-table-wrapper">
               <el-table :data="ledger.promises" style="width:100%" stripe size="small">
-                <el-table-column label="序号" type="index" width="50" />
-                <el-table-column label="承诺原文" min-width="260">
+                <el-table-column label="序号" type="index" width="72" align="center" />
+                <el-table-column label="承诺原文" min-width="220">
                   <template #default="{ row }">
                     <div class="promise-cell">
                       <p class="promise-text">{{ row.claim_text }}</p>
@@ -774,6 +774,10 @@ function rebuttalStatusLabel(s: string): string {
   border: 1px solid var(--border-color);
 }
 
+.promise-table-wrapper :deep(.el-table__header th) {
+  white-space: nowrap;
+}
+
 .promise-cell {
   max-width: 300px;
 }
@@ -827,8 +831,6 @@ function rebuttalStatusLabel(s: string): string {
 }
 
 .discharge-popover-body {
-  max-height: 320px;
-  overflow-y: auto;
   padding: 4px 0;
 }
 

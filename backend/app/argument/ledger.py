@@ -347,7 +347,7 @@ async def check_discharge(
                 claim_text=promise.claim_text,
                 context=context,
             )
-            response = await call_llm(prompt, system="你是一个严谨的学术审稿助手。")
+            response = await call_llm(prompt, system="你是一个严谨的学术审稿助手。", max_tokens=8192)
             result = extract_json_object(response) or {}
 
             status = str(result.get("status", "unpaid"))
@@ -372,7 +372,7 @@ async def check_discharge(
             yield LedgerBuildEvent("promise_checked", {
                 "claim_text": promise.claim_text,
                 "status": promise.status,
-                "discharge_text": promise.discharge_text[:200] if promise.discharge_text else "",
+                "discharge_text": promise.discharge_text or "",
             })
 
         except Exception as e:
@@ -473,7 +473,7 @@ async def run_ledger_build(
             for p in promises:
                 if p.claim_text == event.data.get("claim_text", ""):
                     p.status = event.data.get("status", "unpaid")
-                    p.discharge_text = event.data.get("discharge_text", "")
+                    # discharge_text 已在 check_discharge 内部完整赋值，不从截断事件覆盖
                     break
         yield event
 
