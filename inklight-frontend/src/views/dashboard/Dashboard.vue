@@ -201,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getReadingStats, getCalendar, type ReadingStats, type CalendarDay } from '@/api/stats'
 import { fetchFeaturedPapers } from '@/api/featured'
@@ -402,7 +402,7 @@ async function loadStats() {
   } catch { /* ignore */ }
 }
 
-async function loadFeaturedPapers() {
+async function refreshFeatured() {
   featuredLoading.value = true
   featuredError.value = false
   try {
@@ -418,7 +418,11 @@ async function loadFeaturedPapers() {
 onMounted(() => {
   loadStats()
   loadCalendar()
-  loadFeaturedPapers()
+  refreshFeatured()
+})
+
+onActivated(() => {
+  refreshFeatured()
 })
 </script>
 

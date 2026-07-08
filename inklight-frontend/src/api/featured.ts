@@ -18,7 +18,7 @@ export interface FeaturedPaperListResponse {
 
 export async function fetchFeaturedPapers(limit = 15): Promise<FeaturedPaperListResponse> {
   const res = await apiClient.get<FeaturedPaperListResponse>('/featured', {
-    params: { limit },
+    params: { limit, _t: Date.now() },
   })
   return res.data
 }
