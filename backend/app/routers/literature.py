@@ -1737,7 +1737,7 @@ async def _run_pdf_translate(
 
         logger.info("PDF translate task completed: %s, output: %s", task_id, output_path)
 
-    except TaskCancelledException:
+    except (TaskCancelledException, asyncio.CancelledError):
         logger.info("PDF translate task cancelled: %s", task_id)
         await task_store.update_task(
             task_id,
