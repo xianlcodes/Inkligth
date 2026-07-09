@@ -3,6 +3,7 @@ import time
 from typing import Optional
 
 import httpx
+from fastapi import HTTPException, status
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -119,11 +120,9 @@ async def get_user_ai_client(_db: AsyncSession, user_id: str) -> AsyncOpenAI:
         )
 
     logger.warning("No AI engine configured for user %s and no global fallback set", user_id)
-    return AsyncOpenAI(
-        base_url=settings.DEFAULT_AI_BASE_URL,
-        api_key="dummy-key",
-        timeout=300.0,
-        http_client=_get_http_client(),
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="请先配置 AI 引擎后再使用此功能",
     )
 
 
