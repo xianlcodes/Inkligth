@@ -59,6 +59,10 @@ PROVIDER_MAX_CONCURRENCY: dict[str, int] = {
     "glm": 1,
     "zhipu": 1,
 }
+# 模型专属 stop tokens 覆盖：None 表示不传 stop tokens
+PROVIDER_STOP_TOKENS: dict[str, list[str] | None] = {
+    "agnes": None,
+}
 _UNSET = object()
 _stop_tokens_cache: list[str] | None | object = _UNSET
 
@@ -383,6 +387,18 @@ class OpenAITranslator(BaseTranslator):
                 len(tokens), GLM_MAX_STOP_TOKENS, GLM_MAX_STOP_TOKENS,
             )
             return tokens[:GLM_MAX_STOP_TOKENS]
+
+        # 模型专属 stop tokens 覆盖
+        if model:
+            model_lower = model.lower()
+            for key, override in PROVIDER_STOP_TOKENS.items():
+                if key in model_lower:
+                    logger.info(
+                        "Overriding stop tokens for model '%s' (matched '%s'): %s",
+                        model, key, override,
+                    )
+                    return override
+
         return tokens
 
     @staticmethod
