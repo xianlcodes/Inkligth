@@ -17,7 +17,7 @@ CODE_TTL_MINUTES = 15
 _rate_limit_store: dict[str, list[float]] = {}
 
 
-def _check_rate_limit(key: str, max_requests: int = 3, window_seconds: int = 3600) -> bool:
+def _check_rate_limit(key: str, max_requests: int = 10, window_seconds: int = 3600) -> bool:
     now = datetime.utcnow().timestamp()
     timestamps = _rate_limit_store.get(key, [])
     timestamps = [t for t in timestamps if now - t < window_seconds]
