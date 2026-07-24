@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from app.db.database import get_user_db as get_db
+from app.db.database import get_user_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas import (
@@ -54,7 +54,7 @@ async def get_captcha():
 async def send_verification_code_endpoint(
     data: SendVerificationCodeRequest,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
 ):
     ip = request.client.host if request.client else "127.0.0.1"
     success, msg = await send_verification_code(db, data.email, ip)
@@ -67,7 +67,7 @@ async def send_verification_code_endpoint(
 
 
 @router.post("/register", response_model=UserResponse)
-async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+async def register(user_in: UserCreate, db: AsyncSession = Depends(get_user_db)):
     if not user_in.agreed_to_terms:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -106,7 +106,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
 @router.post("/token", response_model=TokenWithRefresh)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
 ):
     user = await UserService.authenticate(db, form_data.username, form_data.password)
     if not user:
@@ -131,7 +131,7 @@ async def login(
 @router.post("/refresh", response_model=TokenRefreshResponse)
 async def refresh_access_token(
     data: TokenRefreshRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
 ):
     rt = await RefreshTokenService.get_valid_refresh_token(db, data.refresh_token)
     if not rt:
@@ -155,7 +155,7 @@ async def refresh_access_token(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     data: TokenRefreshRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
     current_user: User = Depends(get_current_user),
 ):
     await RefreshTokenService.delete_refresh_token(db, data.refresh_token)
@@ -169,7 +169,7 @@ PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$")
 async def forgot_password(
     data: ForgotPasswordRequest,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
 ):
     existing = await UserService.get_user_by_email(db, data.email)
     if not existing:
@@ -184,7 +184,7 @@ async def forgot_password(
 @router.post("/verify-reset-code", response_model=VerifyResetCodeResponse)
 async def verify_reset_code(
     data: VerifyResetCodeRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
 ):
     verification_id = await PasswordResetService.verify_reset_code(db, data.email, data.code)
     if not verification_id:
@@ -199,7 +199,7 @@ async def verify_reset_code(
 @router.post("/reset-password")
 async def reset_password(
     data: ResetPasswordRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_user_db),
 ):
     if not PASSWORD_PATTERN.match(data.new_password):
         raise HTTPException(
