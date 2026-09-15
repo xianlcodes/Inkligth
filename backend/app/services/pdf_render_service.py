@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 _NOTI_NAME = "noto"
 
 _REFERENCE_PATTERNS = re.compile(
-    r"^(?:references?\s*$|references?\s*and\s+notes?\s*$|bibliography\s*$|"
+    r"^(?:references?\s*$|references?\s+and\s+notes?\s*$|bibliography\s*$|"
     r"literature\s*cited\s*$|reference\s*list\s*$|works\s*cited\s*$|"
     r"acknowledgments?\s*$|acknowledgements?\s*$|supplementary\s+materials?\s*$)",
     re.IGNORECASE,
@@ -35,29 +35,56 @@ _executor = ThreadPoolExecutor(max_workers=1)
 
 class Pdf2ZhTranslatorAdapter:
     """适配器：将 InkLight 的异步 OpenAITranslator 包装为 PDFMathTranslate
-    TranslateConverter 所需的同步接口。"""
+    TranslateConverter 所需的同步接口。
 
-    def __init__(self, ai_client, model, source_lang="en", target_lang="zh", cancel_check=None):
-        self._translator = OpenAITranslator(
-            client=ai_client, model=model, cancel_check=cancel_check
-        )
+    注意：pdf2zh 会在线程池中调用 translate()，并在方法内部创建全新的事件循环。
+    httpx 连接池绑定创建时的事件循环，跨循环复用 AsyncOpenAI 客户端会挂起请求。
+    因此这里保存原始凭据（api_key / base_url），每次 translate() 都新建客户端。
+    """
+
+    def __init__(self, api_key, base_url, model,
+                 source_lang="en", target_lang="zh", cancel_check=None,
+                 timeout=300.0):
+        self._api_key = api_key
+        self._base_url = base_url
+        self._model = model
         self.source_lang = source_lang
         self.target_lang = target_lang
         self.lang_out = target_lang  # TranslateConverter 需要此属性
+        self._cancel_check = cancel_check
+        self._timeout = timeout
 
     def translate(self, text: str) -> str:
-        """同步翻译方法，供 TranslateConverter 的线程池调用。"""
+        """同步翻译方法，供 TranslateConverter 的线程池调用。
+        每次调用都创建独立的事件循环与 AsyncOpenAI 客户端，避免跨循环挂起。"""
+        from openai import AsyncOpenAI
+
         loop = asyncio.new_event_loop()
         try:
             asyncio.set_event_loop(loop)
+
+            client = AsyncOpenAI(
+                base_url=self._base_url,
+                api_key=self._api_key,
+                timeout=self._timeout,
+            )
+            translator = OpenAITranslator(
+                client=client,
+                model=self._model,
+                cancel_check=self._cancel_check,
+            )
             return loop.run_until_complete(
-                self._translator.translate(text, self.source_lang, self.target_lang)
+                translator.translate(text, self.source_lang, self.target_lang)
             )
         finally:
+            try:
+                loop.run_until_complete(loop.shutdown_asyncgens())
+            except Exception:
+                pass
             loop.close()
 
     def cleanup(self):
-        self._translator = None
+        self._api_key = None
 
 
 class InkLightTranslateConverter(TranslateConverter):
@@ -104,7 +131,8 @@ class PdfRenderService:
     async def build_translated_pdf(
         self,
         source_pdf_path: str,
-        ai_client,
+        api_key: str,
+        base_url: str,
         model: str,
         source_lang: str = "en",
         target_lang: str = "zh",
@@ -202,7 +230,8 @@ class PdfRenderService:
         await report(17, "创建翻译器...")
 
         translator_adapter = Pdf2ZhTranslatorAdapter(
-            ai_client=ai_client,
+            api_key=api_key,
+            base_url=base_url,
             model=model,
             source_lang=source_lang,
             target_lang=target_lang,

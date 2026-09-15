@@ -9,3 +9,6 @@ sentence-transformers>=3.0.0
 # 大型且很少变化的包
 openai>=1.59.3,<3.0.0
 pdf2zh==1.9.11
+
+# 腾讯云 SDK 固定兼容版本（pdf2zh 依赖 TextTranslateRequest）
+tencentcloud-sdk-python==3.0.1020

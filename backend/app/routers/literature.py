@@ -1655,6 +1655,7 @@ async def _run_pdf_translate(
 ):
     from app.db.database import async_session_factory
     from app.services.pdf_render_service import pdf_render_service
+    from app.core.ai_client import get_user_ai_credentials
 
     class TaskCancelledException(Exception):
         pass
@@ -1674,17 +1675,18 @@ async def _run_pdf_translate(
     try:
         await report_progress(10, "正在初始化 AI 客户端...")
 
-        async with async_session_factory() as db:
-            ai_client = await get_user_ai_client(db, user_id)
-            model = await get_user_default_model(db, user_id)
+        # ✅ 修改点 1：获取原始凭据
+        api_key, base_url, model = await get_user_ai_credentials(user_id)
 
         raise_if_cancelled()
 
         await report_progress(20, "准备翻译...")
 
+        # ✅ 修改点 2：改传 api_key + base_url
         output_bytes = await pdf_render_service.build_translated_pdf(
             source_pdf_path=file_path,
-            ai_client=ai_client,
+            api_key=api_key,
+            base_url=base_url,
             model=model,
             source_lang=source_lang,
             target_lang=target_lang,
@@ -1747,3 +1749,21 @@ async def _run_pdf_translate(
     except Exception as e:
         if cancel_event.is_set():
             logger.info("PDF translate task cancelled after error: %s", task_id)
+            await task_store.update_task(
+                task_id,
+                status=TaskStatus.CANCELLED,
+                error="任务已被取消",
+            )
+        else:
+            logger.error("PDF translate task failed: %s, error=%s", task_id, e, exc_info=True)
+            await task_store.update_task(
+                task_id,
+                status=TaskStatus.FAILED,
+                error=f"翻译失败：{str(e)[:200]}",
+            )
+    finally:
+        # ✅ 修正为正确的方法名
+        try:
+            await task_store.remove_cancel_event(task_id)
+        except Exception:
+            pass

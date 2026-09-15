@@ -43,7 +43,6 @@ def invalidate_user_ai_cache(user_id: str) -> None:
     _user_ai_cache.pop(user_id, None)
 
 
-
 async def has_user_ai_engine(user_id: str) -> bool:
     """Check if user has a real AI engine in DB (not dummy fallback).
     Returns False when user has no engine and no global fallback is set.
@@ -133,3 +132,44 @@ async def get_user_default_model(_db: AsyncSession, user_id: str) -> str:
     if engine:
         return engine.default_model
     return settings.DEFAULT_AI_MODEL
+
+
+# ============================================================
+# 新增：返回原始凭据，供 pdf2zh 每次重建客户端使用
+# ============================================================
+async def get_user_ai_credentials(user_id: str) -> tuple[str, str, str]:
+    """返回 (api_key, base_url, model)。
+
+    pdf2zh 会在子线程中通过新的事件循环调用翻译，无法复用主循环创建的
+    AsyncOpenAI 客户端（httpx 连接池绑定到创建时的事件循环，跨循环复用会挂起）。
+    因此这里返回原始凭据，由 Pdf2ZhTranslatorAdapter 每次翻译时新建客户端。
+    """
+    from app.core.ai_providers.provider_registry import AIProviderRegistry
+
+    async with AlibabaSessionLocal() as user_db:
+        engine = await AIEngineService.get_default_engine(user_db, user_id)
+
+    if engine:
+        try:
+            api_key = decrypt_api_key(engine.api_key)
+        except Exception as e:
+            logger.error("Failed to decrypt api key for engine %s: %s", engine.id, e)
+            engine = None
+
+    if engine:
+        registry = AIProviderRegistry()
+        adapter = registry.get_or_default(engine.provider)
+        base_url = adapter.get_openai_base_url(engine.api_base)
+        logger.info(
+            "get_user_ai_credentials: user=%s provider=%s model=%s base_url=%s",
+            user_id, engine.provider, engine.default_model, base_url,
+        )
+        return api_key, base_url, engine.default_model
+
+    if settings.DEFAULT_AI_KEY:
+        return settings.DEFAULT_AI_KEY, settings.DEFAULT_AI_BASE_URL, settings.DEFAULT_AI_MODEL
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="请先配置 AI 引擎后再使用此功能",
+    )
