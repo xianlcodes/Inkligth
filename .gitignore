@@ -105,3 +105,8 @@ expert_files/
 配置文件备份.txt
 配置文件备份2.txt
 服务器地址密码.txt
+
+# 本地辅助目录（不纳入版本控制）
+docs/
+nginx/
+scripts/
