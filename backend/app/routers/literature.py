@@ -1654,8 +1654,11 @@ async def _run_pdf_translate(
     original_filename: str,
 ):
     from app.db.database import async_session_factory
-    from app.services.pdf_render_service import pdf_render_service
+    from app.services.pdf_render_service import normalize_output_mode, pdf_render_service
     from app.core.ai_client import get_user_ai_credentials
+
+    # 归一化输出模式，兼容 bilingual 等写法；后续文件名后缀、数据库记录都以其为准
+    output_mode = normalize_output_mode(output_mode)
 
     class TaskCancelledException(Exception):
         pass

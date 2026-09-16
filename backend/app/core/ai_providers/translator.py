@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import hashlib
 import logging
 import re
@@ -15,6 +16,16 @@ except ImportError:
     BadRequestError = Exception
 
 logger = logging.getLogger(__name__)
+
+
+class NoUsableTranslationError(RuntimeError):
+    """模型没有返回可用译文（content 为空、或清洗后为空）。
+
+    典型场景：推理模型把 max_tokens 全花在思考过程上，content 为空而
+    reasoning_content 里全是英文推理。这类内容绝不能当译文写进 PDF，
+    因此抛出本异常，由调用方决定降级方式（PDF 路径保留原文，文本路径标注失败）。
+    """
+
 
 PARAGRAPH_MAX_CHARS = 2000
 PARAGRAPH_MERGE_MIN = 200
@@ -34,11 +45,33 @@ TOKEN_LIMIT_KEYWORDS = (
     "token limit", "context_length_exceeded", "max_tokens",
 )
 
+REASONING_TAG_NAMES = r"think|thinking|thought|reasoning|analysis|scratchpad|reflection|deliberation"
+
+# 成对的思考标签块（如 <think>…</think>），整块丢弃
 REASONING_TAG_PATTERN = re.compile(
-    r'<\s*(?:think|thinking|Thought|reasoning|analysis|scratchpad)\s*>'
+    rf'<\s*(?:{REASONING_TAG_NAMES})\s*>'
     r'.*?'
-    r'<\s*/\s*(?:think|thinking|Thought|reasoning|analysis|scratchpad)\s*>',
-    re.DOTALL,
+    rf'<\s*/\s*(?:{REASONING_TAG_NAMES})\s*>',
+    re.DOTALL | re.IGNORECASE,
+)
+
+# 未闭合的思考开标签：模型被 max_tokens 截断时只出现开标签，其后内容全部属于思考过程
+REASONING_OPEN_TAG_PATTERN = re.compile(
+    rf'<\s*(?:{REASONING_TAG_NAMES})\s*>',
+    re.IGNORECASE,
+)
+
+# 部分网关把思考与最终答案用特殊 token 分隔（如 <|channel|>analysis…<|channel|>final）
+REASONING_CHANNEL_MARKER_PATTERN = re.compile(
+    r'</?\|(?:channel|message|start|end|analysis|final|commentary|thought|reasoning|'
+    r'end_of_thinking)\|>',
+    re.IGNORECASE,
+)
+
+# 出现这些「最终答案」通道标记时，才认为标记之后的内容是译文
+ANSWER_CHANNEL_MARKER_PATTERN = re.compile(
+    r'<\|(?:final|answer)\|>|<\|channel\|>\s*(?:final|answer)\b',
+    re.IGNORECASE,
 )
 
 TRANSLATION_MAX_OUTPUT_TOKENS = 4096
@@ -65,6 +98,12 @@ PROVIDER_STOP_TOKENS: dict[str, list[str] | None] = {
 }
 _UNSET = object()
 _stop_tokens_cache: list[str] | None | object = _UNSET
+
+# 供应商明确拒绝过「关闭思考」参数的模型，进程级缓存，避免每个段落都白跑一次 400
+_non_thinking_unsupported_models: set[str] = set()
+
+# 报错信息里出现这些关键词，说明供应商不认识关闭思考的参数
+THINKING_PARAM_ERROR_KEYWORDS = ("enable_thinking", "thinking", "extra_body", "reasoning_effort")
 
 
 def _lazy_has_pdf_math_indicators(text: str) -> bool:
@@ -148,6 +187,12 @@ def _is_token_limit_error(error: Exception) -> bool:
 def _is_rate_limit_error(error: Exception) -> bool:
     msg = str(error).lower()
     return any(kw in msg for kw in RATE_LIMIT_KEYWORDS_429)
+
+
+def _is_thinking_param_error(error: Exception) -> bool:
+    """判断报错是否为「供应商不认识关闭思考模式的参数」。"""
+    msg = str(error).lower()
+    return any(kw in msg for kw in THINKING_PARAM_ERROR_KEYWORDS)
 
 
 def beautify_translation_error(raw_error: str) -> str:
@@ -309,6 +354,8 @@ class OpenAITranslator(BaseTranslator):
         self.client = client
         self.model = model
         self._cancel_check = cancel_check
+        # 模型解析只做一次：同一实例的模型不会变化，避免每个段落重复算/重复打日志
+        self._effective_model: str = self._resolve_model()
         self._total_prompt_tokens: int = 0
         self._total_completion_tokens: int = 0
         self._total_tokens: int = 0
@@ -469,25 +516,65 @@ class OpenAITranslator(BaseTranslator):
                     info["reasoning_tokens"] = rt
         return info
 
+    @staticmethod
+    def _extract_message_content(message) -> str:
+        """只取 message.content。
+
+        推理模型的思考过程在 reasoning_content / reasoning 等字段里，
+        这里显式忽略（那些内容是模型的思考，不是译文）。
+        """
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            # 部分网关按 OpenAI 的 content parts 结构返回，只取文本段，跳过思考段
+            parts: list[str] = []
+            for part in content:
+                if isinstance(part, str):
+                    parts.append(part)
+                elif isinstance(part, dict):
+                    if str(part.get("type") or "text").lower() in ("reasoning", "thinking"):
+                        continue
+                    text = part.get("text")
+                    if isinstance(text, str):
+                        parts.append(text)
+            return "".join(parts)
+        return ""
+
     def _is_reasoning_model(self, model_name: str | None = None) -> bool:
-        name = (model_name or self.model).lower()
-        reasoning_keywords = [
-            "r1", "reasoner", "qwq", "o1", "o3", "o4",
-            "k2.5", "k2.6", "m2.5", "m2.7", "thinking",
-            "gemini-2.5-pro",
-        ]
-        return any(kw in name for kw in reasoning_keywords)
+        name = (model_name or self.model or "").strip().lower()
+        if not name:
+            return False
+        return any(p.search(name) for p in self.REASONING_MODEL_PATTERNS)
+
+    # 模型名命中任一正则即视为「带思考模式」的推理模型
+    REASONING_MODEL_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(r"\b(?:o1|o3|o4)(?:\b|-)"),                    # OpenAI o 系列（o1/o3/o4-mini…）
+        re.compile(r"\b(?:qwq|qvq)\b"),                           # Qwen QwQ / QvQ
+        re.compile(r"(?:^|[^a-z0-9])(?:r[1-9]\d?|z[1-9]\d?)(?:$|[^0-9])"),  # DeepSeek-R 系列 / GLM-Z 系列
+        re.compile(r"reason(?:er|ing)"),                          # *-reasoner / *-reasoning
+        re.compile(r"think"),                                     # *-thinking / *-think
+        re.compile(r"\b(?:k2\.5|k2\.6|m2\.5|m2\.7)"),             # Kimi K2.x / MiniMax M2.x 思考变体
+        re.compile(r"gemini-2\.5-pro"),                           # Gemini 思考型
+    )
 
     REASONING_TO_NON_REASONING: dict[str, str] = {
-        "deepseek-r1": "deepseek-v4-flash",
-        "deepseek-r1-0528": "deepseek-v4-flash",
-        "deepseek-reasoner": "deepseek-v4-flash",
+        # DeepSeek 的思考模型统一降级到 deepseek-chat（降级到 v4-flash 会导致翻译质量问题）
+        "deepseek-r1": "deepseek-chat",
+        "deepseek-r1-0528": "deepseek-chat",
+        "deepseek-reasoner": "deepseek-chat",
+        "deepseek-flash": "deepseek-chat",
+        "deepseek-thinking": "deepseek-chat",
         "qwen3-max-thinking": "qwen3.6-plus",
+        "qwen3-thinking": "qwen3.6-plus",
+        "qwen-plus-thinking": "qwen-plus",
         "qwq-32b": "qwen3.6-plus",
         "o3": "gpt-5-nano",
         "o4-mini": "gpt-5-nano",
         "o1": "gpt-4o",
         "glm-5.1": "glm-4.7-flash",
+        "glm-4.6-thinking": "glm-4.7-flash",
+        "glm-z1": "glm-4.7-flash",
         "kimi-k2.5": "kimi-k2-instruct-0905",
         "kimi-k2.6": "kimi-k2-instruct-0905",
         "m2.5": "MiniMax-Text-01",
@@ -495,45 +582,162 @@ class OpenAITranslator(BaseTranslator):
         "gemini-2.5-pro": "gemini-3.5-flash",
     }
 
+    # 家族兜底：只在模型被识别为推理模型、且上表没有精确映射时生效
+    REASONING_FAMILY_FALLBACK: tuple[tuple[re.Pattern[str], str], ...] = (
+        (re.compile(r"deepseek"), "deepseek-chat"),
+        (re.compile(r"qwen|qwq|qvq|tongyi|dashscope"), "qwen3.6-plus"),
+        (re.compile(r"glm|zhipu|chatglm"), "glm-4.7-flash"),
+        (re.compile(r"kimi|moonshot"), "kimi-k2-instruct-0905"),
+        (re.compile(r"minimax"), "MiniMax-Text-01"),
+        (re.compile(r"gemini"), "gemini-3.5-flash"),
+        (re.compile(r"gpt|openai|o1|o3|o4"), "gpt-5-nano"),
+        # Agnes 未见关闭思考的接口参数，只能靠家族降级 + 响应过滤兜住
+        (re.compile(r"agnes"), "agnes-2.0-flash"),
+    )
+
+    # 精确模型 → 关闭思考的参数（优先级最高）。
+    # 注意：这里只针对「用户直接配置了该模型」的情况；自动降级的落点是 deepseek-chat。
     NON_THINKING_PARAMS: dict[str, dict] = {
         "deepseek-v4-flash": {"extra_body": {"thinking": {"type": "disabled"}}},
         "deepseek-v4-pro": {"extra_body": {"thinking": {"type": "disabled"}}},
+        "deepseek-chat": {"extra_body": {"thinking": {"type": "disabled"}}},
         "glm-4.7-flash": {"extra_body": {"thinking": {"type": "disabled"}}},
         "glm-4.5-flash": {"extra_body": {"thinking": {"type": "disabled"}}},
     }
 
+    # 供应商族兜底参数（精确表命中时优先用精确表）
+    PROVIDER_NON_THINKING_PARAMS: tuple[tuple[re.Pattern[str], dict], ...] = (
+        (re.compile(r"deepseek|kimi|moonshot|glm|zhipu|chatglm"),
+         {"extra_body": {"thinking": {"type": "disabled"}}}),
+        (re.compile(r"qwen|qwq|qvq|tongyi|dashscope"),
+         {"extra_body": {"enable_thinking": False}}),
+    )
+
+    # 具备思考模式、且支持用请求参数关闭的模型特征。
+    # 族级参数只在命中这些特征时注入，避免给不支持该参数的模型发 400。
+    # 注：Kimi K2.x / MiniMax M2.x 的思考变体走的是模型降级，不需要这里再注入参数。
+    THINKING_CAPABLE_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(r"think|reason|qwq|qvq"),
+        re.compile(r"(?:^|[^a-z0-9])(?:r[1-9]\d?|z[1-9]\d?)(?:$|[^0-9])"),
+        re.compile(r"qwen3"),                                       # Qwen3 系默认开启思考
+        re.compile(r"(?:glm|zhipu)[-_]?(?:4\.[5-9]|5|zero)"),       # GLM-4.5 起支持 thinking 开关
+        re.compile(r"deepseek[-_]?v?[4-9]"),                        # DeepSeek V4 及以后
+    )
+
     def _resolve_model(self) -> str:
-        resolved = self.REASONING_TO_NON_REASONING.get(self.model.lower(), self.model)
-        if resolved != self.model:
-            logger.warning(
-                "[Model Auto-Downgrade] Replaced reasoning model '%s' with '%s'",
-                self.model, resolved,
-            )
-        elif self._is_reasoning_model(self.model):
-            logger.warning(
-                "[Reasoning Model] Model '%s' is a reasoning model but no replacement mapping exists. "
-                "Using as-is. Consider configuring a non-reasoning model.",
-                self.model,
-            )
+        """把推理模型降级到对应的非推理模型。
+
+        优先级：精确映射表 → 家族兜底（仅在识别为推理模型时生效）→ 原样使用。
+        """
+        raw = (self.model or "").strip()
+        if not raw:
+            return raw
+        key = raw.lower()
+
+        resolved = self.REASONING_TO_NON_REASONING.get(key)
+        matched_by = "精确映射"
+        if not resolved and self._is_reasoning_model(key):
+            for pattern, replacement in self.REASONING_FAMILY_FALLBACK:
+                if pattern.search(key):
+                    resolved, matched_by = replacement, f"家族兜底 {pattern.pattern}"
+                    break
+
+        if not resolved or resolved.lower() == key:
+            if self._is_reasoning_model(key):
+                logger.warning(
+                    "[Reasoning Model] '%s' 疑似推理模型但无非推理模型映射，"
+                    "将尝试关闭其思考模式（供应商支持时）；建议改配非推理模型。",
+                    raw,
+                )
+            return raw
+
+        logger.warning(
+            "[Model Auto-Downgrade] 推理模型 '%s' → 非推理模型 '%s'（%s）",
+            raw, resolved, matched_by,
+        )
         return resolved
 
     def _get_non_thinking_params(self, model_name: str) -> dict:
-        return self.NON_THINKING_PARAMS.get(model_name.lower(), {})
+        """构造关闭思考模式的请求参数。
+
+        匹配顺序：精确模型 → 供应商族；族级规则只在模型看起来真的具备思考能力时
+        才注入。曾被供应商拒绝的模型记入 _non_thinking_unsupported_models，之后不再注入。
+        """
+        key = (model_name or "").strip().lower()
+        if not key or key in _non_thinking_unsupported_models:
+            return {}
+
+        exact = self.NON_THINKING_PARAMS.get(key)
+        if exact:
+            return copy.deepcopy(exact)
+
+        if not any(p.search(key) for p in self.THINKING_CAPABLE_PATTERNS):
+            return {}
+
+        for pattern, payload in self.PROVIDER_NON_THINKING_PARAMS:
+            if pattern.search(key):
+                return copy.deepcopy(payload)
+
+        return {}
+
+    def _fallback_params_without_thinking(self, params: dict, error: Exception) -> dict | None:
+        """供应商拒绝关闭思考的参数时，返回去掉 extra_body 的参数以便重试一次。"""
+        if not params.get("extra_body") or not _is_thinking_param_error(error):
+            return None
+
+        model_key = str(params.get("model") or "").lower()
+        if model_key:
+            _non_thinking_unsupported_models.add(model_key)
+        logger.warning(
+            "供应商拒绝了关闭思考模式的参数（model=%s）：%s；"
+            "本次去掉该参数重试，后续请求不再注入。该模型译文仍可能夹带思考内容，"
+            "建议改配非推理模型。",
+            params.get("model"), str(error)[:200],
+        )
+        return {k: v for k, v in params.items() if k != "extra_body"}
+
+    async def _call_llm_with_thinking_fallback(self, params: dict):
+        """带降级的请求：若供应商拒绝关闭思考的参数，去掉参数重试一次。"""
+        try:
+            return await self._call_llm_cancellable(params)
+        except Exception as e:
+            fallback_params = self._fallback_params_without_thinking(params, e)
+            if fallback_params is None:
+                raise
+            return await self._call_llm_cancellable(fallback_params)
 
     def _get_max_concurrent(self) -> int:
         return _get_max_concurrent_for_model(self.model)
 
     @staticmethod
     def _clean_reasoning_output(text: str) -> str:
-        cleaned = REASONING_TAG_PATTERN.sub('', text).strip()
-        if not cleaned and text.strip():
-            last_tag_end = 0
-            for m in REASONING_TAG_PATTERN.finditer(text):
-                last_tag_end = max(last_tag_end, m.end())
-            after = text[last_tag_end:].strip()
-            if after:
-                cleaned = after
-        return cleaned
+        """剥掉模型输出里的思考内容，只保留译文。"""
+        cleaned = REASONING_TAG_PATTERN.sub('', text)
+
+        markers = list(REASONING_CHANNEL_MARKER_PATTERN.finditer(cleaned))
+        if markers:
+            last_marker = markers[-1]
+            if ANSWER_CHANNEL_MARKER_PATTERN.search(cleaned) or last_marker.group(0).startswith('</'):
+                # 明确出现「最终答案」通道（或以闭合标记结尾）：标记之后才是译文
+                cleaned = cleaned[last_marker.end():]
+            else:
+                # 只有分析通道，整段都是思考过程
+                return ""
+
+        open_tag = REASONING_OPEN_TAG_PATTERN.search(cleaned)
+        if open_tag:
+            # 输出被截断，开标签之后的内容整体属于思考过程，不能当译文用
+            return cleaned[:open_tag.start()].strip()
+
+        cleaned = cleaned.strip()
+        if cleaned or not text.strip():
+            return cleaned
+
+        # 整段输出都在思考标签里时，取最后一个闭合标签之后的内容
+        last_tag_end = 0
+        for m in REASONING_TAG_PATTERN.finditer(text):
+            last_tag_end = max(last_tag_end, m.end())
+        return text[last_tag_end:].strip()
 
     def get_usage_summary(self) -> dict:
         return {
@@ -677,7 +881,7 @@ class OpenAITranslator(BaseTranslator):
             return text
 
         t_start = time.perf_counter()
-        effective_model = self._resolve_model()
+        effective_model = self._effective_model
         merged_prompt = self._build_prompt(text, source_lang, target_lang)
 
         messages: list[dict] = [{"role": "user", "content": merged_prompt}]
@@ -719,7 +923,7 @@ class OpenAITranslator(BaseTranslator):
                     return text
 
             try:
-                response = await self._call_llm_cancellable(params)
+                response = await self._call_llm_with_thinking_fallback(params)
                 if response is None:
                     return text
                 break
@@ -732,23 +936,36 @@ class OpenAITranslator(BaseTranslator):
         if response is None and last_error is not None:
             raise last_error
 
-        raw_result = response.choices[0].message.content
-        if raw_result is None:
-            raw_result = ""
+        message = response.choices[0].message
+        raw_result = self._extract_message_content(message)
 
         if not raw_result.strip():
-            reasoning_content = getattr(response.choices[0].message, 'reasoning_content', None)
-            if reasoning_content and str(reasoning_content).strip():
-                logger.warning(
-                    "_translate_raw: content empty but reasoning_content present (%d chars), "
-                    "using reasoning_content as fallback. Add NON_THINKING_PARAMS for this model.",
-                    len(str(reasoning_content)),
-                )
-                raw_result = str(reasoning_content)
+            # 思考模式下模型可能把 max_tokens 全花在 reasoning 上，content 为空。
+            # reasoning_content 是模型的思考过程（英文解释、翻译指令等），
+            # 绝不能当译文写进 PDF，这里直接拒绝。
+            reasoning_info = self._extract_reasoning_info(message, getattr(response, 'usage', None))
+            logger.warning(
+                "[Reasoning Leak Guard] content 为空，已拒绝把 reasoning_content 当译文使用 "
+                "(model=%s reasoning_content=%s reasoning_tokens=%s input_chars=%d)",
+                effective_model, reasoning_info.get("has_reasoning_content"),
+                reasoning_info.get("reasoning_tokens", 0), len(text),
+            )
+            raise NoUsableTranslationError(
+                f"模型 '{effective_model}' 未返回译文内容（疑似思考过程占满输出），请改用非推理模型"
+            )
 
         result = self._validate_and_clean_output(
             raw_result, text, getattr(response, 'usage', None), "_translate_raw",
         )
+
+        if not result.strip():
+            logger.warning(
+                "[Reasoning Leak Guard] 清洗后译文为空，已拒绝使用 (model=%s raw=%d chars)",
+                effective_model, len(raw_result),
+            )
+            raise NoUsableTranslationError(
+                f"模型 '{effective_model}' 返回的内容中没有可用译文（疑似输出被思考过程占满）"
+            )
 
         elapsed = (time.perf_counter() - t_start) * 1000
         logger.debug(
@@ -758,7 +975,7 @@ class OpenAITranslator(BaseTranslator):
         self._log_usage(
             "_translate_raw",
             getattr(response, 'usage', None),
-            response.choices[0].message,
+            message,
             len(text),
             len(result),
             elapsed,
@@ -778,7 +995,7 @@ class OpenAITranslator(BaseTranslator):
         first_token = True
         first_token_ms = 0.0
         chunk_count = 0
-        effective_model = self._resolve_model()
+        effective_model = self._effective_model
         merged_prompt = self._build_prompt(text, source_lang, target_lang)
         is_reasoning = self._is_reasoning_model(self.model)
         last_error = ""
@@ -805,7 +1022,9 @@ class OpenAITranslator(BaseTranslator):
 
         for attempt in range(STREAM_RETRIES + 1):
             try:
-                stream = await self.client.chat.completions.create(**stream_params)
+                stream = await self._call_llm_with_thinking_fallback(stream_params)
+                if stream is None:
+                    return
                 async for chunk in stream:
                     if self._is_cancelled():
                         return
@@ -988,7 +1207,7 @@ class OpenAITranslator(BaseTranslator):
             return text
 
         t_start = time.perf_counter()
-        effective_model = self._resolve_model()
+        effective_model = self._effective_model
         merged_prompt = self._build_formula_prompt(text, source_lang, target_lang)
 
         messages: list[dict] = [{"role": "user", "content": merged_prompt}]
@@ -1030,7 +1249,7 @@ class OpenAITranslator(BaseTranslator):
                     return text
 
             try:
-                response = await self._call_llm_cancellable(params)
+                response = await self._call_llm_with_thinking_fallback(params)
                 if response is None:
                     return text
                 break
@@ -1043,24 +1262,34 @@ class OpenAITranslator(BaseTranslator):
         if response is None and last_error is not None:
             raise last_error
 
-        raw_result = response.choices[0].message.content
-        if raw_result is None:
-            raw_result = ""
+        message = response.choices[0].message
+        raw_result = self._extract_message_content(message)
 
         if not raw_result.strip():
-            reasoning_content = getattr(response.choices[0].message, 'reasoning_content', None)
-            if reasoning_content and str(reasoning_content).strip():
-                logger.warning(
-                    "_translate_with_formula_prompt: content empty but reasoning_content present (%d chars), "
-                    "using reasoning_content as fallback.",
-                    len(str(reasoning_content)),
-                )
-                raw_result = str(reasoning_content)
+            reasoning_info = self._extract_reasoning_info(message, getattr(response, 'usage', None))
+            logger.warning(
+                "[Reasoning Leak Guard] content 为空，已拒绝把 reasoning_content 当译文使用 "
+                "(model=%s reasoning_content=%s reasoning_tokens=%s input_chars=%d)",
+                effective_model, reasoning_info.get("has_reasoning_content"),
+                reasoning_info.get("reasoning_tokens", 0), len(text),
+            )
+            raise NoUsableTranslationError(
+                f"模型 '{effective_model}' 未返回译文内容（疑似思考过程占满输出），请改用非推理模型"
+            )
 
         result = self._validate_and_clean_output(
             raw_result, text, getattr(response, 'usage', None),
             "_translate_with_formula_prompt",
         )
+
+        if not result.strip():
+            logger.warning(
+                "[Reasoning Leak Guard] 清洗后译文为空，已拒绝使用 (model=%s raw=%d chars)",
+                effective_model, len(raw_result),
+            )
+            raise NoUsableTranslationError(
+                f"模型 '{effective_model}' 返回的内容中没有可用译文（疑似输出被思考过程占满）"
+            )
 
         elapsed = (time.perf_counter() - t_start) * 1000
         logger.debug(
@@ -1070,7 +1299,7 @@ class OpenAITranslator(BaseTranslator):
         self._log_usage(
             "_translate_with_formula_prompt",
             getattr(response, 'usage', None),
-            response.choices[0].message,
+            message,
             len(text),
             len(result),
             elapsed,
