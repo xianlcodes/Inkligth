@@ -136,3 +136,24 @@ class ConfigChangeLogItem(BaseModel):
 
 class ConfigChangeLogListResponse(BaseModel):
     items: list[ConfigChangeLogItem]
+
+
+# ---------------------------------------------------------------------------
+# System logs（应用运行日志文件在线查看，与操作审计 OperationLog 无关）
+# ---------------------------------------------------------------------------
+class SystemLogFileItem(BaseModel):
+    name: str
+    size_bytes: int
+    modified_at: datetime
+
+
+class SystemLogFileListResponse(BaseModel):
+    files: list[SystemLogFileItem]
+
+
+class SystemLogContentResponse(BaseModel):
+    name: str
+    total_lines: int      # 文件总行数
+    returned_lines: int   # 本次返回行数（过滤后）
+    truncated: bool       # 是否因行数上限截断
+    lines: list[str]      # 日志行（最新在后）

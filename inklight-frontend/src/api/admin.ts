@@ -160,3 +160,44 @@ export function deleteSystemConfig(key: string) {
 export function getConfigChangeHistory(key: string) {
   return apiClient.get<ConfigChangeLogListResponse>(`/admin/config/${encodeURIComponent(key)}/history`)
 }
+
+// ---------------------------------------------------------------------------
+// 系统日志（应用运行日志在线查看，区别于操作审计 /admin/logs）
+// ---------------------------------------------------------------------------
+export interface SystemLogFile {
+  name: string
+  size_bytes: number
+  modified_at: string
+}
+
+export interface SystemLogFileListResponse {
+  files: SystemLogFile[]
+}
+
+export interface SystemLogContentResponse {
+  name: string
+  total_lines: number
+  returned_lines: number
+  truncated: boolean
+  lines: string[]
+}
+
+export function getSystemLogFiles() {
+  return apiClient.get<SystemLogFileListResponse>('/admin/system-logs/files')
+}
+
+export function getSystemLogContent(params: {
+  name: string
+  lines?: number
+  level?: string
+  keyword?: string
+}) {
+  return apiClient.get<SystemLogContentResponse>('/admin/system-logs/content', { params })
+}
+
+export function getSystemLogBlob(name: string) {
+  return apiClient.get<Blob>('/admin/system-logs/download', {
+    params: { name },
+    responseType: 'blob',
+  })
+}

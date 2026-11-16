@@ -1,38 +1,17 @@
 import asyncio
 import logging
-import sys
 
-# 清除所有默认日志处理器，防止重复输出
-root_logger = logging.getLogger()
-for handler in root_logger.handlers[:]:
-    root_logger.removeHandler(handler)
+# 日志必须在其他 app 模块导入前配置完成（stdout + 按天轮转文件，见 logging_config.py）
+from app.core.logging_config import mask_db_url, setup_logging
 
-# 配置自定义日志格式（仅显示WARNING及以上）
-logging.basicConfig(
-    level=logging.WARNING,
-    format="%(asctime)s %(levelname)s:%(name)s:%(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-
-# 全面抑制SQLAlchemy日志（所有子模块）
-sqlalchemy_logger = logging.getLogger("sqlalchemy")
-sqlalchemy_logger.setLevel(logging.WARNING)
-sqlalchemy_logger.propagate = False
-
-# 抑制uvicorn访问日志
-logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-logging.getLogger("uvicorn").setLevel(logging.WARNING)
-
-# 抑制其他日志
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("app.core.ai_providers.provider_registry").setLevel(logging.WARNING)
-logging.getLogger("app.services.layout_analysis_service").setLevel(logging.WARNING)
+setup_logging()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.request_context import register as register_request_context
 from app.routers import health, auth, users, literature, ai_engine, translate, tasks, note, tag, search, stats, presentation, announcement, folder, upload, admin, storage, check_in, invitation, tutorial, layout_analysis, feedback, featured_paper
+from app.routers.client_logs import router as client_logs_router
 from app.argument.router import router as argument_router
 from app.skills.router import router as skills_router
 from app.export.router import router as export_router
@@ -43,16 +22,19 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
 )
 
+# 请求追踪（request_id 贯穿日志 + access 日志 + 全局 500 兜底）
+register_request_context(app)
+
 
 @app.on_event("startup")
 async def startup_event():
-    # 打印数据库连接地址，方便与定时脚本日志对比
+    # 打印数据库连接地址（密码脱敏），方便与定时脚本日志对比
     from app.core.config import settings as app_settings
-    logging.getLogger(__name__).warning(
-        "[Startup] 腾讯云数据库地址: %s", app_settings.DATABASE_URL_FINAL
+    logging.getLogger(__name__).info(
+        "[Startup] 腾讯云数据库地址: %s", mask_db_url(app_settings.DATABASE_URL_FINAL)
     )
-    logging.getLogger(__name__).warning(
-        "[Startup] 阿里云数据库地址: %s", app_settings.LOCAL_DATABASE_URL_FINAL
+    logging.getLogger(__name__).info(
+        "[Startup] 阿里云数据库地址: %s", mask_db_url(app_settings.LOCAL_DATABASE_URL_FINAL)
     )
 
     from app.core.ai_providers.provider_registry import AIProviderRegistry
@@ -143,6 +125,7 @@ app.include_router(tutorial.router, prefix=settings.API_V1_STR, tags=["tutorials
 app.include_router(layout_analysis.router, prefix=f"{settings.API_V1_STR}/layout-analysis", tags=["layout-analysis"])
 app.include_router(feedback.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["feedback"])
 app.include_router(featured_paper.router, prefix=settings.API_V1_STR, tags=["featured"])
+app.include_router(client_logs_router, prefix=settings.API_V1_STR)
 app.include_router(argument_router, prefix=settings.API_V1_STR)
 app.include_router(skills_router, prefix=settings.API_V1_STR)
 app.include_router(export_router, prefix=settings.API_V1_STR)

@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     # File storage
     UPLOAD_DIR: str = "uploads"
 
+    # Logging（日志落盘与请求追踪，见 app/core/logging_config.py / request_context.py）
+    LOG_LEVEL: str = "INFO"            # 应用日志级别：DEBUG / INFO / WARNING / ERROR
+    LOG_DIR: str = "logs"              # 日志目录（生产建议挂载卷持久化）
+    LOG_RETENTION_DAYS: int = 14       # 日志文件保留天数
+    LOG_UTC_OFFSET_HOURS: float = 8.0  # 日志时间戳时区偏移（默认北京时间 UTC+8）
+
     # Proxy for AI API calls (e.g., http://127.0.0.1:7890)
     PROXY_URL: str = ""
 

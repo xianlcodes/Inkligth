@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import type Router from 'vue-router'
+import { reportClientError } from './clientLog'
 
 const apiClient = axios.create({
   baseURL: '/api/v1',
@@ -110,6 +111,17 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
     if (!originalRequest) return Promise.reject(error)
+
+    // 5xx / 网络错误上报后端日志（4xx 属业务错误，页面已展示，不上报）
+    const status = error.response?.status
+    if (!status || status >= 500) {
+      reportClientError({
+        level: 'error',
+        message: `API ${String(originalRequest.method || 'GET').toUpperCase()} ${originalRequest.url} 失败${status ? ` (${status})` : '（网络错误）'}`,
+        stack: error.message || null,
+        requestId: (error.response?.headers?.['x-request-id'] as string) || null,
+      })
+    }
 
     // 非 401 错误不处理
     if (error.response?.status !== 401) {

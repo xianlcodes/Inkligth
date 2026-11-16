@@ -30,6 +30,10 @@
           <el-icon><Document /></el-icon>
           <span>操作日志</span>
         </el-menu-item>
+        <el-menu-item index="/admin/system-logs">
+          <el-icon><Tickets /></el-icon>
+          <span>系统日志</span>
+        </el-menu-item>
         <el-menu-item index="/admin/tutorials">
           <el-icon><Notebook /></el-icon>
           <span>使用教程管理</span>
@@ -54,7 +58,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import { Setting, DataAnalysis, User, Bell, Tools, Document, Notebook, ChatDotRound, Back } from '@element-plus/icons-vue'
+import { Setting, DataAnalysis, User, Bell, Tools, Document, Notebook, ChatDotRound, Back, Tickets } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -123,6 +123,12 @@ const router = createRouter({
           meta: { title: '操作日志', requiresAuth: true, adminOnly: true },
         },
         {
+          path: 'system-logs',
+          name: 'AdminSystemLogs',
+          component: () => import('@/views/admin/SystemLogs.vue'),
+          meta: { title: '系统日志', requiresAuth: true, adminOnly: true },
+        },
+        {
           path: 'tutorials',
           name: 'AdminTutorials',
           component: () => import('@/views/admin/TutorialManager.vue'),

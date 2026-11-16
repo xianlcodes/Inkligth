@@ -120,9 +120,9 @@ class TaskStore:
         async with self._lock:
             self._tasks[task_id] = task
         await self._redis_set(task_id, task)
-        logger.warning("TASK_CREATED: task=%s type=%s user=%s redis=%s",
-                       task_id, task_type, user_id,
-                       self._redis is not False and self._redis is not None)
+        logger.info("TASK_CREATED: task=%s type=%s user=%s redis=%s",
+                    task_id, task_type, user_id,
+                    self._redis is not False and self._redis is not None)
         return task
 
     async def get_task(self, task_id: str) -> Optional[TaskInfo]:
@@ -137,9 +137,9 @@ class TaskStore:
             async with self._lock:
                 self._tasks[task_id] = task  # warm the in-memory cache
             return task
-        logger.warning("TASK_NOT_FOUND: task=%s in_memory_keys=%d redis=%s",
-                       task_id, len(self._tasks),
-                       self._redis is not False and self._redis is not None)
+        logger.info("TASK_NOT_FOUND: task=%s in_memory_keys=%d redis=%s",
+                    task_id, len(self._tasks),
+                    self._redis is not False and self._redis is not None)
         return None
 
     async def update_task(

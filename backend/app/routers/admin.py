@@ -1,8 +1,10 @@
 import logging
 from typing import Optional
 from datetime import datetime
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_user_db as get_db, get_tencent_db
@@ -22,8 +24,12 @@ from app.schemas.admin import (
     SystemConfigUpdate,
     ConfigChangeLogItem,
     ConfigChangeLogListResponse,
+    SystemLogFileItem,
+    SystemLogFileListResponse,
+    SystemLogContentResponse,
 )
 from app.services.admin_service import AdminService
+from app.services.log_viewer_service import LogViewerService
 from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -222,4 +228,60 @@ async def get_config_history(
     logs = await AdminService.get_change_logs(db, config_key=key)
     return ConfigChangeLogListResponse(
         items=[ConfigChangeLogItem.model_validate(log) for log in logs],
+    )
+
+
+# ---------------------------------------------------------------------------
+# System logs（应用运行日志在线查看；与操作审计 /logs 不同）
+# ---------------------------------------------------------------------------
+@router.get("/system-logs/files", response_model=SystemLogFileListResponse)
+async def list_system_log_files(
+    current_user: User = Depends(get_current_user),
+):
+    """列出可在线查看的应用日志文件（app.log 及按天滚动副本）。"""
+    _check_admin(current_user)
+    return SystemLogFileListResponse(
+        files=[SystemLogFileItem.model_validate(f) for f in LogViewerService.list_files()]
+    )
+
+
+@router.get("/system-logs/content", response_model=SystemLogContentResponse)
+async def read_system_log_content(
+    name: str = Query(..., description="日志文件名，如 app.log"),
+    lines: int = Query(500, ge=1, le=2000, description="返回最新 N 行"),
+    level: Optional[str] = Query(None, description="按级别过滤：DEBUG/INFO/WARNING/ERROR"),
+    keyword: Optional[str] = Query(None, max_length=200, description="关键词过滤（不区分大小写）"),
+    current_user: User = Depends(get_current_user),
+):
+    """读取日志文件尾部，支持级别/关键词过滤（最新行在后）。"""
+    _check_admin(current_user)
+    try:
+        return SystemLogContentResponse(**LogViewerService.read_tail(
+            name=name, lines=lines, level=level, keyword=keyword,
+        ))
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="日志文件不存在")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/system-logs/download")
+async def download_system_log(
+    name: str = Query(..., description="日志文件名，如 app.log"),
+    current_user: User = Depends(get_current_user),
+):
+    """下载完整日志文件（管理员排障用）。"""
+    _check_admin(current_user)
+    try:
+        path = LogViewerService.resolve_log_file(name)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="日志文件不存在")
+    encoded_name = quote(name, safe="")
+    return FileResponse(
+        path=path,
+        media_type="text/plain; charset=utf-8",
+        filename=name,
+        headers={"Content-Disposition": f'attachment; filename="{encoded_name}"'},
     )
