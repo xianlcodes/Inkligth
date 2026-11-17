@@ -105,11 +105,18 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_user_db))
 
 @router.post("/token", response_model=TokenWithRefresh)
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_user_db),
 ):
     user = await UserService.authenticate(db, form_data.username, form_data.password)
     if not user:
+        # 记录失败登录（邮箱 + 来源 IP，绝不记密码），用于发现撞库/探测
+        from app.core.request_context import get_client_ip
+        logger.warning(
+            "登录失败: email=%s ip=%s",
+            form_data.username, get_client_ip(request),
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

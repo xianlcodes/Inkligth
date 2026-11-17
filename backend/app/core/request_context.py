@@ -38,6 +38,20 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
+def get_client_ip(request: Request) -> str:
+    """取真实客户端 IP：经 nginx 反代时 X-Forwarded-For 的第一跳才是用户。
+
+    request.client.host 在反代场景下是 nginx 的地址，没有排查价值。
+    """
+    forwarded = request.headers.get("x-forwarded-for") or ""
+    first_hop = forwarded.split(",")[0].strip()
+    if first_hop:
+        return first_hop
+    return request.headers.get("x-real-ip") or (
+        request.client.host if request.client else "-"
+    )
+
+
 def _extract_user_id(request: Request) -> str:
     """从 Authorization 头解出 user_id（不查库；失败返回 anon）。
 
@@ -76,10 +90,11 @@ async def _request_context_middleware(request: Request, call_next):
         duration_ms = (time.perf_counter() - start) * 1000
         path = request.url.path
         user_id = _extract_user_id(request)
+        client_ip = get_client_ip(request)
         log = access_logger.debug if path.startswith(_QUIET_PATH_PREFIXES) else access_logger.info
         log(
-            "%s %s -> %s (%.0fms) user=%s",
-            request.method, path, status_code, duration_ms, user_id,
+            "%s %s -> %s (%.0fms) ip=%s user=%s",
+            request.method, path, status_code, duration_ms, client_ip, user_id,
         )
         request_id_var.reset(token)
     return response

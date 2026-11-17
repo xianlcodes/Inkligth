@@ -14,6 +14,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
+from app.core.request_context import get_client_ip
+
 logger = logging.getLogger("inklight.client")
 
 router = APIRouter(prefix="/client-logs", tags=["client-logs"])
@@ -49,7 +51,8 @@ def _check_rate_limit(ip: str) -> bool:
 
 @router.post("")
 async def report_client_log(payload: ClientLogPayload, request: Request):
-    ip = request.client.host if request.client else "unknown"
+    # 经 nginx 反代时取 X-Forwarded-For 第一跳，否则只记到代理 IP
+    ip = get_client_ip(request)
     if not _check_rate_limit(ip):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="上报过于频繁")
 

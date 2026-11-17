@@ -1,0 +1,29 @@
+# Docker 构建上下文排除清单（docker build 的 COPY . . 之前生效）
+# 目的：构建上下文从 ~1.8GB 降到仅代码；运行时数据与密钥不进镜像层
+
+# 虚拟环境与 Python 缓存
+venv/
+.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# 运行时数据：生产环境经 -v 挂载提供，绝不打进镜像
+uploads/
+chunks/
+export_files/
+logs/
+models/
+all-MiniLM-L6-v2/
+
+# 密钥与环境文件：生产用 --env-file 注入，OS 环境变量优先级高于 .env 文件
+.env
+.env.*
+*.pem
+*.key
+
+# 本地文档与测试（不影响运行）
+doc/
+tests/
+*.md
