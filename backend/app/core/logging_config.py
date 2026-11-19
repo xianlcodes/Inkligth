@@ -40,6 +40,34 @@ _configured = False
 # 数据库连接串脱敏：postgresql+asyncpg://user:password@host:port/db
 _DB_URL_PASSWORD_PATTERN = re.compile(r"(?<=://)([^:@/]+):([^@]+)(?=@)")
 
+# 防御层：日志文本里意外出现的密钥形态字符串（正常情况下调用方就不该打印它）
+# - sk- 开头（DeepSeek / OpenAI / Qwen 等）
+# - GLM 风格的 id.secret（32 位十六进制 + 点 + 16 位以上字母数字）
+_SENSITIVE_KEY_PATTERN = re.compile(
+    r"\b(sk-[A-Za-z0-9_\-]{16,})\b|\b([0-9a-fA-F]{32}\.[A-Za-z0-9]{16,})\b"
+)
+
+
+class SensitiveDataFilter(logging.Filter):
+    """把日志中意外泄漏的密钥形态字符串掩码，防止密钥落入日志文件。
+
+    这是一道兜底防线：规范做法是任何地方都不打印密钥（已审计），
+    但万一未来某处 f-string 手滑，这里保证 key 也不会原样落盘。
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            if isinstance(record.msg, str):
+                record.msg = _SENSITIVE_KEY_PATTERN.sub("[REDACTED]", record.msg)
+            if record.args:
+                record.args = tuple(
+                    _SENSITIVE_KEY_PATTERN.sub("[REDACTED]", a) if isinstance(a, str) else a
+                    for a in record.args
+                )
+        except Exception:
+            pass  # 脱敏自身绝不能影响日志输出
+        return True
+
 
 def mask_db_url(url: str) -> str:
     """掩去数据库连接串里的密码，避免明文密码落进日志文件。"""
@@ -80,11 +108,13 @@ def setup_logging() -> None:
 
     formatter = _TZFormatter(LOG_FORMAT, LOG_DATE_FORMAT, utc_offset)
     request_filter = RequestIdFilter()
+    sensitive_filter = SensitiveDataFilter()
 
     # 1) stdout：docker logs 兼容
     console = logging.StreamHandler(sys.stdout)
     console.setFormatter(formatter)
     console.addFilter(request_filter)
+    console.addFilter(sensitive_filter)
     root.addHandler(console)
 
     # 2) 按天轮转文件：发版/重启不丢历史；目录不可写时仅告警，不影响启动
@@ -99,6 +129,7 @@ def setup_logging() -> None:
         )
         file_handler.setFormatter(formatter)
         file_handler.addFilter(request_filter)
+        file_handler.addFilter(sensitive_filter)
         root.addHandler(file_handler)
     except Exception as e:
         logger.warning("日志文件初始化失败（仅输出到 stdout）：%s", e)

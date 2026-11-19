@@ -83,6 +83,22 @@ class Pdf2ZhTranslatorAdapter:
         self._timeout = timeout
         self.total_calls = 0   # 请求翻译的段落数
         self.failed_calls = 0  # 未能返回可用译文的段落数
+        self._last_error_hint = ""  # 最近一次失败的用户可读原因，用于中止提示
+
+    @staticmethod
+    def _classify_failure(e: Exception) -> tuple[str, str]:
+        """把翻译失败归类为（用户可读提示, 日志原因）。"""
+        msg = str(e)
+        if isinstance(e, NoUsableTranslationError):
+            return "建议改用非推理模型", f"模型未返回译文（思考过程可能占满了输出）：{e}"
+        low = msg.lower()
+        if "402" in msg or "insufficient balance" in low or "insufficient_balance" in low:
+            return "AI 账户余额不足，请充值或更换 AI 引擎后重试", f"{type(e).__name__}: {msg[:200]}"
+        if "401" in msg or "invalid api key" in low or "authentication" in low:
+            return "API 密钥无效，请在 AI 设置中更新密钥", f"{type(e).__name__}: {msg[:200]}"
+        if "429" in msg or "rate limit" in low:
+            return "AI 服务限流，请稍后重试", f"{type(e).__name__}: {msg[:200]}"
+        return "请检查 AI 引擎配置", f"{type(e).__name__}: {msg[:200]}"
 
     def translate(self, text: str) -> str:
         """同步翻译方法，供 TranslateConverter 的线程池调用。
@@ -109,12 +125,8 @@ class Pdf2ZhTranslatorAdapter:
             )
         except Exception as e:
             self.failed_calls += 1
-            if isinstance(e, NoUsableTranslationError):
-                reason = f"模型未返回译文（思考过程可能占满了输出）：{e}"
-                hint = "建议改用非推理模型"
-            else:
-                reason = f"{type(e).__name__}: {str(e)[:200]}"
-                hint = "请检查 AI 引擎配置"
+            hint, reason = self._classify_failure(e)
+            self._last_error_hint = hint
             if self.failed_calls <= 5:
                 logger.warning("PDF 段落翻译失败，该段保留原文（%s）：%s", hint, reason)
             else:
@@ -134,10 +146,13 @@ class Pdf2ZhTranslatorAdapter:
         return self.failed_calls / max(self.total_calls, 1) >= _DEGRADED_FAILURE_RATIO
 
     def degraded_reason(self) -> str:
-        return (
+        base = (
             f"AI 翻译失败率过高（{self.failed_calls}/{self.total_calls} 段未返回译文），"
-            "已中止以避免输出未翻译的 PDF，请检查 AI 引擎的模型配置后重试"
+            "已中止以避免输出未翻译的 PDF"
         )
+        if self._last_error_hint:
+            return f"{base}。最近失败原因：{self._last_error_hint}"
+        return base + "，请检查 AI 引擎配置后重试"
 
     def cleanup(self):
         self._api_key = None

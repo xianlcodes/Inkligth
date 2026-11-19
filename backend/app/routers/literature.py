@@ -798,7 +798,7 @@ async def _run_full_translate(task_id: str, literature_id: str, user_id: str):
 
     except Exception as e:
         logger.error(f"Full translate task failed: {task_id}, error: {e}", exc_info=True)
-        await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+        await task_store.update_task(task_id, status=TaskStatus.FAILED, error=beautify_translation_error(str(e)))
     finally:
         _cleanup_active(literature_id)
         _cancellation_flags.discard(task_id)
@@ -1156,7 +1156,7 @@ async def _run_analyze(task_id: str, literature_id: str, user_id: str):
 
     except Exception as e:
         logger.error(f"Analyze task failed: {task_id}, error: {e}", exc_info=True)
-        await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+        await task_store.update_task(task_id, status=TaskStatus.FAILED, error=beautify_translation_error(str(e)))
 
 
 @router.post("/{literature_id}/generate-ppt")
@@ -1274,7 +1274,8 @@ async def _run_ppt_generation(
         async with async_session_factory() as db:
             literature = await LiteratureService.get_literature_by_id(db, literature_id, user_id)
             if not literature or not literature.raw_text:
-                await task_store.update_task(task_id, status=TaskStatus.FAILED, error=str(e))
+                # 注意：此处不在 except 块内，引用不存在的 e 会 NameError
+                await task_store.update_task(task_id, status=TaskStatus.FAILED, error="文献不存在或无文本内容")
                 return
 
             # 1. 提取视觉资产（第一次慢，后续走缓存）
@@ -1365,7 +1366,7 @@ async def _run_ppt_generation(
         await task_store.update_task(
             task_id,
             status=TaskStatus.FAILED,
-            error=f"PPT 生成失败: {str(e)[:200]}",
+            error=f"PPT 生成失败: {beautify_translation_error(str(e))}",
         )
 
 
@@ -1762,7 +1763,7 @@ async def _run_pdf_translate(
             await task_store.update_task(
                 task_id,
                 status=TaskStatus.FAILED,
-                error=f"翻译失败：{str(e)[:200]}",
+                error=f"翻译失败：{beautify_translation_error(str(e))}",
             )
     finally:
         # ✅ 修正为正确的方法名

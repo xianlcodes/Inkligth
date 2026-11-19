@@ -203,6 +203,8 @@ def beautify_translation_error(raw_error: str) -> str:
 
     if "403" in err_lower and "quota" in err_lower:
         return "API 配额已用尽，请在管理控制台充值或切换付费方案后重试"
+    if "402" in err_lower or "insufficient balance" in err_lower or "insufficient_balance" in err_lower:
+        return "AI 账户余额不足，请充值或更换 AI 引擎后重试"
     if "429" in err_lower:
         return "请求过于频繁，请稍后重试"
     if "401" in err_lower or "invalid api key" in err_lower:
