@@ -112,3 +112,78 @@ class LogViewerService:
             "truncated": truncated,
             "lines": matched[-lines:],
         }
+
+    # ------------------------------------------------------------------
+    # 日志管理：概览统计 / 运行时调级 / 清空 / 删除
+    # ------------------------------------------------------------------
+    @staticmethod
+    def get_stats() -> list[dict]:
+        """逐文件统计 ERROR/WARNING 行数（配合 list_files 的元数据）。"""
+        result = []
+        for f in LogViewerService.list_files():
+            error_count = warning_count = 0
+            try:
+                path = LogViewerService.resolve_log_file(f["name"])
+                with open(path, "r", encoding="utf-8", errors="replace") as fp:
+                    for line in fp:
+                        m = _LINE_LEVEL_PATTERN.search(line)
+                        if not m:
+                            continue
+                        if m.group(1) in ("ERROR", "CRITICAL"):
+                            error_count += 1
+                        elif m.group(1) == "WARNING":
+                            warning_count += 1
+            except OSError as e:
+                logger.warning("统计日志文件失败 %s: %s", f["name"], e)
+            result.append({
+                "name": f["name"],
+                "size_bytes": f["size_bytes"],
+                "modified_at": f["modified_at"],
+                "error_count": error_count,
+                "warning_count": warning_count,
+            })
+        return result
+
+    @staticmethod
+    def get_log_level() -> str:
+        return logging.getLevelName(logging.getLogger().getEffectiveLevel())
+
+    @staticmethod
+    def set_log_level(level: str) -> str:
+        """运行时调整根日志级别，立即生效；重启后回退到 .env 的 LOG_LEVEL。"""
+        level_up = (level or "").strip().upper()
+        if level_up not in _VALID_LEVELS:
+            raise ValueError(f"非法的日志级别: {level!r}")
+        logging.getLogger().setLevel(getattr(logging, level_up))
+        logger.info(
+            "管理员将日志级别调整为 %s（运行时生效，重启后回退到 .env 的 LOG_LEVEL）",
+            level_up,
+        )
+        return level_up
+
+    @staticmethod
+    def clear_log(name: str) -> int:
+        """清空日志文件内容（truncate），返回清空的字节数。"""
+        path = LogViewerService.resolve_log_file(name)
+        if not path.is_file():
+            raise FileNotFoundError(name)
+        size = path.stat().st_size
+        # r+b 截断而非删除：TimedRotatingFileHandler 持有文件句柄，
+        # 删除后它会继续写入已被 unlink 的 inode，日志会"消失"
+        with open(path, "r+b") as fp:
+            fp.truncate(0)
+        logger.warning("管理员清空了日志文件 %s（释放 %d 字节）", name, size)
+        return size
+
+    @staticmethod
+    def delete_log(name: str) -> None:
+        """删除历史滚动日志文件。当前正在写入的 app.log 只允许清空。"""
+        if name == "app.log":
+            raise ValueError(
+                "当前日志文件 app.log 正在被写入，只能清空，不能删除"
+            )
+        path = LogViewerService.resolve_log_file(name)
+        if not path.is_file():
+            raise FileNotFoundError(name)
+        path.unlink()
+        logger.warning("管理员删除了日志文件 %s", name)

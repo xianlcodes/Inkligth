@@ -25,8 +25,14 @@ from app.schemas.admin import (
     ConfigChangeLogItem,
     ConfigChangeLogListResponse,
     SystemLogFileItem,
+    SystemLogFileStats,
     SystemLogFileListResponse,
     SystemLogContentResponse,
+    SystemLogStatsResponse,
+    SystemLogLevelResponse,
+    SystemLogLevelUpdate,
+    SystemLogNameRequest,
+    SystemLogClearResponse,
 )
 from app.services.admin_service import AdminService
 from app.services.log_viewer_service import LogViewerService
@@ -285,3 +291,70 @@ async def download_system_log(
         filename=name,
         headers={"Content-Disposition": f'attachment; filename="{encoded_name}"'},
     )
+
+
+@router.get("/system-logs/stats", response_model=SystemLogStatsResponse)
+async def get_system_log_stats(
+    current_user: User = Depends(get_current_user),
+):
+    """日志概览：各文件的 ERROR/WARNING 计数 + 当前生效的日志级别。"""
+    _check_admin(current_user)
+    return SystemLogStatsResponse(
+        files=[SystemLogFileStats.model_validate(f) for f in LogViewerService.get_stats()],
+        log_level=LogViewerService.get_log_level(),
+    )
+
+
+@router.get("/system-logs/level", response_model=SystemLogLevelResponse)
+async def get_system_log_level(
+    current_user: User = Depends(get_current_user),
+):
+    """当前生效的日志级别（可能是运行时调整过的，与 .env 不一定一致）。"""
+    _check_admin(current_user)
+    return SystemLogLevelResponse(level=LogViewerService.get_log_level())
+
+
+@router.post("/system-logs/level", response_model=SystemLogLevelResponse)
+async def set_system_log_level(
+    payload: SystemLogLevelUpdate,
+    current_user: User = Depends(get_current_user),
+):
+    """运行时调整全局日志级别（立即生效，重启后回退到 .env 的 LOG_LEVEL）。"""
+    _check_admin(current_user)
+    try:
+        level = LogViewerService.set_log_level(payload.level)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return SystemLogLevelResponse(level=level)
+
+
+@router.post("/system-logs/clear", response_model=SystemLogClearResponse)
+async def clear_system_log(
+    payload: SystemLogNameRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """清空指定日志文件内容（truncate，保留文件句柄）。"""
+    _check_admin(current_user)
+    try:
+        cleared = LogViewerService.clear_log(payload.name)
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="日志文件不存在")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return SystemLogClearResponse(name=payload.name, cleared_bytes=cleared)
+
+
+@router.delete("/system-logs/{name}")
+async def delete_system_log_file(
+    name: str,
+    current_user: User = Depends(get_current_user),
+):
+    """删除历史滚动日志文件（app.log 当前文件只允许清空，不可删除）。"""
+    _check_admin(current_user)
+    try:
+        LogViewerService.delete_log(name)
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="日志文件不存在")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return {"message": f"已删除 {name}"}

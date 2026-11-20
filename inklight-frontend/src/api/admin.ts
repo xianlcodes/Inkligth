@@ -201,3 +201,32 @@ export function getSystemLogBlob(name: string) {
     responseType: 'blob',
   })
 }
+
+export interface SystemLogFileStats {
+  name: string
+  size_bytes: number
+  modified_at: string
+  error_count: number
+  warning_count: number
+}
+
+export interface SystemLogStatsResponse {
+  files: SystemLogFileStats[]
+  log_level: string
+}
+
+export function getSystemLogStats() {
+  return apiClient.get<SystemLogStatsResponse>('/admin/system-logs/stats')
+}
+
+export function setSystemLogLevel(level: string) {
+  return apiClient.post<{ level: string }>('/admin/system-logs/level', { level })
+}
+
+export function clearSystemLog(name: string) {
+  return apiClient.post<{ name: string; cleared_bytes: number }>('/admin/system-logs/clear', { name })
+}
+
+export function deleteSystemLog(name: string) {
+  return apiClient.delete<{ message: string }>(`/admin/system-logs/${encodeURIComponent(name)}`)
+}

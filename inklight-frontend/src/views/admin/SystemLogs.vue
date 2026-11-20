@@ -6,12 +6,46 @@
       <span class="section-accent">SYSTEM LOGS</span>
     </div>
 
-    <div class="flex flex-wrap gap-3 mb-4 items-center">
-      <el-select v-model="selectedFile" style="width: 200px">
-        <el-option v-for="f in files" :key="f.name" :value="f.name"
-          :label="`${f.name} (${formatSize(f.size_bytes)})`" />
-      </el-select>
+    <!-- 概览统计：各文件错误/警告计数 -->
+    <div class="flex flex-wrap gap-3 mb-4">
+      <div
+        v-for="f in files"
+        :key="f.name"
+        class="stats-card"
+        :class="{ active: f.name === selectedFile }"
+        @click="selectedFile = f.name"
+      >
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold">{{ f.name }}</div>
+            <div class="text-xs text-slate-500">{{ formatSize(f.size_bytes) }}</div>
+          </div>
+          <div class="flex flex-col gap-1 text-xs">
+            <el-tag type="danger" size="small">ERROR {{ f.error_count }}</el-tag>
+            <el-tag type="warning" size="small">WARN {{ f.warning_count }}</el-tag>
+          </div>
+        </div>
+        <div v-if="f.name !== 'app.log'" class="mt-2 text-right">
+          <el-button size="small" text type="danger" @click.stop="removeLogFile(f.name)">删除</el-button>
+        </div>
+      </div>
 
+      <!-- 日志级别 -->
+      <div class="stats-card" style="min-width: 200px">
+        <div class="text-sm font-semibold mb-1">日志级别</div>
+        <el-select
+          v-model="currentLevel"
+          size="small"
+          style="width: 100%"
+          @change="changeLevel"
+        >
+          <el-option v-for="lv in ['DEBUG', 'INFO', 'WARNING', 'ERROR']" :key="lv" :value="lv" :label="lv" />
+        </el-select>
+        <div class="text-xs text-slate-400 mt-1">重启后回退到 .env 配置</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-3 mb-4 items-center">
       <el-select v-model="filterLevel" style="width: 130px" clearable placeholder="级别" @change="loadContent">
         <el-option label="全部级别" value="" />
         <el-option label="ERROR" value="ERROR" />
@@ -41,6 +75,15 @@
         <el-icon class="mr-1"><Download /></el-icon>下载
       </el-button>
 
+      <el-button
+        v-if="selectedFile"
+        type="warning"
+        plain
+        @click="clearSelectedLog"
+      >
+        清空当前文件
+      </el-button>
+
       <div class="ml-auto flex items-center gap-2">
         <span class="text-sm text-slate-500">自动刷新</span>
         <el-switch v-model="autoRefresh" />
@@ -52,7 +95,7 @@
       <el-tag v-if="contentMeta.truncated" type="warning" size="small" class="ml-2">已按上限截断</el-tag>
     </div>
 
-    <div v-loading="loading" class="log-viewer" >
+    <div v-loading="loading" class="log-viewer">
       <pre class="log-pre"><code><span
         v-for="(line, i) in logLines"
         :key="i"
@@ -66,17 +109,21 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Download } from '@element-plus/icons-vue'
 import {
-  getSystemLogFiles,
+  getSystemLogStats,
   getSystemLogContent,
   getSystemLogBlob,
-  type SystemLogFile,
+  setSystemLogLevel,
+  clearSystemLog,
+  deleteSystemLog,
+  type SystemLogFileStats,
 } from '@/api/admin'
 
-const files = ref<SystemLogFile[]>([])
+const files = ref<SystemLogFileStats[]>([])
 const selectedFile = ref('')
+const currentLevel = ref('INFO')
 const filterLevel = ref('')
 const filterKeyword = ref('')
 const lineCount = ref(500)
@@ -100,14 +147,17 @@ function lineClass(line: string): string {
   return 'log-info'
 }
 
-async function loadFiles() {
+async function loadStats() {
   try {
-    const resp = await getSystemLogFiles()
+    const resp = await getSystemLogStats()
     files.value = resp.data.files
+    currentLevel.value = resp.data.log_level
     if (!selectedFile.value && files.value.length > 0) {
       selectedFile.value = files.value[0].name
     }
-  } catch { files.value = [] }
+  } catch {
+    files.value = []
+  }
 }
 
 async function loadContent() {
@@ -134,6 +184,69 @@ async function loadContent() {
   }
 }
 
+async function refreshAll() {
+  await loadStats()
+  await loadContent()
+}
+
+async function changeLevel(level: string) {
+  if (!level) return
+  try {
+    await ElMessageBox.confirm(
+      `确认把日志级别调整为 ${level}？DEBUG 会显著增加日志量，排查完请记得改回 INFO。`,
+      '调整日志级别',
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' },
+    )
+  } catch {
+    currentLevel.value = files.value.length ? (await getSystemLogStats()).data.log_level : 'INFO'
+    return
+  }
+  try {
+    await setSystemLogLevel(level)
+    currentLevel.value = level
+    ElMessage.success(`日志级别已调整为 ${level}（立即生效，重启后回退）`)
+  } catch {
+    ElMessage.error('调整失败，请稍后重试')
+    await loadStats()
+  }
+}
+
+async function clearSelectedLog() {
+  if (!selectedFile.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认清空 ${selectedFile.value} 的全部内容？此操作不可恢复。`,
+      '清空日志文件',
+      { confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning' },
+    )
+  } catch { return }
+  try {
+    await clearSystemLog(selectedFile.value)
+    ElMessage.success('日志文件已清空')
+    await refreshAll()
+  } catch {
+    ElMessage.error('清空失败，请稍后重试')
+  }
+}
+
+async function removeLogFile(name: string) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除历史日志文件 ${name}？此操作不可恢复。`,
+      '删除日志文件',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'error' },
+    )
+  } catch { return }
+  try {
+    await deleteSystemLog(name)
+    ElMessage.success(`已删除 ${name}`)
+    if (selectedFile.value === name) selectedFile.value = 'app.log'
+    await refreshAll()
+  } catch {
+    ElMessage.error('删除失败，请稍后重试')
+  }
+}
+
 async function downloadLog() {
   if (!selectedFile.value) return
   try {
@@ -147,11 +260,6 @@ async function downloadLog() {
   } catch {
     ElMessage.error('下载失败，请稍后重试')
   }
-}
-
-async function refreshAll() {
-  await loadFiles()
-  await loadContent()
 }
 
 onMounted(async () => {
@@ -168,7 +276,10 @@ watch(autoRefresh, (on) => {
     refreshTimer = null
   }
   if (on) {
-    refreshTimer = window.setInterval(loadContent, 10_000)
+    refreshTimer = window.setInterval(async () => {
+      await loadStats()
+      await loadContent()
+    }, 10_000)
   }
 })
 
@@ -176,6 +287,25 @@ watch(selectedFile, loadContent)
 </script>
 
 <style scoped>
+.stats-card {
+  background: var(--bg-primary, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 180px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.stats-card:hover {
+  border-color: var(--el-color-primary, #409eff);
+}
+
+.stats-card.active {
+  border-color: var(--el-color-primary, #409eff);
+  box-shadow: 0 0 0 1px var(--el-color-primary, #409eff) inset;
+}
+
 .log-viewer {
   background: var(--bg-primary, #fff);
   border: 1px solid var(--border-color, #e2e8f0);

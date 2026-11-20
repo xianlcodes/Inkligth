@@ -157,3 +157,30 @@ class SystemLogContentResponse(BaseModel):
     returned_lines: int   # 本次返回行数（过滤后）
     truncated: bool       # 是否因行数上限截断
     lines: list[str]      # 日志行（最新在后）
+
+
+class SystemLogFileStats(SystemLogFileItem):
+    error_count: int
+    warning_count: int
+
+
+class SystemLogStatsResponse(BaseModel):
+    files: list[SystemLogFileStats]
+    log_level: str
+
+
+class SystemLogLevelResponse(BaseModel):
+    level: str
+
+
+class SystemLogLevelUpdate(BaseModel):
+    level: str = Field(..., description="DEBUG / INFO / WARNING / ERROR / CRITICAL")
+
+
+class SystemLogNameRequest(BaseModel):
+    name: str = Field(..., max_length=100)
+
+
+class SystemLogClearResponse(BaseModel):
+    name: str
+    cleared_bytes: int

@@ -10,12 +10,16 @@ from sqlalchemy.orm import declarative_base
 from app.core.config import settings
 
 # ── 腾讯云远程数据库（文献相关：literatures, notes, tags, ...） ──
+# 池参数显式配置：默认 pool_size=5+overflow=10 在 SSE 流式 + 后台任务并发下
+# 会被打满（2026-11-20 事故：QueuePool limit reached，全站登录 500）。
 tencent_engine = create_async_engine(
     settings.DATABASE_URL_FINAL,
     echo=False,
     future=True,
     pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_recycle=1800,   # 跨云链路缩短回收周期，防中间设备掐断空闲连接
+    pool_size=10,        # 常驻连接数
+    max_overflow=20,     # 峰值额外连接，合计上限 30
 )
 TencentSessionLocal = async_sessionmaker(
     bind=tencent_engine,
@@ -33,7 +37,9 @@ alibaba_engine = create_async_engine(
     echo=False,
     future=True,
     pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_recycle=1800,
+    pool_size=10,
+    max_overflow=20,
 )
 AlibabaSessionLocal = async_sessionmaker(
     bind=alibaba_engine,
