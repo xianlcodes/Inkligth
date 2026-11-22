@@ -1,7 +1,9 @@
 import logging
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,16 @@ def start_scheduler():
         name="Cleanup expired PDF translations",
         replace_existing=True,
         misfire_grace_time=3600,
+    )
+    # 每小时系统自检（数据库×2 / Redis / 磁盘 / 日志可写），启动 60 秒后先跑第一轮
+    from app.tasks.health_check import run_health_check
+    scheduler.add_job(
+        run_health_check,
+        trigger=IntervalTrigger(hours=1, timezone=SCHEDULER_TIMEZONE),
+        id="hourly_health_check",
+        name="Hourly system health check",
+        replace_existing=True,
+        next_run_time=datetime.now() + timedelta(seconds=60),
     )
 
     scheduler.start()

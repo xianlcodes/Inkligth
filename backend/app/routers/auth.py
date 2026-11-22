@@ -31,6 +31,7 @@ from app.services.email_verification_service import send_verification_code, veri
 from app.services.invitation_service import InvitationService
 from app.services.storage_service import StorageService
 from app.core.security import create_access_token, get_password_hash
+from app.core.request_context import get_client_ip
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -67,24 +68,33 @@ async def send_verification_code_endpoint(
 
 
 @router.post("/register", response_model=UserResponse)
-async def register(user_in: UserCreate, db: AsyncSession = Depends(get_user_db)):
+async def register(
+    request: Request,
+    user_in: UserCreate,
+    db: AsyncSession = Depends(get_user_db),
+):
+    ip = get_client_ip(request)
     if not user_in.agreed_to_terms:
+        logger.warning("注册失败[未同意条款]: email=%s ip=%s", user_in.email, ip)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="请先阅读并同意用户服务协议和隐私政策",
         )
     if not verify_captcha(user_in.captcha_id, user_in.captcha_answer):
+        logger.warning("注册失败[图形验证码错误]: email=%s ip=%s", user_in.email, ip)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="图形验证码错误或已过期",
         )
     if not await verify_code(db, user_in.email, user_in.email_verification_code):
+        logger.warning("注册失败[邮箱验证码错误]: email=%s ip=%s", user_in.email, ip)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="邮箱验证码错误或已过期",
         )
     existing = await UserService.get_user_by_email(db, user_in.email)
     if existing:
+        logger.warning("注册失败[邮箱已存在]: email=%s ip=%s", user_in.email, ip)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
@@ -96,10 +106,15 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_user_db))
         if user_in.invite_code:
             await InvitationService.process_invitation(db, user_in.invite_code, user.id, user.email)
     except IntegrityError:
+        logger.warning("注册失败[邮箱已存在-并发]: email=%s ip=%s", user_in.email, ip)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
+    logger.info(
+        "新用户注册: email=%s ip=%s%s",
+        user.email, ip, f" 邀请码={user_in.invite_code}" if user_in.invite_code else "",
+    )
     return user
 
 
@@ -112,7 +127,6 @@ async def login(
     user = await UserService.authenticate(db, form_data.username, form_data.password)
     if not user:
         # 记录失败登录（邮箱 + 来源 IP，绝不记密码），用于发现撞库/探测
-        from app.core.request_context import get_client_ip
         logger.warning(
             "登录失败: email=%s ip=%s",
             form_data.username, get_client_ip(request),
@@ -126,7 +140,7 @@ async def login(
     refresh_token = await RefreshTokenService.create_refresh_token(db, str(user.id))
     user.last_login_at = datetime.utcnow()
     await db.commit()
-    logger.info(f"User logged in: {user.email}")
+    logger.info("User logged in: %s ip=%s", user.email, get_client_ip(request))
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
