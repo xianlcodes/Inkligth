@@ -7,6 +7,9 @@ import shutil
 import uuid
 from datetime import datetime
 from typing import Optional
+from urllib.parse import urlparse
+
+import httpx
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, UploadFile, File, Form, Query
 from pydantic import BaseModel
@@ -563,3 +566,140 @@ def _cleanup_session(session_path: str):
         shutil.rmtree(session_path, ignore_errors=True)
     except Exception as e:
         logger.warning(f"Failed to cleanup session {session_path}: {e}")
+
+
+class ImportUrlRequest(BaseModel):
+    url: str
+    folder_id: Optional[str] = None
+
+
+_MAX_IMPORT_BYTES = 50 * 1024 * 1024  # 50MB
+
+
+@router.post("/import-url")
+async def import_literature_from_url(
+    payload: ImportUrlRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user_db: AsyncSession = Depends(get_user_db),
+    current_user=Depends(get_current_user),
+):
+    """从 URL 导入文献（主要面向 arXiv 页面/PDF 链接）。
+
+    每日精选论文的「一键导入」走这里：下载 PDF → 建文献记录 →
+    复用与手动上传完全相同的元数据提取与后处理管线。
+    """
+    url = (payload.url or "").strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise HTTPException(status_code=400, detail="请提供有效的 http(s) 链接")
+
+    # arXiv 摘要页自动转 PDF 链接
+    if "arxiv.org/abs/" in url:
+        url = url.replace("/abs/", "/pdf/")
+    if "arxiv.org" in url and url.endswith("/"):
+        url = url.rstrip("/")
+
+    # 下载（限量 50MB，防止超大文件拖垮磁盘/带宽）
+    data = b""
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(60.0, connect=15.0), follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; InkLight/1.0)"},
+        ) as client:
+            async with client.stream("GET", url) as resp:
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=400, detail=f"下载失败：HTTP {resp.status_code}")
+                size = 0
+                chunks = []
+                async for chunk in resp.aiter_bytes(64 * 1024):
+                    size += len(chunk)
+                    if size > _MAX_IMPORT_BYTES:
+                        raise HTTPException(status_code=400, detail="文件超过 50MB，无法导入")
+                    chunks.append(chunk)
+                data = b"".join(chunks)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning("import-url download failed: %s", e)
+        raise HTTPException(status_code=400, detail="下载失败，请检查链接是否可访问")
+
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="链接指向的不是 PDF 文件")
+
+    # 存储配额校验
+    storage = await StorageService.get_storage(user_db, str(current_user.id))
+    if storage.used_space + len(data) > storage.total_space:
+        raise HTTPException(status_code=400, detail="存储空间不足，无法导入该文件")
+
+    # 保存
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    output_filename = f"{uuid.uuid4()}.pdf"
+    output_path = os.path.join(UPLOAD_DIR, output_filename)
+    with open(output_path, "wb") as f:
+        f.write(data)
+
+    # 元数据：优先 arXiv API（精选论文都是 arXiv），失败回退字体启发式
+    title = None
+    authors = None
+    abstract = None
+    arxiv_id = None
+    m = re.search(r"arxiv\.org/(?:pdf|abs)/([0-9]{4}\.[0-9]{4,5})(?:v\d+)?", url)
+    if m:
+        arxiv_id = m.group(1)
+    first_pages_text = ""
+    try:
+        first_pages_text = LiteratureService.extract_text_from_pdf(output_path, max_pages=3) or ""
+    except Exception as e:
+        logger.warning("import-url text extract failed: %s", e)
+
+    if arxiv_id:
+        try:
+            api_meta = await LiteratureService.fetch_arxiv_metadata(arxiv_id)
+            if api_meta and api_meta.get("title"):
+                title = api_meta["title"]
+                authors = api_meta.get("authors")
+                abstract = api_meta.get("abstract")
+        except Exception as e:
+            logger.warning("arxiv metadata lookup failed for %s: %s", arxiv_id, e)
+    if not title:
+        font_text, font_sizes = LiteratureService._extract_first_page_font_sizes(output_path)
+        if font_text:
+            title = LiteratureService.extract_title_from_text(font_text, font_sizes=font_sizes)
+            if title:
+                authors = LiteratureService.extract_authors_from_text(font_text, title)
+    if not abstract and first_pages_text:
+        abstract = LiteratureService.extract_abstract_from_text(first_pages_text, file_path=output_path)
+    if not title:
+        title = output_filename  # 最后回退到文件名
+
+    from app.schemas.literature import LiteratureCreate
+    literature = await LiteratureService.create_literature(
+        db=db,
+        user_id=str(current_user.id),
+        file=None,
+        literature_in=LiteratureCreate(
+            title=title,
+            authors=authors,
+            abstract=abstract,
+            raw_text=first_pages_text or "",
+            file_path=output_path,
+            file_size=len(data),
+            folder_id=payload.folder_id,
+        ),
+    )
+
+    background_tasks.add_task(
+        _post_process_upload,
+        literature_id=str(literature.id),
+        user_id=str(current_user.id),
+        file_path=output_path,
+        first_pages_text=first_pages_text or "",
+    )
+
+    await StorageService.add_used_space(user_db, str(current_user.id), len(data))
+    await db.commit()
+    await user_db.commit()
+
+    logger.info("URL imported: %s -> literature %s (user %s)", url, literature.id, current_user.id)
+    return {"literature_id": literature.id, "title": literature.title, "message": "导入完成"}

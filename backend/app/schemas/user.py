@@ -25,6 +25,10 @@ class UserResponse(UserBase):
     tutorial_completed: bool = False
     created_at: datetime
     updated_at: datetime
+    # 平台免费额度信息（/users/me 实时返回；其余路径用默认值）
+    has_ai_engine: bool = False           # 是否已配置自己的 AI 引擎
+    free_translations: int = 0            # 平台免费额度剩余（篇）
+    free_translations_used: int = 0       # 已消耗次数
 
     class Config:
         from_attributes = True

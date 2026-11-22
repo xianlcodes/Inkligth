@@ -462,7 +462,7 @@ async def start_full_translate(
     if not await has_user_ai_engine(str(current_user.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"},
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"},
         )
 
     async with _active_translations_lock:
@@ -1067,7 +1067,7 @@ async def start_analyze(
     if not await has_user_ai_engine(str(current_user.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用 AI 解析功能"},
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"},
         )
 
     existing = await AnalysisService.get_analysis_by_literature(db, current_user.id, literature_id)
@@ -1176,7 +1176,7 @@ async def generate_ppt(
     if not await has_user_ai_engine(str(current_user.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用 PPT 生成功能"},
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"},
         )
 
     task = await task_store.create_task("ppt_generation", user_id=str(current_user.id))
@@ -1390,11 +1390,39 @@ async def start_pdf_translate(
     if not os.path.exists(file_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文献文件不存在")
 
-    if not await has_user_ai_engine(str(current_user.id)):
+    # 准入与计费：自有引擎直接放行；无引擎则消耗平台免费额度（1 篇 = 1 次）
+    from app.core.ai_client import has_pdf_translate_access
+    allowed, source = await has_pdf_translate_access(str(current_user.id))
+    used_platform_quota = False
+    if not allowed:
+        # 区分未放行原因：平台未配置兜底 Key → 引导配置引擎；配置了但额度用完 → 引导自配 Key
+        from app.services.platform_config_service import PlatformConfigService
+        cfg = await PlatformConfigService.resolve()
+        if not cfg["configured"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先在「AI 设置」中配置 AI 引擎后再使用翻译功能"},
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"},
+            detail={
+                "code": "FREE_QUOTA_EXHAUSTED",
+                "message": "免费体验额度已用完（每用户 1 篇文献）。在「AI 设置」中配置自己的 API Key 即可无限使用",
+            },
         )
+    if source == "platform_quota":
+        from app.services.quota_service import QuotaService
+        consumed = await QuotaService.consume(str(current_user.id))
+        if not consumed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "FREE_QUOTA_EXHAUSTED",
+                    "message": "免费体验额度已用完（每用户 1 篇文献）。在「AI 设置」中配置自己的 API Key 即可无限使用",
+                },
+            )
+        used_platform_quota = True
+        logger.info("PDF 翻译使用平台额度: user=%s literature=%s", current_user.id, literature_id)
 
     task = await task_store.create_task("pdf_translate", user_id=str(current_user.id))
     await task_store.update_task(task.task_id, status=TaskStatus.RUNNING, progress=0, total=100)
@@ -1409,6 +1437,7 @@ async def start_pdf_translate(
         target_lang=target_lang,
         output_mode=output_mode,
         original_filename=literature.title or "translated",
+        used_platform_quota=used_platform_quota,
     )
 
     logger.info("PDF translate task created: %s for literature %s", task.task_id, literature_id)
@@ -1653,6 +1682,7 @@ async def _run_pdf_translate(
     target_lang: str,
     output_mode: str,
     original_filename: str,
+    used_platform_quota: bool = False,
 ):
     from app.db.database import async_session_factory
     from app.services.pdf_render_service import normalize_output_mode, pdf_render_service
@@ -1760,6 +1790,13 @@ async def _run_pdf_translate(
             )
         else:
             logger.error("PDF translate task failed: %s, error=%s", task_id, e, exc_info=True)
+            # 平台免费额度：任务因 AI 失败而中止时返还（用户主动取消不返还）
+            if used_platform_quota:
+                try:
+                    from app.services.quota_service import QuotaService
+                    await QuotaService.refund(user_id)
+                except Exception as refund_err:
+                    logger.error("Failed to refund platform quota for user %s: %s", user_id, refund_err)
             await task_store.update_task(
                 task_id,
                 status=TaskStatus.FAILED,

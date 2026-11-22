@@ -11,6 +11,13 @@ class StatsOverview(BaseModel):
     total_reading_literatures: int
     total_notes: int
     total_presentations: int
+    # 留存/激活/额度指标（2026-11 新增）
+    active_users_7d: int = 0
+    active_users_30d: int = 0
+    activated_users: int = 0
+    users_with_own_engine: int = 0
+    free_quota_remaining_total: int = 0
+    free_quota_used_total: int = 0
 
 
 class TrendPoint(BaseModel):

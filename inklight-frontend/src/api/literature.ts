@@ -88,3 +88,13 @@ export function importByArxiv(arxivId: string) {
 export function getCitation(id: string) {
   return apiClient.get<{ code: number; data: { format: string; citation: string } }>(`/literatures/${id}/citation`)
 }
+
+
+/** 从 URL 导入文献（每日精选论文一键导入；主要面向 arXiv 链接） */
+export function importLiteratureFromUrl(url: string, folderId?: string) {
+  return apiClient.post<{ literature_id: string; title: string; message: string }>(
+    '/upload/import-url',
+    { url, folder_id: folderId || null },
+    { timeout: 120000 },
+  )
+}

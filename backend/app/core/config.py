@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     DEFAULT_AI_MODEL: str = "gpt-4o-mini"
     AI_KEY_SECRET: str = ""
 
+    # 平台免费额度（新用户注册赠送，仅用于 PDF 文献翻译任务）
+    # 注意：DEFAULT_AI_KEY 务必使用免费档模型（如智谱 glm-4.7-flash），
+    # 平台额度路径的模型固定为 PLATFORM_FALLBACK_MODEL，不会使用账户余额。
+    PLATFORM_FALLBACK_MODEL: str = "glm-4.7-flash"
+    PLATFORM_FREE_TRANSLATIONS: int = 1
+
     # Brevo email service
     BREVO_API_KEY: str = ""
     BREVO_SENDER_EMAIL: str = ""

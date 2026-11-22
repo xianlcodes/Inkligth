@@ -1199,11 +1199,16 @@ async function translateSelection() {
     const aiEngineStore = useAiEngineStore()
     await aiEngineStore.loadEngines()
     if (!aiEngineStore.defaultEngine) {
-      ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
-        confirmButtonText: '去配置',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }).then(() => {
+      // 划词/选区翻译走文本翻译接口，需要自有 Key（平台免费额度仅限 PDF 文献翻译）
+      ElMessageBox.confirm(
+        '划词翻译需要配置自己的 AI Key（平台免费额度仅限 PDF 文献翻译）。是否前往 AI 设置？',
+        '提示',
+        {
+          confirmButtonText: '去配置',
+          cancelButtonText: '取消',
+          type: 'warning',
+        },
+      ).then(() => {
         router.push('/settings/ai')
       }).catch(() => {})
       return
@@ -1550,11 +1555,16 @@ async function handleFullTranslate() {
   await aiEngineStore.loadEngines()
   if (!aiEngineStore.defaultEngine) {
     try {
-      await ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
-        confirmButtonText: '去配置',
-        cancelButtonText: '取消',
-        type: 'warning',
-      })
+      // 全文翻译是纯文本流式接口，需要自有 Key；平台免费额度仅限 PDF 文献翻译
+      await ElMessageBox.confirm(
+        '全文翻译需要配置自己的 AI Key。PDF 文献翻译可使用平台免费额度（每用户 1 篇）。是否前往 AI 设置？',
+        '提示',
+        {
+          confirmButtonText: '去配置',
+          cancelButtonText: '取消',
+          type: 'warning',
+        },
+      )
       router.push('/settings/ai')
     } catch { /* cancelled */ }
     return

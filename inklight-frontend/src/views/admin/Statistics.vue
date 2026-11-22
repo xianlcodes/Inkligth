@@ -57,6 +57,42 @@
           <p class="stat-value">{{ overview?.total_presentations ?? '-' }}</p>
           <p class="stat-label">组会总数</p>
         </div>
+            </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#f0fdf4;color:#16a34a"><el-icon :size="24"><UserFilled /></el-icon></div>
+        <div class="stat-card-body">
+          <p class="stat-value">{{ overview?.active_users_7d ?? '-' }}</p>
+          <p class="stat-label">7日内活跃用户</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><el-icon :size="24"><UserFilled /></el-icon></div>
+        <div class="stat-card-body">
+          <p class="stat-value">{{ overview?.active_users_30d ?? '-' }}</p>
+          <p class="stat-label">30日内活跃用户</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#fefce8;color:#ca8a04"><el-icon :size="24"><Checked /></el-icon></div>
+        <div class="stat-card-body">
+          <p class="stat-value">{{ overview?.activated_users ?? '-' }}</p>
+          <p class="stat-label">完成新手引导</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#fdf2f8;color:#db2777"><el-icon :size="24"><Collection /></el-icon></div>
+        <div class="stat-card-body">
+          <p class="stat-value">{{ overview?.users_with_own_engine ?? '-' }}</p>
+          <p class="stat-label">自配 Key 用户</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:#f5f3ff;color:#7c3aed"><el-icon :size="24"><Clock /></el-icon></div>
+        <div class="stat-card-body">
+          <p class="stat-value">{{ overview?.free_quota_used_total ?? '-' }} / {{ (overview?.free_quota_used_total ?? 0) + (overview?.free_quota_remaining_total ?? 0) }}</p>
+          <p class="stat-label">免费额度已用 / 总发放</p>
+        </div>
       </div>
     </div>
 
@@ -97,7 +133,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import {
-  UserFilled, Document, Checked, Clock, Notebook, DataAnalysis,
+  UserFilled, Document, Checked, Clock, Notebook, DataAnalysis, Collection,
 } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { getStatsOverview, getStatsTimeseries, type StatsOverview, type TimeSeriesStats } from '@/api/admin'

@@ -9,6 +9,17 @@
   >
     <div class="pdf-translate-dialog">
       <div v-if="!showProgress" class="config-section">
+        <el-alert
+          v-if="usingPlatformQuota"
+          type="success"
+          :closable="false"
+          show-icon
+          class="mb-3"
+        >
+          <template #title>
+            本次翻译使用平台免费体验额度（剩余 {{ authStore.user?.free_translations ?? 0 }} 篇）。配置自己的 AI Key 后不限量。
+          </template>
+        </el-alert>
         <el-form label-position="top" size="default">
           <el-form-item label="源语言">
             <el-select v-model="sourceLang" style="width: 100%">
@@ -153,6 +164,7 @@
 import { ref, computed, watch, onUnmounted, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
+import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { Download, VideoPlay, SwitchButton, Close, View, Refresh } from '@element-plus/icons-vue'
 import {
@@ -214,6 +226,8 @@ const sourceLang = ref('en')
 const targetLang = ref('zh')
 const outputMode = ref('mono')
 const submitting = ref(false)
+/** 本次翻译是否使用平台免费额度（未配置自有 Key 且额度 > 0 时为 true） */
+const usingPlatformQuota = ref(false)
 
 const taskId = ref('')
 const progress = ref(0)
@@ -315,18 +329,24 @@ async function handleStartTranslate() {
   }
 
   const aiEngineStore = useAiEngineStore()
+  const authStore = useAuthStore()
   await aiEngineStore.loadEngines()
-  if (!aiEngineStore.defaultEngine) {
+
+  // 双轨计费：自有引擎（无限量）优先；否则可用平台免费额度（每用户 1 篇 PDF 文献翻译）
+  const hasOwnEngine = !!aiEngineStore.defaultEngine
+  const platformQuota = authStore.user?.free_translations ?? 0
+  if (!hasOwnEngine && platformQuota <= 0) {
     try {
-      await ElMessageBox.confirm('请先配置 AI 引擎后再使用翻译功能，是否前往设置？', '提示', {
-        confirmButtonText: '去配置',
-        cancelButtonText: '取消',
-        type: 'warning',
-      })
+      await ElMessageBox.confirm(
+        '免费体验额度已用完（每用户 1 篇文献）。配置自己的 AI Key 后即可无限使用翻译、AI 问答、PPT 等全部功能。是否前往 AI 设置？',
+        '提示',
+        { confirmButtonText: '去配置', cancelButtonText: '取消', type: 'warning' },
+      )
       router.push('/settings/ai')
     } catch { /* cancelled */ }
     return
   }
+  usingPlatformQuota.value = !hasOwnEngine
 
   submitting.value = true
   errorMessage.value = ''
@@ -345,6 +365,11 @@ async function handleStartTranslate() {
     isCancelled.value = false
     reTranslating.value = false
 
+    // 扣减了平台额度的，立即刷新用户信息同步剩余额度
+    if (usingPlatformQuota.value) {
+      authStore.fetchUser().catch(() => {})
+    }
+
     setStoredTask({
       literatureId: props.literatureId,
       taskId: taskId.value,
@@ -356,9 +381,15 @@ async function handleStartTranslate() {
 
     startPolling()
   } catch (err: any) {
-    const detail = err.response?.data?.detail || '启动翻译任务失败'
+    // detail 可能是字符串，也可能是 {code, message} 对象（后端门槛报错格式）
+    const raw = err.response?.data?.detail
+    const detail = typeof raw === 'string' ? raw : raw?.message || '启动翻译任务失败'
     errorMessage.value = detail
     ElMessage.error(detail)
+    // 额度被并发占用/耗尽时，刷新额度显示
+    if (typeof raw === 'object' && raw?.code === 'FREE_QUOTA_EXHAUSTED') {
+      authStore.fetchUser().catch(() => {})
+    }
   } finally {
     submitting.value = false
   }

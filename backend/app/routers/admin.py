@@ -34,6 +34,7 @@ from app.schemas.admin import (
 )
 from app.services.admin_service import AdminService
 from app.services.log_viewer_service import LogViewerService
+from app.services.platform_config_service import PlatformConfigService, SECRET_KEY_NAME
 from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -152,9 +153,14 @@ async def list_configs(
 ):
     _check_admin(current_user)
     items = await AdminService.get_all_configs(db)
-    return SystemConfigListResponse(
-        items=[SystemConfigItem.model_validate(cfg) for cfg in items],
-    )
+    # 平台 Key 属于机密：即便管理员可见也只回掩码，明文永不出库
+    out = []
+    for cfg in items:
+        item = SystemConfigItem.model_validate(cfg)
+        if cfg.key == SECRET_KEY_NAME:
+            item.value = PlatformConfigService.mask_config_value(SECRET_KEY_NAME, cfg.value) or ""
+        out.append(item)
+    return SystemConfigListResponse(items=out)
 
 
 @router.post("/config", response_model=SystemConfigItem, status_code=status.HTTP_201_CREATED)
@@ -165,10 +171,17 @@ async def create_config(
     current_user: User = Depends(get_current_user),
 ):
     _check_admin(current_user)
+    data_dict = data.model_dump(exclude={"key"})
+    if data.key == SECRET_KEY_NAME:
+        normalized = PlatformConfigService.normalize_incoming_secret(data.key, data_dict.get("value"))
+        data_dict["value"] = normalized
     cfg = await AdminService.upsert_config(
-        db, key=data.key, data=data.model_dump(exclude={"key"}), updated_by=current_user.email,
+        db, key=data.key, data=data_dict, updated_by=current_user.email,
     )
-    await AdminService.create_change_log(db, data.key, None, cfg.value, current_user.email)
+    await AdminService.create_change_log(
+        db, data.key, None,
+        PlatformConfigService.mask_config_value(data.key, cfg.value), current_user.email,
+    )
     await AdminService.create_log(
         db, user_id=str(current_user.id), user_email=current_user.email,
         action="create_config", resource="system_config", resource_id=data.key,
@@ -189,15 +202,25 @@ async def update_config(
     existing = await AdminService.get_config(db, key)
     old_val = existing.value if existing else None
 
+    data_dict = data.model_dump(exclude_unset=True)
+    if key == SECRET_KEY_NAME:
+        normalized = PlatformConfigService.normalize_incoming_secret(key, data_dict.get("value"))
+        data_dict["value"] = normalized
     cfg = await AdminService.upsert_config(
-        db, key=key, data=data.model_dump(exclude_unset=True), updated_by=current_user.email,
+        db, key=key, data=data_dict, updated_by=current_user.email,
     )
     if old_val != cfg.value:
-        await AdminService.create_change_log(db, key, old_val, cfg.value, current_user.email)
+        # 审计日志同样掩码化，机密明文绝不入库
+        await AdminService.create_change_log(
+            db, key,
+            PlatformConfigService.mask_config_value(key, old_val),
+            PlatformConfigService.mask_config_value(key, cfg.value),
+            current_user.email,
+        )
     await AdminService.create_log(
         db, user_id=str(current_user.id), user_email=current_user.email,
         action="update_config", resource="system_config", resource_id=key,
-        detail=f"Updated config {key}: {cfg.value[:200] if cfg.value else ''}",
+        detail=f"Updated config {key}: {PlatformConfigService.mask_config_value(key, cfg.value) or ''}",
         ip_address=request.client.host if request.client else None,
     )
     return SystemConfigItem.model_validate(cfg)

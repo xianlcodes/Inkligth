@@ -77,3 +77,20 @@ export async function testEngine(engineId: string): Promise<AIEngineTestResult> 
 export async function setDefaultEngine(engineId: string): Promise<void> {
   await apiClient.post(`/ai-engines/${engineId}/set-default`)
 }
+
+
+// ---------------------------------------------------------------------------
+// 供应商预设（后台「系统配置」provider_presets 管理，下拉动态读取）
+// ---------------------------------------------------------------------------
+export interface ProviderPreset {
+  provider: string
+  label: string
+  base_url: string
+  model: string
+  free: boolean
+  note: string
+}
+
+export function getProviderPresets() {
+  return apiClient.get<{ presets: ProviderPreset[] }>('/ai-engines/provider-presets')
+}

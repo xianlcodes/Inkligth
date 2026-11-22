@@ -11,6 +11,8 @@ from app.models.note import Note
 from app.models.presentation import Presentation
 from app.models.reading_record import ReadingRecord
 from app.models.admin import OperationLog, SystemConfig, ConfigChangeLog
+from app.models.user_quota import UserQuota
+from app.models.ai_engine import AIEngine
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,36 @@ class AdminService:
         notes_r = await tencent_db.execute(notes_q)
         pres_r = await tencent_db.execute(pres_q)
 
+        # ---- 留存/激活/额度指标（2026-11 新增）----
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        week_ago, month_ago = now - timedelta(days=7), now - timedelta(days=30)
+        active_7d = await db.execute(
+            select(func.count(User.id)).where(User.last_login_at >= week_ago)
+        )
+        active_30d = await db.execute(
+            select(func.count(User.id)).where(User.last_login_at >= month_ago)
+        )
+        activated = await db.execute(
+            select(func.count(User.id)).where(User.tutorial_completed.is_(True))
+        )
+        own_engine = await db.execute(
+            select(func.count(func.distinct(AIEngine.user_id)))
+        )
+        # 额度汇总：SUM 可能因表不存在而失败（未跑迁移时），降级为 0
+        try:
+            quota_r = await db.execute(
+                select(
+                    func.coalesce(func.sum(UserQuota.free_translations), 0),
+                    func.coalesce(func.sum(UserQuota.used_count), 0),
+                )
+            )
+            quota_row = quota_r.one()
+            quota_remaining_total, quota_used_total = int(quota_row[0]), int(quota_row[1])
+        except Exception as e:
+            logger.warning("Quota aggregate failed (migration 006 not applied?): %s", e)
+            quota_remaining_total, quota_used_total = 0, 0
+
         return {
             "total_users": total_users_r.scalar() or 0,
             "total_literatures": total_lit_r.scalar() or 0,
@@ -50,6 +82,12 @@ class AdminService:
             "total_reading_literatures": reading_r.scalar() or 0,
             "total_notes": notes_r.scalar() or 0,
             "total_presentations": pres_r.scalar() or 0,
+            "active_users_7d": active_7d.scalar() or 0,
+            "active_users_30d": active_30d.scalar() or 0,
+            "activated_users": activated.scalar() or 0,
+            "users_with_own_engine": own_engine.scalar() or 0,
+            "free_quota_remaining_total": quota_remaining_total,
+            "free_quota_used_total": quota_used_total,
         }
 
     @staticmethod

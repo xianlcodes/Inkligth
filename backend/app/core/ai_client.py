@@ -44,19 +44,48 @@ def invalidate_user_ai_cache(user_id: str) -> None:
 
 
 async def has_user_ai_engine(user_id: str) -> bool:
-    """Check if user has a real AI engine in DB (not dummy fallback).
-    Returns False when user has no engine and no global fallback is set.
+    """严格判断用户是否配置了自己的 AI 引擎。
+
+    注意：与旧版不同，这里不再把 DEFAULT_AI_KEY（平台免费额度）算作
+    「已配置」——否则一旦平台配置了兜底 Key，所有未配引擎的用户都能
+    无限量使用非 PDF 的 AI 功能（文本翻译/解析/PPT），平台免费档模型
+    扛不住。平台免费额度仅限 PDF 文献翻译任务，由 QuotaService 控制。
     """
     try:
         async with AlibabaSessionLocal() as user_db:
             from app.services.ai_engine_service import AIEngineService
             engine = await AIEngineService.get_default_engine(user_db, user_id)
-        if engine:
-            return True
-    except Exception:
-        pass
-    # No user engine — use global fallback if configured
-    return bool(settings.DEFAULT_AI_KEY)
+        return engine is not None
+    except Exception as e:
+        logger.warning("has_user_ai_engine check failed for %s: %s", user_id, e)
+        return False
+
+
+async def has_pdf_translate_access(user_id: str) -> bool:
+    """PDF 文献翻译的准入判断：自有引擎，或平台免费额度 > 0。
+
+    返回 (allowed, source)：source = "own_engine" | "platform_quota"。
+    平台兜底凭据由管理员在后台「系统配置」的 platform_* 配置项管理。
+    """
+    if await has_user_ai_engine(user_id):
+        return True, "own_engine"
+    from app.services.platform_config_service import PlatformConfigService
+    from app.services.quota_service import QuotaService
+    cfg = await PlatformConfigService.resolve()
+    if not cfg["configured"]:
+        return False, "none"
+    remaining = await QuotaService.remaining(user_id)
+    if remaining > 0:
+        return True, "platform_quota"
+    return False, "none"
+
+
+async def get_pdf_translate_quota_summary(user_id: str) -> dict:
+    """给前端展示的额度摘要：是否自有引擎 + 平台额度剩余。"""
+    has_engine = await has_user_ai_engine(user_id)
+    from app.services.quota_service import QuotaService
+    summary = await QuotaService.get_summary(user_id)
+    return {"has_ai_engine": has_engine, **summary}
 
 
 async def get_cached_user_ai_client_and_model(
@@ -131,7 +160,7 @@ async def get_user_default_model(_db: AsyncSession, user_id: str) -> str:
         engine = await AIEngineService.get_default_engine(user_db, user_id)
     if engine:
         return engine.default_model
-    return settings.DEFAULT_AI_MODEL
+    return settings.PLATFORM_FALLBACK_MODEL
 
 
 # ============================================================
@@ -143,8 +172,14 @@ async def get_user_ai_credentials(user_id: str) -> tuple[str, str, str]:
     pdf2zh 会在子线程中通过新的事件循环调用翻译，无法复用主循环创建的
     AsyncOpenAI 客户端（httpx 连接池绑定到创建时的事件循环，跨循环复用会挂起）。
     因此这里返回原始凭据，由 Pdf2ZhTranslatorAdapter 每次翻译时新建客户端。
+
+    优先级：用户自有引擎（模型不限）→ 平台免费额度（模型/Key/地址由管理员在
+    后台「系统配置」的 platform_* 配置项管理，运行时生效；模型锁定免费档，
+    不会消耗平台账户余额）。额度扣减发生在任务创建路由（start_pdf_translate），
+    此处只做准入校验，避免 preview/并发等旁路重复扣费或绕过额度。
     """
     from app.core.ai_providers.provider_registry import AIProviderRegistry
+    from app.services.platform_config_service import PlatformConfigService
 
     async with AlibabaSessionLocal() as user_db:
         engine = await AIEngineService.get_default_engine(user_db, user_id)
@@ -166,10 +201,27 @@ async def get_user_ai_credentials(user_id: str) -> tuple[str, str, str]:
         )
         return api_key, base_url, engine.default_model
 
-    if settings.DEFAULT_AI_KEY:
-        return settings.DEFAULT_AI_KEY, settings.DEFAULT_AI_BASE_URL, settings.DEFAULT_AI_MODEL
+    # 平台免费额度兜底：配置由管理员后台管理；key 只在服务端使用，绝不下发前端、绝不写日志
+    cfg = await PlatformConfigService.resolve()
+    if not cfg["configured"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请先配置 AI 引擎后再使用此功能",
+        )
 
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="请先配置 AI 引擎后再使用此功能",
+    from app.services.quota_service import QuotaService
+    remaining = await QuotaService.remaining(user_id)
+    if remaining <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "免费体验额度已用完（每用户 1 篇文献）。"
+                "在「AI 设置」中配置自己的 API Key 即可无限使用"
+            ),
+        )
+
+    logger.info(
+        "get_user_ai_credentials: user=%s source=platform_quota model=%s",
+        user_id, cfg["model"],
     )
+    return cfg["key"], cfg["base_url"], cfg["model"]

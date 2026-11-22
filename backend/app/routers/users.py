@@ -19,7 +19,21 @@ PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$")
 
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: dict = Depends(get_current_user)):
-    return current_user
+    from app.core.ai_client import has_user_ai_engine
+    from app.services.quota_service import QuotaService
+
+    user_id = str(current_user.id)
+    # 额度信息是实时计算的扩展字段，不在 User 表上：组装进响应
+    data = UserResponse.model_validate(current_user).model_dump()
+    try:
+        data["has_ai_engine"] = await has_user_ai_engine(user_id)
+        summary = await QuotaService.get_summary(user_id)
+        data["free_translations"] = summary["remaining"]
+        data["free_translations_used"] = summary["used"]
+    except Exception as e:
+        # 额度查询失败不阻塞登录态返回，字段保持默认值
+        logger.warning("Failed to load quota info for %s: %s", user_id, e)
+    return data
 
 
 @router.patch("/me", response_model=UserResponse)

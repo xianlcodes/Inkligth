@@ -43,6 +43,9 @@
       </div>
     </section>
 
+    <!-- ══════════════ 新手任务卡（激活引导，完成后自动隐藏） ══════════════ -->
+    <OnboardingChecklist />
+
     <!-- ══════════════ Reading Activity ══════════════ -->
     <section class="section section-activity">
       <div class="section-bar">
@@ -185,13 +188,25 @@
           v-for="paper in featuredPapers"
           :key="paper.id"
           class="paper-card"
-          @click="openArxivLink(paper.arxiv_url)"
         >
           <span class="paper-tag">{{ paper.category }}</span>
           <h4 class="paper-title">{{ paper.title }}</h4>
           <div class="paper-footer">
             <span class="paper-authors">{{ paper.authors }}</span>
             <span class="paper-date">{{ paper.published_date }}</span>
+          </div>
+          <div class="paper-actions">
+            <el-button
+              size="small"
+              type="primary"
+              :loading="importingId === paper.id"
+              @click="importPaper(paper)"
+            >
+              一键导入翻译
+            </el-button>
+            <el-button size="small" link @click="openArxivLink(paper.arxiv_url)">
+              查看原文
+            </el-button>
           </div>
         </div>
       </div>
@@ -202,14 +217,36 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import OnboardingChecklist from '@/components/business/OnboardingChecklist.vue'
 import { getReadingStats, getCalendar, type ReadingStats, type CalendarDay } from '@/api/stats'
 import { fetchFeaturedPapers } from '@/api/featured'
 import type { FeaturedPaper } from '@/api/featured'
+import { importLiteratureFromUrl } from '@/api/literature'
 import { Collection, Checked, Clock, Calendar, Reading } from '@element-plus/icons-vue'
 import { formatDateOnly, getBeijingNow } from '@/utils/time'
 
 const authStore = useAuthStore()
+const router = useRouter()
+const importingId = ref<string | null>(null)
+
+/** 精选论文一键导入：下载 PDF 入库后直接进入阅读器，可立即用免费额度翻译 */
+async function importPaper(paper: FeaturedPaper) {
+  if (importingId.value) return
+  importingId.value = paper.id
+  try {
+    const resp = await importLiteratureFromUrl(paper.arxiv_url)
+    ElMessage.success('已导入文献库，正在提取文本…')
+    router.push(`/read/${resp.data.literature_id}`)
+  } catch (e: any) {
+    const raw = e.response?.data?.detail
+    ElMessage.error(typeof raw === 'string' ? raw : raw?.message || '导入失败，请稍后重试')
+  } finally {
+    importingId.value = null
+  }
+}
 
 const stats = ref<ReadingStats | null>(null)
 

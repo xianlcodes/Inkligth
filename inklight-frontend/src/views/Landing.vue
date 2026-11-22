@@ -257,7 +257,7 @@
         <!-- ═══ CTA ═══ -->
         <section class="il-cta">
           <h2>准备开始你的高效研究了吗？</h2>
-          <p>注册即用，按需配置 AI 引擎。让研墨成为你学术道路上的得力助手。</p>
+          <p>注册即送 1 篇文献免费翻译（保留原排版的双语对照）；也支持配置自己的 AI Key 无限使用。</p>
           <div class="il-cta-actions">
             <a href="/register" class="il-btn il-btn-primary il-btn-lg">免费开始使用</a>
             <a href="/login" class="il-btn il-btn-ghost il-btn-lg">登录</a>

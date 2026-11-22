@@ -20,6 +20,16 @@ MILESTONES: dict[int, int] = {
     365: 70,
 }
 
+# 签到里程碑额外赠送的「文献翻译额度」（篇）——让奖励与核心价值（翻译）挂钩。
+# 存储空间奖励保留；额度通过 QuotaService.add_free 发放。
+QUOTA_MILESTONES: dict[int, int] = {
+    7: 1,
+    30: 2,
+    90: 3,
+    180: 3,
+    365: 5,
+}
+
 
 class CheckInService:
     @staticmethod
@@ -86,6 +96,7 @@ class CheckInService:
             return {
                 "streak_days": existing.streak_days,
                 "reward_bytes": 0,
+                "reward_quota": 0,
                 "already_checked_in": True,
             }
 
@@ -98,6 +109,12 @@ class CheckInService:
             streak = 1
 
         reward = await CheckInService._get_milestone_reward(db, user_id, streak)
+        # 翻译额度里程碑：达到对应连续签到天数且从未领取过（用全时段最大连续天数判定）
+        quota_reward = 0
+        if streak in QUOTA_MILESTONES:
+            max_streak = await CheckInService._get_max_streak(db, user_id)
+            if max_streak < streak:
+                quota_reward = QUOTA_MILESTONES[streak]
 
         check_in_record = CheckIn(
             user_id=user_id,
@@ -115,9 +132,14 @@ class CheckInService:
 
         storage = await StorageService.get_storage(db, user_id)
 
+        if quota_reward > 0:
+            from app.services.quota_service import QuotaService
+            await QuotaService.add_free(user_id, quota_reward, reason="签到里程碑")
+
         return {
             "streak_days": streak,
             "reward_bytes": reward,
+            "reward_quota": quota_reward,
             "already_checked_in": False,
             "total_check_in_bonus": storage.check_in_bonus,
         }

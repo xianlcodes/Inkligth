@@ -11,6 +11,32 @@
       </div>
     </div>
 
+    <el-alert
+      v-if="authStore.user && !authStore.user.has_ai_engine"
+      type="success"
+      :closable="false"
+      show-icon
+      class="mb-4"
+    >
+      <template #title>
+        平台已赠送 {{ authStore.user.free_translations }} 篇文献免费翻译额度（上传文献后翻译时自动使用）。
+      </template>
+      <span class="text-sm">
+        配置自己的 AI Key 后不限量，并可解锁全文翻译、划词翻译、AI 解析、组会 PPT、学术写作等全部功能。
+      </span>
+    </el-alert>
+    <el-alert
+      v-else-if="authStore.user?.has_ai_engine"
+      type="info"
+      :closable="false"
+      show-icon
+      class="mb-4"
+    >
+      <template #title>
+        已配置自己的 AI Key：全部功能不限量使用。平台赠送的免费翻译额度仍然保留。
+      </template>
+    </el-alert>
+
     <el-skeleton v-if="store.loading" :rows="3" animated />
 
     <el-empty v-else-if="store.engines.length === 0" description="暂无引擎配置，请点击右上角添加" />
@@ -51,11 +77,12 @@
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="供应商" prop="provider">
           <el-select v-model="form.provider" filterable allow-create placeholder="请选择或输入供应商" @change="onProviderChange">
-            <el-option label="OpenAI" value="openai" />
-            <el-option label="DeepSeek" value="deepseek" />
-            <el-option label="Qwen (通义千问)" value="qwen" />
-            <el-option label="GLM (智谱)" value="glm" />
-            <el-option label="Agnes" value="agnes" />
+            <el-option
+              v-for="p in providers"
+              :key="p.provider"
+              :value="p.provider"
+              :label="p.label + (p.free ? ' · 免费' : '')"
+            />
           </el-select>
         </el-form-item>
 
@@ -101,6 +128,10 @@
           <el-button link type="primary" @click="$router.push('/tutorials')">可以看教程</el-button>
         </div>
 
+        <div v-if="selectedPresetNote && !testResult" class="mt-2">
+          <p class="text-xs text-slate-500">💡 {{ selectedPresetNote }}</p>
+        </div>
+
         <div v-if="testResult" class="mt-3">
           <el-alert :title="testResult.message" :type="testResult.success ? 'success' : 'error'" :closable="false" />
           <div v-if="testResult.models.length > 0" class="mt-2">
@@ -120,9 +151,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
-import type { AIEngine, AIEngineTestResult } from '@/api/aiEngine'
+import { useAuthStore } from '@/stores/auth'
+import { getProviderPresets, type AIEngine, type AIEngineTestResult, type ProviderPreset } from '@/api/aiEngine'
 
 const store = useAiEngineStore()
+const authStore = useAuthStore()
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editingId = ref<string | null>(null)
@@ -131,22 +164,30 @@ const testing = ref(false)
 const saving = ref(false)
 const testResult = ref<AIEngineTestResult | null>(null)
 
-const providerDefaults: Record<string, { apiBase: string; model: string }> = {
-  openai: { apiBase: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
-  deepseek: { apiBase: 'https://api.deepseek.com', model: 'deepseek-chat' },
-  qwen: { apiBase: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  glm: { apiBase: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4.7-flash' },
-  agnes: { apiBase: 'https://apihub.agnes-ai.com/v1/chat/completions', model: 'agnes-2.0-flash' },
-}
+// 预置供应商：默认内置一份（联网查证过的地址/模型），加载后由后台 provider_presets 覆盖
+const FALLBACK_PRESETS: ProviderPreset[] = [
+  { provider: 'glm', label: 'GLM (智谱)', base_url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4.7-flash', free: true, note: 'glm-4.7-flash 完全免费，注册即可用' },
+  { provider: 'siliconflow', label: '硅基流动 SiliconFlow', base_url: 'https://api.siliconflow.cn/v1', model: 'Qwen/Qwen2.5-7B-Instruct', free: true, note: '免费档含多个开源模型' },
+  { provider: 'openrouter', label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1', model: 'openrouter/free', free: true, note: '免费模型加 :free 后缀' },
+  { provider: 'qwen', label: 'Qwen (通义千问)', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', free: false, note: '新用户赠 100 万 tokens（90 天）' },
+  { provider: 'deepseek', label: 'DeepSeek', base_url: 'https://api.deepseek.com', model: 'deepseek-chat', free: false, note: '按量付费' },
+  { provider: 'agnes', label: 'Agnes', base_url: 'https://apihub.agnes-ai.com/v1', model: 'agnes-2.0-flash', free: true, note: '' },
+]
+
+const providers = ref<ProviderPreset[]>(FALLBACK_PRESETS)
+const selectedPresetNote = computed(() => {
+  const preset = providers.value.find((p) => p.provider === form.provider)
+  return preset?.note || ''
+})
 
 const apiBasePlaceholder = computed(() => {
   const key = form.provider?.toLowerCase()
-  return providerDefaults[key]?.apiBase || 'https://api.example.com/v1'
+  return providers.value.find((p) => p.provider === key)?.base_url || 'https://api.example.com/v1'
 })
 
 const modelPlaceholder = computed(() => {
   const key = form.provider?.toLowerCase()
-  return providerDefaults[key]?.model || 'model-name'
+  return providers.value.find((p) => p.provider === key)?.model || 'model-name'
 })
 
 const formRef = ref<FormInstance>()
@@ -176,8 +217,17 @@ const rules: FormRules = {
   default_model: [{ required: true, message: '请输入默认模型', trigger: 'blur' }],
 }
 
-onMounted(() => {
+onMounted(async () => {
   store.loadEngines()
+  // 后台 provider_presets 优先；加载失败保持内置预置
+  try {
+    const resp = await getProviderPresets()
+    if (resp.data.presets?.length) {
+      providers.value = resp.data.presets
+    }
+  } catch {
+    // 保持内置预置
+  }
 })
 
 function resetForm() {
@@ -193,10 +243,10 @@ function resetForm() {
 
 function onProviderChange(value: string) {
   const key = value?.toLowerCase()
-  const defaults = providerDefaults[key]
-  if (defaults && !isEdit.value) {
-    form.api_base = defaults.apiBase
-    form.default_model = defaults.model
+  const preset = providers.value.find((p) => p.provider === key)
+  if (preset && !isEdit.value) {
+    form.api_base = preset.base_url
+    form.default_model = preset.model
   }
 }
 

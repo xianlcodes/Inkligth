@@ -185,22 +185,46 @@
         </div>
       </el-header>
 
-      <!-- 公告栏 -->
+      <!-- 公告栏：多条垂直轮播 + 长文本跑马灯滚动，点击查看全文 -->
       <div v-if="headerAnnouncements.length > 0" class="flex-shrink-0">
-        <el-alert
-          v-for="ann in headerAnnouncements"
-          :key="ann.id"
-          :title="ann.title"
-          :type="ann.level as any"
-          :closable="true"
-          show-icon
-          class="rounded-none border-b"
-          @close="dismissAlert(ann.id)"
+        <el-carousel
+          direction="vertical"
+          :autoplay="4000"
+          :loop="true"
+          height="44px"
+          arrow="never"
+          :indicator-position="headerAnnouncements.length > 1 ? '' : 'none'"
+          class="ann-carousel"
         >
-          <template #default>
-            <span class="alert-content text-sm max-w-[600px] block truncate">{{ ann.content }}</span>
-          </template>
-        </el-alert>
+          <el-carousel-item v-for="ann in headerAnnouncements" :key="ann.id">
+            <el-alert
+              :title="ann.title"
+              :type="ann.level as any"
+              :closable="true"
+              show-icon
+              class="ann-alert rounded-none"
+              @close="dismissAlert(ann.id)"
+            >
+              <template #default>
+                <div class="ann-line">
+                  <span
+                    class="ann-content text-sm"
+                    :class="{ 'ann-marquee': isLongText(ann.content) }"
+                    title="点击查看全文"
+                    @click="detailAnnouncement = ann"
+                  >
+                    <span class="ann-inner" :style="marqueeStyle(ann.content)">{{ ann.content }}</span>
+                  </span>
+                  <span
+                    v-if="isLongText(ann.content)"
+                    class="ann-more text-xs"
+                    @click="detailAnnouncement = ann"
+                  >查看全文</span>
+                </div>
+              </template>
+            </el-alert>
+          </el-carousel-item>
+        </el-carousel>
       </div>
 
       <!-- 内容区 -->
@@ -232,6 +256,18 @@
         </el-button>
       </div>
     </div>
+  </el-dialog>
+
+  <!-- 公告全文弹窗 -->
+  <el-dialog
+    v-model="showAnnDetail"
+    :title="detailAnnouncement?.title || '公告'"
+    width="560px"
+  >
+    <div class="ann-detail-content">{{ detailAnnouncement?.content }}</div>
+    <template #footer>
+      <el-button @click="showAnnDetail = false">关闭</el-button>
+    </template>
   </el-dialog>
 </template>
 
@@ -366,6 +402,25 @@ function dismissAlert(id: string) {
   localStorage.setItem('dismissedAnnouncements', JSON.stringify([...dismissedIds.value]))
   headerAnnouncements.value = headerAnnouncements.value.filter(a => a.id !== id)
 }
+
+// ── 公告滚动/全文弹窗 ──
+const detailAnnouncement = ref<Announcement | null>(null)
+const showAnnDetail = computed({
+  get: () => detailAnnouncement.value !== null,
+  set: (v: boolean) => { if (!v) detailAnnouncement.value = null },
+})
+
+/** 超过 50 字视为长通知：跑马灯滚动 + 提供「查看全文」 */
+function isLongText(text?: string): boolean {
+  return (text?.length ?? 0) > 50
+}
+
+/** 跑马灯时长随文本长度变化（8~40 秒），保证长文本也能完整读完 */
+function marqueeStyle(text: string): Record<string, string> {
+  const seconds = Math.max(8, Math.min(40, Math.round((text.length || 0) * 0.3)))
+  return { animationDuration: `${seconds}s` }
+}
+
 
 function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer)
@@ -834,6 +889,73 @@ watchEffect(() => {
 }
 
 .alert-content { color: var(--text-secondary); }
+
+/* ─── 公告栏：轮播 + 长文本跑马灯 ─── */
+.ann-carousel {
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.ann-alert {
+  height: 44px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ann-alert :deep(.el-alert__content) {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px 6px 0;
+}
+
+.ann-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ann-content {
+  flex: 1;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.ann-marquee {
+  position: relative;
+}
+
+.ann-marquee .ann-inner {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: ann-scroll linear infinite;
+  will-change: transform;
+}
+
+.ann-alert:hover .ann-inner {
+  animation-play-state: paused;
+}
+
+@keyframes ann-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.ann-more {
+  flex-shrink: 0;
+  padding: 0 !important;
+}
+
+.ann-detail-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.8;
+  color: var(--text-primary, #1e293b);
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }

@@ -80,6 +80,16 @@ def start_scheduler():
         replace_existing=True,
         next_run_time=datetime.now() + timedelta(seconds=60),
     )
+    # 每天北京时间 10:00 召回邮件（总开关为 SystemConfig 的 recall_emails_enabled，默认关闭）
+    from app.tasks.recall_email import run_recall_emails
+    scheduler.add_job(
+        run_recall_emails,
+        trigger=CronTrigger(hour=10, minute=0, timezone=SCHEDULER_TIMEZONE),
+        id="daily_recall_emails",
+        name="Daily recall emails (switchable)",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
 
     scheduler.start()
     logger.warning("[Scheduler] started, next run at 02:00 (Asia/Shanghai)")

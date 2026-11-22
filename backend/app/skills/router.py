@@ -413,7 +413,7 @@ async def writing_chat(
     if not await has_user_ai_engine(str(current_user.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用学术写作功能"},
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"},
         )
 
     client, model = await get_cached_user_ai_client_and_model(db, str(current_user.id))

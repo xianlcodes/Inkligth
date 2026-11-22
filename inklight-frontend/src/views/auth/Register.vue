@@ -221,6 +221,10 @@
                 {{ loading ? '注册中...' : '创建账号' }}
               </el-button>
             </el-form-item>
+
+            <div class="quota-benefit">
+              🎁 注册即送 <strong>1 篇文献免费翻译</strong>（双语对照、保留原排版），登录后上传文献即可使用。
+            </div>
           </el-form>
 
           <div class="login-link-row">
@@ -324,8 +328,15 @@ async function handleRegister() {
       registerForm.agreedToTerms,
       registerForm.inviteCode || undefined,
     )
-    ElMessage.success('注册成功，请登录')
-    router.push('/login')
+    // 注册成功自动登录（密码在手，省一次手动登录）；失败回退到登录页
+    try {
+      await authStore.login(registerForm.email, registerForm.password)
+      ElMessage.success('注册成功！新用户赠送 1 篇文献免费翻译额度')
+      router.push('/dashboard')
+    } catch {
+      ElMessage.success('注册成功，请登录')
+      router.push('/login')
+    }
   } catch (e: any) {
     const detail = e.response?.data?.detail || '注册失败'
     ElMessage.error(detail)
@@ -907,6 +918,25 @@ onMounted(() => {
 
 .agree-text a:hover {
   text-decoration: underline;
+}
+
+/* ─── 免费额度提示 ─── */
+
+.quota-benefit {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-primary, #e8f2e2);
+  background: rgba(62, 142, 87, 0.08);
+  border: 1px dashed rgba(62, 142, 87, 0.45);
+  color: #3e8e57;
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.quota-benefit strong {
+  color: #2e7d4f;
 }
 
 /* ─── Submit Button ─── */

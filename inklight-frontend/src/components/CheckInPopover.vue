@@ -75,6 +75,7 @@
         <div class="rule-item">连续 180 天：+60MB</div>
         <div class="rule-item">连续 365 天：+70MB</div>
         <div class="rule-item rule-total">总计最多可获得 300MB 空间</div>
+        <div class="rule-item rule-total">连签 7/30/90/180/365 天，额外赠送 1/2/3/3/5 篇文献翻译额度</div>
       </div>
     </div>
   </el-popover>
@@ -146,7 +147,8 @@ async function handleCheckIn() {
   try {
     const result = await doCheckIn()
     const rewardText = result.reward_bytes > 0 ? `，获得 ${formatBytes(result.reward_bytes)} 空间` : ''
-    ElMessage.success(`签到成功！连续 ${result.streak_days} 天${rewardText}`)
+    const quotaText = result.reward_quota > 0 ? `，另赠 ${result.reward_quota} 篇翻译额度` : ''
+    ElMessage.success(`签到成功！连续 ${result.streak_days} 天${rewardText}${quotaText}`)
     await fetchStatus()
     emit('checked-in')
   } catch (e: any) {

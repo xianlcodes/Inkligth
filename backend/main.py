@@ -68,6 +68,20 @@ async def startup_event():
     except Exception:
         logging.getLogger(__name__).warning("TencentBase create_all failed", exc_info=True)
 
+    # 平台 AI 配置种子（幂等：后台「系统配置」出现 platform_* 四项，管理员可视化修改）
+    try:
+        from app.services.platform_config_service import PlatformConfigService
+        await PlatformConfigService.ensure_seeded()
+    except Exception:
+        logging.getLogger(__name__).warning("Platform config seed failed", exc_info=True)
+
+    # 内置教程种子（幂等：写入「免费获取 AI Key」指南，教程页不再是空壳）
+    try:
+        from app.tasks.tutorial_seed import ensure_seed_tutorials
+        await ensure_seed_tutorials()
+    except Exception:
+        logging.getLogger(__name__).warning("Tutorial seed failed", exc_info=True)
+
     # 清理重启后遗留的 stale task（跨进程/重启）
     try:
         from app.utils.task_store import task_store

@@ -123,6 +123,7 @@
                     <el-input
                       v-else
                       v-model="editValue"
+                      :placeholder="cfg.key === 'platform_ai_key' ? '显示的是掩码；保持不变请勿修改，粘贴新 Key 则替换' : ''"
                     />
                   </div>
 

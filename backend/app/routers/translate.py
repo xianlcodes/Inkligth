@@ -58,7 +58,7 @@ async def translate_text(
         t_client_ms = (time.perf_counter() - t_client_start) * 1000
 
         if not await has_user_ai_engine(str(current_user.id)):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"})
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"})
 
         translator = OpenAITranslator(client=ai_client, model=model)
 
@@ -115,7 +115,7 @@ async def translate_text_protected(
         t_client_ms = (time.perf_counter() - t_client_start) * 1000
 
         if not await has_user_ai_engine(str(current_user.id)):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "请先配置 AI 引擎后再使用翻译功能"})
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"})
 
         translator = OpenAITranslator(client=ai_client, model=model)
         formula_service = FormulaProtectionService()
@@ -197,7 +197,7 @@ async def translate_text_stream(
             t_client_ms = (time.perf_counter() - t_client_start) * 1000
 
             if not await has_user_ai_engine(str(current_user.id)):
-                yield f"data: [ERROR] 请先配置 AI 引擎后再使用翻译功能\n\n"
+                yield f"data: [ERROR] 此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用\n\n"
                 return
 
             translator = OpenAITranslator(client=ai_client, model=model, cancel_check=cancel_check)

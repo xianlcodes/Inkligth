@@ -13,6 +13,10 @@ interface User {
   tutorial_completed: boolean
   created_at: string
   updated_at: string
+  // 平台免费额度（/users/me 实时返回）
+  has_ai_engine: boolean      // 是否已配置自己的 AI 引擎（自配 Key 无限量）
+  free_translations: number   // 平台免费额度剩余（篇）
+  free_translations_used: number
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -43,6 +47,9 @@ export const useAuthStore = defineStore('auth', () => {
       tutorial_completed: false,
       created_at: '',
       updated_at: '',
+      has_ai_engine: false,
+      free_translations: 0,
+      free_translations_used: 0,
     }
     try {
       await fetchUser()

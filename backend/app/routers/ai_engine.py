@@ -21,6 +21,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ai-engines"])
 
 
+@router.get("/provider-presets")
+async def get_provider_presets(current_user: User = Depends(get_current_user)):
+    """预置供应商列表（用户 AI 设置页下拉动态读取）。
+
+    数据存于系统配置 provider_presets（管理员可在后台编辑 JSON）；
+    不含任何 Key，仅名称/地址/模型等公开信息，登录用户可读。
+    """
+    from app.services.platform_config_service import PlatformConfigService
+    presets = await PlatformConfigService.get_provider_presets()
+    return {"presets": presets}
+
+
 def _engine_to_response(engine) -> AIEngineResponse:
     try:
         decrypted = decrypt_api_key(engine.api_key)
