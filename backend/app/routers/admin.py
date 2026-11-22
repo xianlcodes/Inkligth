@@ -24,9 +24,7 @@ from app.schemas.admin import (
     SystemConfigUpdate,
     ConfigChangeLogItem,
     ConfigChangeLogListResponse,
-    SystemLogFileItem,
     SystemLogFileStats,
-    SystemLogFileListResponse,
     SystemLogContentResponse,
     SystemLogStatsResponse,
     SystemLogLevelResponse,
@@ -240,17 +238,6 @@ async def get_config_history(
 # ---------------------------------------------------------------------------
 # System logs（应用运行日志在线查看；与操作审计 /logs 不同）
 # ---------------------------------------------------------------------------
-@router.get("/system-logs/files", response_model=SystemLogFileListResponse)
-async def list_system_log_files(
-    current_user: User = Depends(get_current_user),
-):
-    """列出可在线查看的应用日志文件（app.log 及按天滚动副本）。"""
-    _check_admin(current_user)
-    return SystemLogFileListResponse(
-        files=[SystemLogFileItem.model_validate(f) for f in LogViewerService.list_files()]
-    )
-
-
 @router.get("/system-logs/content", response_model=SystemLogContentResponse)
 async def read_system_log_content(
     name: str = Query(..., description="日志文件名，如 app.log"),

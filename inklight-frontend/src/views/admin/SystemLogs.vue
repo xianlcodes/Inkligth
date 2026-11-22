@@ -6,95 +6,71 @@
       <span class="section-accent">SYSTEM LOGS</span>
     </div>
 
-    <!-- 概览统计：各文件错误/警告计数 -->
-    <div class="flex flex-wrap gap-3 mb-4">
-      <div
-        v-for="f in files"
-        :key="f.name"
-        class="stats-card"
-        :class="{ active: f.name === selectedFile }"
-        @click="selectedFile = f.name"
-      >
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <div class="text-sm font-semibold">{{ f.name }}</div>
-            <div class="text-xs text-slate-500">{{ formatSize(f.size_bytes) }}</div>
-          </div>
-          <div class="flex flex-col gap-1 text-xs">
-            <el-tag type="danger" size="small">ERROR {{ f.error_count }}</el-tag>
-            <el-tag type="warning" size="small">WARN {{ f.warning_count }}</el-tag>
-          </div>
-        </div>
-        <div v-if="f.name !== 'app.log'" class="mt-2 text-right">
-          <el-button size="small" text type="danger" @click.stop="removeLogFile(f.name)">删除</el-button>
-        </div>
-      </div>
+    <!-- ① 今天的状态：一眼看出系统有没有问题 -->
+    <el-alert
+      :type="bannerType"
+      :closable="false"
+      show-icon
+      class="mb-4"
+    >
+      <template #title>
+        <span class="font-semibold">{{ bannerText }}</span>
+      </template>
+      <span v-if="todayErrors > 0" class="text-sm">
+        点击下方「只看：错误」可以快速筛出这些报错；用户反馈问题时，让 TA 提供报错旁边的 request_id。
+      </span>
+    </el-alert>
 
-      <!-- 日志级别 -->
-      <div class="stats-card" style="min-width: 200px">
-        <div class="text-sm font-semibold mb-1">日志级别</div>
-        <el-select
-          v-model="currentLevel"
-          size="small"
-          style="width: 100%"
-          @change="changeLevel"
+    <!-- ② 看哪一天的日志 -->
+    <div class="flex flex-wrap items-center gap-3 mb-3">
+      <span class="text-sm text-slate-500">查看：</span>
+      <el-radio-group v-model="selectedFile">
+        <el-radio-button value="app.log">今天（实时）</el-radio-button>
+        <el-radio-button v-for="f in olderFiles" :key="f.name" :value="f.name">
+          {{ fileLabel(f) }}
+        </el-radio-button>
+      </el-radio-group>
+
+      <div class="ml-auto flex items-center gap-2">
+        <el-switch v-model="debugMode" active-text="排查模式" />
+        <el-tooltip
+          content="排查模式：记录每个请求的详细过程，方便定位问题；平时请保持关闭，避免日志过多。重启服务后会自动回到正常模式。"
+          placement="top"
         >
-          <el-option v-for="lv in ['DEBUG', 'INFO', 'WARNING', 'ERROR']" :key="lv" :value="lv" :label="lv" />
-        </el-select>
-        <div class="text-xs text-slate-400 mt-1">重启后回退到 .env 配置</div>
+          <el-icon class="text-slate-400 cursor-help"><QuestionFilled /></el-icon>
+        </el-tooltip>
       </div>
     </div>
 
-    <div class="flex flex-wrap gap-3 mb-4 items-center">
-      <el-select v-model="filterLevel" style="width: 130px" clearable placeholder="级别" @change="loadContent">
-        <el-option label="全部级别" value="" />
-        <el-option label="ERROR" value="ERROR" />
-        <el-option label="WARNING" value="WARNING" />
-        <el-option label="INFO" value="INFO" />
-        <el-option label="DEBUG" value="DEBUG" />
-      </el-select>
+    <!-- ③ 筛选和操作 -->
+    <div class="flex flex-wrap items-center gap-3 mb-3">
+      <span class="text-sm text-slate-500">只看：</span>
+      <el-radio-group v-model="filterLevel" @change="loadContent">
+        <el-radio-button value="">全部</el-radio-button>
+        <el-radio-button value="ERROR">错误</el-radio-button>
+        <el-radio-button value="WARNING">警告</el-radio-button>
+      </el-radio-group>
 
       <el-input
         v-model="filterKeyword"
-        placeholder="关键词（request_id / task_id / 报错内容...）"
+        placeholder="按内容搜索（如 request_id、报错文字）"
         clearable
-        style="width: 320px"
+        style="width: 300px"
         @keyup.enter="loadContent"
         @clear="loadContent"
       />
 
-      <el-select v-model="lineCount" style="width: 120px" @change="loadContent">
-        <el-option v-for="n in [200, 500, 1000, 2000]" :key="n" :value="n" :label="`最近 ${n} 行`" />
-      </el-select>
-
-      <el-button type="primary" :loading="loading" @click="loadContent">
-        <el-icon class="mr-1"><Refresh /></el-icon>刷新
+      <el-button type="primary" :loading="loading" @click="loadContent">刷新</el-button>
+      <el-button @click="downloadLog">下载这份日志</el-button>
+      <el-button v-if="selectedFile === 'app.log'" type="warning" plain @click="clearToday">
+        清空今天的日志
       </el-button>
+      <el-button v-else type="danger" plain @click="removeOlder">删除这份历史日志</el-button>
 
-      <el-button :disabled="!selectedFile" @click="downloadLog">
-        <el-icon class="mr-1"><Download /></el-icon>下载
-      </el-button>
-
-      <el-button
-        v-if="selectedFile"
-        type="warning"
-        plain
-        @click="clearSelectedLog"
-      >
-        清空当前文件
-      </el-button>
-
-      <div class="ml-auto flex items-center gap-2">
-        <span class="text-sm text-slate-500">自动刷新</span>
-        <el-switch v-model="autoRefresh" />
-      </div>
+      <el-switch v-model="autoRefresh" active-text="自动刷新（10秒）" class="ml-auto" />
     </div>
 
-    <div v-if="contentMeta" class="text-xs text-slate-500 mb-2">
-      共 {{ contentMeta.total_lines }} 行，显示过滤后最近 {{ contentMeta.returned_lines }} 行
-      <el-tag v-if="contentMeta.truncated" type="warning" size="small" class="ml-2">已按上限截断</el-tag>
-    </div>
-
+    <!-- ④ 日志内容 -->
     <div v-loading="loading" class="log-viewer">
       <pre class="log-pre"><code><span
         v-for="(line, i) in logLines"
@@ -102,15 +78,18 @@
         :class="lineClass(line)"
       >{{ line }}
 </span></code></pre>
-      <el-empty v-if="!loading && logLines.length === 0" description="暂无日志" />
+      <el-empty
+        v-if="!loading && logLines.length === 0"
+        :description="emptyText"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Download } from '@element-plus/icons-vue'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import {
   getSystemLogStats,
   getSystemLogContent,
@@ -121,23 +100,64 @@ import {
   type SystemLogFileStats,
 } from '@/api/admin'
 
+/** 显示给用户的行数上限（后端单次最多 2000 行） */
+const LINES = 800
+
 const files = ref<SystemLogFileStats[]>([])
-const selectedFile = ref('')
-const currentLevel = ref('INFO')
+const selectedFile = ref('app.log')
+const debugMode = ref(false)
 const filterLevel = ref('')
 const filterKeyword = ref('')
-const lineCount = ref(500)
 const loading = ref(false)
 const autoRefresh = ref(false)
 const logLines = ref<string[]>([])
 const contentMeta = ref<{ total_lines: number; returned_lines: number; truncated: boolean } | null>(null)
 
 let refreshTimer: number | null = null
+let debugModeInternal = false // 防止 watch 回环
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+const olderFiles = computed(() =>
+  files.value
+    .filter((f) => f.name !== 'app.log')
+    .sort((a, b) => b.name.localeCompare(a.name)),
+)
+
+const todayStats = computed(() => files.value.find((f) => f.name === 'app.log'))
+
+const todayErrors = computed(() => todayStats.value?.error_count ?? 0)
+const todayWarnings = computed(() => todayStats.value?.warning_count ?? 0)
+
+const bannerType = computed<'success' | 'warning' | 'error'>(() => {
+  if (todayErrors.value > 0) return 'error'
+  if (todayWarnings.value > 0) return 'warning'
+  return 'success'
+})
+
+const bannerText = computed(() => {
+  if (!todayStats.value) return '正在加载今天的状态…'
+  if (todayErrors.value > 0) {
+    return `今天有 ${todayErrors.value} 个错误、${todayWarnings.value} 条警告`
+  }
+  if (todayWarnings.value > 0) {
+    return `今天没有错误，但有 ${todayWarnings.value} 条警告（警告一般不影响使用）`
+  }
+  return '今天一切正常，没有错误'
+})
+
+const emptyText = computed(() =>
+  filterLevel.value || filterKeyword.value
+    ? '没有符合筛选条件的日志，试试清空筛选条件'
+    : selectedFile.value === 'app.log'
+      ? '今天还没有日志'
+      : '这份历史日志是空的',
+)
+
+/** app.log.2026-11-19 → 「11月19日 · 1个错误」 */
+function fileLabel(f: SystemLogFileStats): string {
+  const m = f.name.match(/^app\.log\.(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return f.name
+  const date = `${parseInt(m[2], 10)}月${parseInt(m[3], 10)}日`
+  return f.error_count > 0 ? `${date} · ${f.error_count}个错误` : date
 }
 
 function lineClass(line: string): string {
@@ -151,9 +171,14 @@ async function loadStats() {
   try {
     const resp = await getSystemLogStats()
     files.value = resp.data.files
-    currentLevel.value = resp.data.log_level
-    if (!selectedFile.value && files.value.length > 0) {
-      selectedFile.value = files.value[0].name
+    // 排查模式开关与后端实际级别对齐（避免和别的管理员操作打架）
+    const backendDebug = resp.data.log_level === 'DEBUG'
+    if (backendDebug !== debugModeInternal) {
+      debugModeInternal = backendDebug
+      debugMode.value = backendDebug
+    }
+    if (!files.value.some((f) => f.name === selectedFile.value)) {
+      selectedFile.value = 'app.log'
     }
   } catch {
     files.value = []
@@ -161,12 +186,11 @@ async function loadStats() {
 }
 
 async function loadContent() {
-  if (!selectedFile.value) return
   loading.value = true
   try {
     const resp = await getSystemLogContent({
       name: selectedFile.value,
-      lines: lineCount.value,
+      lines: LINES,
       level: filterLevel.value || undefined,
       keyword: filterKeyword.value || undefined,
     })
@@ -189,66 +213,67 @@ async function refreshAll() {
   await loadContent()
 }
 
-async function changeLevel(level: string) {
-  if (!level) return
+/** 排查模式开关 = 全局日志级别 INFO ↔ DEBUG */
+watch(debugMode, async (on) => {
+  if (on === debugModeInternal) return
+  const target = on ? 'DEBUG' : 'INFO'
   try {
-    await ElMessageBox.confirm(
-      `确认把日志级别调整为 ${level}？DEBUG 会显著增加日志量，排查完请记得改回 INFO。`,
-      '调整日志级别',
-      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' },
+    await setSystemLogLevel(target)
+    debugModeInternal = on
+    ElMessage.success(
+      on
+        ? '已开启排查模式：日志会详细记录每个请求，排查完请记得关闭'
+        : '已回到正常模式',
     )
   } catch {
-    currentLevel.value = files.value.length ? (await getSystemLogStats()).data.log_level : 'INFO'
-    return
+    debugModeInternal = !on
+    debugMode.value = !on
+    ElMessage.error('切换失败，请稍后重试')
   }
-  try {
-    await setSystemLogLevel(level)
-    currentLevel.value = level
-    ElMessage.success(`日志级别已调整为 ${level}（立即生效，重启后回退）`)
-  } catch {
-    ElMessage.error('调整失败，请稍后重试')
-    await loadStats()
-  }
-}
+})
 
-async function clearSelectedLog() {
-  if (!selectedFile.value) return
+async function clearToday() {
   try {
     await ElMessageBox.confirm(
-      `确认清空 ${selectedFile.value} 的全部内容？此操作不可恢复。`,
-      '清空日志文件',
-      { confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning' },
+      '将删除今天日志的全部内容，只保留一条「谁清空的」记录。清空前建议先点「下载这份日志」留个备份。确定继续吗？',
+      '清空今天的日志',
+      { confirmButtonText: '清空', cancelButtonText: '先不清', type: 'warning' },
     )
   } catch { return }
   try {
-    await clearSystemLog(selectedFile.value)
-    ElMessage.success('日志文件已清空')
+    await clearSystemLog('app.log')
+    ElMessage.success('已清空')
     await refreshAll()
   } catch {
     ElMessage.error('清空失败，请稍后重试')
   }
 }
 
-async function removeLogFile(name: string) {
+async function removeOlder() {
+  const name = selectedFile.value
   try {
     await ElMessageBox.confirm(
-      `确认删除历史日志文件 ${name}？此操作不可恢复。`,
-      '删除日志文件',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'error' },
+      `将永久删除这份历史日志（${fileLabelByName(name)}）。删除后无法恢复，确定继续吗？`,
+      '删除历史日志',
+      { confirmButtonText: '删除', cancelButtonText: '先不删', type: 'error' },
     )
   } catch { return }
   try {
     await deleteSystemLog(name)
-    ElMessage.success(`已删除 ${name}`)
-    if (selectedFile.value === name) selectedFile.value = 'app.log'
+    ElMessage.success('已删除')
+    selectedFile.value = 'app.log'
     await refreshAll()
   } catch {
     ElMessage.error('删除失败，请稍后重试')
   }
 }
 
+function fileLabelByName(name: string): string {
+  const f = files.value.find((x) => x.name === name)
+  return f ? fileLabel(f) : name
+}
+
 async function downloadLog() {
-  if (!selectedFile.value) return
   try {
     const resp = await getSystemLogBlob(selectedFile.value)
     const url = URL.createObjectURL(resp.data)
@@ -262,9 +287,7 @@ async function downloadLog() {
   }
 }
 
-onMounted(async () => {
-  await refreshAll()
-})
+onMounted(refreshAll)
 
 onUnmounted(() => {
   if (refreshTimer !== null) window.clearInterval(refreshTimer)
@@ -276,10 +299,7 @@ watch(autoRefresh, (on) => {
     refreshTimer = null
   }
   if (on) {
-    refreshTimer = window.setInterval(async () => {
-      await loadStats()
-      await loadContent()
-    }, 10_000)
+    refreshTimer = window.setInterval(refreshAll, 10_000)
   }
 })
 
@@ -287,31 +307,12 @@ watch(selectedFile, loadContent)
 </script>
 
 <style scoped>
-.stats-card {
-  background: var(--bg-primary, #fff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 8px;
-  padding: 10px 14px;
-  min-width: 180px;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-.stats-card:hover {
-  border-color: var(--el-color-primary, #409eff);
-}
-
-.stats-card.active {
-  border-color: var(--el-color-primary, #409eff);
-  box-shadow: 0 0 0 1px var(--el-color-primary, #409eff) inset;
-}
-
 .log-viewer {
   background: var(--bg-primary, #fff);
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 8px;
   min-height: 420px;
-  max-height: 70vh;
+  max-height: 65vh;
   overflow: auto;
 }
 

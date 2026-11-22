@@ -147,10 +147,6 @@ class SystemLogFileItem(BaseModel):
     modified_at: datetime
 
 
-class SystemLogFileListResponse(BaseModel):
-    files: list[SystemLogFileItem]
-
-
 class SystemLogContentResponse(BaseModel):
     name: str
     total_lines: int      # 文件总行数
