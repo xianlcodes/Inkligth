@@ -26,6 +26,9 @@ logger = logging.getLogger(__name__)
 
 SECRET_KEY_NAME = "platform_ai_key"
 
+# 配置项在管理页的分组归属：其余键归入「平台免费额度」卡片
+RECALL_SWITCH_KEY = "recall_emails_enabled"
+
 PROVIDER_PRESETS_KEY = "provider_presets"
 
 DEFAULT_PROVIDER_PRESETS = [
@@ -47,6 +50,7 @@ DEFAULT_PROVIDER_PRESETS = [
 
 
 _CONFIG_LABELS = {
+    "recall_emails_enabled": "自动召回邮件",
     PROVIDER_PRESETS_KEY: "供应商预设列表",
     "platform_ai_key": "平台兜底 API Key",
     "platform_ai_base_url": "平台兜底服务地址",
@@ -55,6 +59,10 @@ _CONFIG_LABELS = {
 }
 
 _CONFIG_DESCRIPTIONS = {
+    "recall_emails_enabled": (
+        "每天 10:00 自动发送提醒邮件：注册满 3 天未上传文献的用户，以及 30~60 天未登录的用户。"
+        "每个用户每种邮件最多收到一封，不会重复骚扰。"
+    ),
     PROVIDER_PRESETS_KEY: (
         "用户 AI 设置页下拉的预置供应商（JSON 数组）。"
         '每项格式：{"provider":"英文标识","label":"显示名","base_url":"API地址","model":"默认模型","free":true/false,"note":"说明"}。'
@@ -67,6 +75,7 @@ _CONFIG_DESCRIPTIONS = {
 }
 
 _BUILTIN_DEFAULTS = {
+    "recall_emails_enabled": "false",
     PROVIDER_PRESETS_KEY: json.dumps(DEFAULT_PROVIDER_PRESETS, ensure_ascii=False, indent=2),
     "platform_ai_key": "",  # 默认无：未配置时平台免费额度停用
     "platform_ai_base_url": "https://open.bigmodel.cn/api/paas/v4",
@@ -99,12 +108,25 @@ class PlatformConfigService:
                     )
                 ).scalars().all()
                 missing = set(_CONFIG_LABELS) - set(existing)
+                category_of = {
+                    PROVIDER_PRESETS_KEY: "platform",
+                    SECRET_KEY_NAME: "platform",
+                    "platform_ai_base_url": "platform",
+                    "platform_ai_model": "platform",
+                    "platform_free_translations": "platform",
+                    "recall_emails_enabled": "notification",
+                }
+                type_of = {
+                    PROVIDER_PRESETS_KEY: "textarea",
+                    "platform_free_translations": "number",
+                    "recall_emails_enabled": "toggle",
+                }
                 for key in sorted(missing):
                     db.add(SystemConfig(
                         key=key,
-                        value=_BUILTIN_DEFAULTS[key] if key != SECRET_KEY_NAME else None,  # presets 为 JSON 文本
-                        category="platform",
-                        config_type=("textarea" if key == PROVIDER_PRESETS_KEY else "number" if key == "platform_free_translations" else "text"),
+                        value=_BUILTIN_DEFAULTS[key] if key != SECRET_KEY_NAME else None,
+                        category=category_of.get(key, "general"),
+                        config_type=type_of.get(key, "text"),
                         label=_CONFIG_LABELS[key],
                         description=_CONFIG_DESCRIPTIONS[key],
                         is_critical=key == SECRET_KEY_NAME,
