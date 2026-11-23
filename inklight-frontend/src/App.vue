@@ -76,6 +76,34 @@
         </el-button>
       </div>
 
+      <!-- 免费翻译额度：让用户随时看到自己的额度状态 -->
+      <div class="sidebar-quota" v-if="authStore.isLoggedIn && authStore.user">
+        <div class="sidebar-quota-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide mb-2">
+          <el-icon :size="14"><MagicStick /></el-icon>
+          <span>免费翻译额度</span>
+        </div>
+        <div v-if="authStore.user.has_ai_engine" class="sidebar-quota-text flex items-center gap-1_5">
+          <el-icon :size="14" color="#16a34a"><Checked /></el-icon>
+          <span class="text-sm font-medium">自有 Key · 无限量</span>
+        </div>
+        <template v-else>
+          <div class="sidebar-quota-text flex items-baseline gap-0_5">
+            <span class="text-lg font-bold">{{ authStore.user.free_translations ?? 0 }}</span>
+            <span class="text-xs">篇可翻译</span>
+          </div>
+          <div
+            class="sidebar-quota-remaining text-xs mt-0_5"
+            :class="{ warning: (authStore.user.free_translations ?? 0) <= 0 }"
+          >
+            {{ (authStore.user?.free_translations ?? 0) > 0 ? '上传文献即可使用' : '额度已用完' }}
+          </div>
+          <el-button size="small" text type="primary" class="mt-1 quota-go-btn" @click="goQuotaTarget">
+            {{ (authStore.user?.free_translations ?? 0) > 0 ? '去翻译文献' : '去配置 AI Key' }}
+            <el-icon :size="12"><ArrowRight /></el-icon>
+          </el-button>
+        </template>
+      </div>
+
       <div class="sidebar-storage" v-if="storageInfo">
         <div class="sidebar-storage-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide mb-2">
           <el-icon :size="14"><FolderOpened /></el-icon>
@@ -308,6 +336,8 @@ import {
   ChatDotSquare,
   CopyDocument,
   ArrowRight,
+  MagicStick,
+  Checked,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -395,6 +425,10 @@ async function loadHeaderAnnouncements() {
   } catch {
     headerAnnouncements.value = []
   }
+}
+
+function goQuotaTarget() {
+  router.push((authStore.user?.free_translations ?? 0) > 0 ? '/literature' : '/settings/ai')
 }
 
 function dismissAlert(id: string) {
@@ -721,6 +755,34 @@ watchEffect(() => {
 
 .sidebar-storage-remaining { color: #8a7a6c; }
 .sidebar-storage-remaining.warning { color: #f87171; font-weight: 500; }
+
+/* ── Sidebar 免费翻译额度 ── */
+.sidebar-quota {
+  padding: 12px 16px;
+  border-top: 1px solid #3d332c;
+  background: #1e1916;
+  flex-shrink: 0;
+}
+
+.sidebar-quota-header {
+  color: #8a7a6c;
+}
+
+.sidebar-quota-header .el-icon { color: #6b5d53; }
+
+.sidebar-quota-text {
+  color: #c4b8a8;
+}
+
+.sidebar-quota-text .text-lg { color: #e8dfD3; }
+
+.sidebar-quota-remaining { color: #8a7a6c; }
+.sidebar-quota-remaining.warning { color: #f87171; font-weight: 500; }
+
+.quota-go-btn {
+  padding-left: 0 !important;
+  color: #38bdf8 !important;
+}
 
 /* ── Sidebar QQ group ── */
 .sidebar-qq-group {

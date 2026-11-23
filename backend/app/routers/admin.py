@@ -5,6 +5,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_user_db as get_db, get_tencent_db
@@ -35,6 +36,8 @@ from app.schemas.admin import (
 from app.services.admin_service import AdminService
 from app.services.log_viewer_service import LogViewerService
 from app.services.platform_config_service import PlatformConfigService, SECRET_KEY_NAME
+from app.models.recall_email_log import RecallEmailLog
+from app.services.email_service import _send_email
 from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -368,3 +371,64 @@ async def delete_system_log_file(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     return {"message": f"已删除 {name}"}
+
+
+class RecallSendRequest(BaseModel):
+    recall_type: str
+    user_ids: list[str]
+
+
+@router.post("/recall-emails/send")
+async def send_recall_emails_manually(
+    payload: RecallSendRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """管理员手动向指定用户发送召回邮件（不受每日自动开关限制，仍防重）。"""
+    _check_admin(current_user)
+    from app.tasks.recall_email import RECALL_TYPES, render_recall_email
+
+    if payload.recall_type not in RECALL_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="未知的召回类型")
+    user_ids = list(dict.fromkeys(uid for uid in payload.user_ids if uid))[:200]
+    if not user_ids:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请选择至少一位用户")
+
+    import asyncio
+    from app.services.email_service import _send_email as _sync_send
+
+    subject, html, text = await render_recall_email(payload.recall_type)
+    sent, failed, errors = 0, 0, []
+    try:
+        for uid in user_ids:
+            try:
+                user = await UserService.get_user_by_id(db, uid)
+                if not user or not getattr(user, "email", None):
+                    failed += 1
+                    errors.append(f"{uid}: 无邮箱或用户不存在")
+                    continue
+                ok, msg = await asyncio.to_thread(_sync_send, user.email, subject, html, text)
+                if ok:
+                    db.add(RecallEmailLog(user_id=str(user.id), recall_type=payload.recall_type))
+                    await db.commit()
+                    sent += 1
+                else:
+                    failed += 1
+                    errors.append(f"{user.email}: {msg[:80]}")
+            except Exception as e:
+                failed += 1
+                errors.append(f"{uid}: {str(e)[:80]}")
+
+        await AdminService.create_log(
+            db, user_id=str(current_user.id), user_email=current_user.email,
+            action="send_recall_email", resource="recall_email", resource_id=payload.recall_type,
+            detail=f"手动发送召回邮件 type={payload.recall_type} sent={sent} failed={failed}",
+            ip_address=request.client.host if request.client else None,
+        )
+        await db.commit()
+    except Exception as e:
+        logger.error("Manual recall send failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"发送失败: {str(e)[:150]}")
+
+    return {"sent": sent, "failed": failed, "total": len(user_ids), "errors": errors[:10]}

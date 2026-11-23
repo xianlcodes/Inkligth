@@ -50,6 +50,10 @@ DEFAULT_PROVIDER_PRESETS = [
 
 
 _CONFIG_LABELS = {
+    "recall_no_upload_subject": "召回邮件标题：未上传提醒",
+    "recall_no_upload_body": "召回邮件正文：未上传提醒（HTML）",
+    "recall_inactive_subject": "召回邮件标题：长期未登录",
+    "recall_inactive_body": "召回邮件正文：长期未登录（HTML）",
     "recall_emails_enabled": "自动召回邮件",
     PROVIDER_PRESETS_KEY: "供应商预设列表",
     "platform_ai_key": "平台兜底 API Key",
@@ -59,6 +63,10 @@ _CONFIG_LABELS = {
 }
 
 _CONFIG_DESCRIPTIONS = {
+    "recall_no_upload_subject": "发给「注册后一直没有使用」用户的邮件标题。留空使用内置默认文案。",
+    "recall_no_upload_body": "发给「注册后一直没有使用」用户的邮件正文（HTML，可直接改文字）。留空使用内置默认文案。",
+    "recall_inactive_subject": "发给「30~60 天未登录」用户的邮件标题。留空使用内置默认文案。",
+    "recall_inactive_body": "发给「30~60 天未登录」用户的邮件正文（HTML，可直接改文字）。留空使用内置默认文案。",
     "recall_emails_enabled": (
         "每天 10:00 自动发送提醒邮件：注册满 3 天未上传文献的用户，以及 30~60 天未登录的用户。"
         "每个用户每种邮件最多收到一封，不会重复骚扰。"
@@ -75,6 +83,10 @@ _CONFIG_DESCRIPTIONS = {
 }
 
 _BUILTIN_DEFAULTS = {
+    "recall_no_upload_subject": "你的免费文献翻译额度还在，上传第一篇文献试试",
+    "recall_no_upload_body": "<div style=\"font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;\"><h2 style=\"color:#2e7d4f;\">hi，欢迎来到研墨</h2><p>你的账号还没有上传过文献。</p><p>账号里赠送的 <strong>1 篇文献免费翻译额度</strong> 仍然有效——上传一篇 PDF，就能得到保留原排版的双语对照译文。</p><p style=\"margin:24px 0;\"><a href=\"https://www.inklight.cn/literature\" style=\"background:#2e7d4f;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;\">上传文献并翻译</a></p><p style=\"color:#64748b;font-size:13px;\">如果不想再收到此类邮件，请回复本邮件告知，我们会为你关闭。</p></div>",
+    "recall_inactive_subject": "好久不见，研墨的新变化等你回来",
+    "recall_inactive_body": "<div style=\"font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;\"><h2 style=\"color:#2e7d4f;\">好久不见</h2><p>你已经有一段时间没有登录研墨了。</p><p>这阵子我们改进了文献翻译（保留原排版的双语对照）、AI 精读问答和组会 PPT 生成，上传一篇 PDF 就能直接用。</p><p style=\"margin:24px 0;\"><a href=\"https://www.inklight.cn/dashboard\" style=\"background:#2e7d4f;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;\">回到研墨</a></p><p style=\"color:#64748b;font-size:13px;\">如果不想再收到此类邮件，请回复本邮件告知，我们会为你关闭。</p></div>",
     "recall_emails_enabled": "false",
     PROVIDER_PRESETS_KEY: json.dumps(DEFAULT_PROVIDER_PRESETS, ensure_ascii=False, indent=2),
     "platform_ai_key": "",  # 默认无：未配置时平台免费额度停用
@@ -109,6 +121,10 @@ class PlatformConfigService:
                 ).scalars().all()
                 missing = set(_CONFIG_LABELS) - set(existing)
                 category_of = {
+                    "recall_no_upload_subject": "notification",
+                    "recall_no_upload_body": "notification",
+                    "recall_inactive_subject": "notification",
+                    "recall_inactive_body": "notification",
                     PROVIDER_PRESETS_KEY: "platform",
                     SECRET_KEY_NAME: "platform",
                     "platform_ai_base_url": "platform",
@@ -120,6 +136,10 @@ class PlatformConfigService:
                     PROVIDER_PRESETS_KEY: "textarea",
                     "platform_free_translations": "number",
                     "recall_emails_enabled": "toggle",
+                    "recall_no_upload_subject": "text",
+                    "recall_inactive_subject": "text",
+                    "recall_no_upload_body": "textarea",
+                    "recall_inactive_body": "textarea",
                 }
                 for key in sorted(missing):
                     db.add(SystemConfig(

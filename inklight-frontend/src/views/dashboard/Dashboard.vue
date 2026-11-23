@@ -39,6 +39,14 @@
               未读
             </span>
           </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <span class="hero-stat-value">{{ quotaDisplay }}</span>
+            <span class="hero-stat-label">
+              <el-icon :size="12"><MagicStick /></el-icon>
+              免费翻译
+            </span>
+          </div>
         </div>
       </div>
     </section>
@@ -225,10 +233,13 @@ import { getReadingStats, getCalendar, type ReadingStats, type CalendarDay } fro
 import { fetchFeaturedPapers } from '@/api/featured'
 import type { FeaturedPaper } from '@/api/featured'
 import { importLiteratureFromUrl } from '@/api/literature'
-import { Collection, Checked, Clock, Calendar, Reading } from '@element-plus/icons-vue'
+import { Collection, Checked, Clock, Calendar, Reading, MagicStick } from '@element-plus/icons-vue'
 import { formatDateOnly, getBeijingNow } from '@/utils/time'
 
 const authStore = useAuthStore()
+const quotaDisplay = computed(() =>
+  authStore.user?.has_ai_engine ? '∞' : String(authStore.user?.free_translations ?? 0),
+)
 const router = useRouter()
 const importingId = ref<string | null>(null)
 

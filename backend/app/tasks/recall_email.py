@@ -1,16 +1,18 @@
-"""召回邮件任务（每天北京时间 10:00，默认关闭）。
+"""召回邮件任务（每天北京时间 10:00，总开关默认关闭）。
+
+邮件标题/正文可在管理后台「系统配置」中编辑（recall_*_subject / recall_*_body
+四个配置项，HTML 正文），留空时使用内置默认文案。
 
 两种召回：
-- no_upload_3d：注册满 3 天但还没上传任何文献 → 引导上传文献 + 提醒免费额度仍在
-- inactive_30d：最近一次登录在 30~60 天前 → 唤醒（平台新功能/免费额度）
+- no_upload_3d：注册满 3 天还没有登录过 → 引导上传文献 + 提醒免费额度仍在
+- inactive_30d：最近一次登录在 30~60 天前 → 唤醒（平台新变化）
 
-防骚扰机制：
-- 每个用户每种类型最多发一次（recall_email_logs 表记录）；
-- 总开关为 SystemConfig 的 recall_emails_enabled（默认缺失=关闭），
-  管理员可在「系统配置」页添加该配置并设为 true 开启。
+防骚扰：每用户每种类型最多发一封（recall_email_logs 记录）；
+管理员手动发送走同一防重机制。
 """
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta
 
 from sqlalchemy import select
@@ -21,45 +23,16 @@ from app.models.recall_email_log import RecallEmailLog
 
 logger = logging.getLogger(__name__)
 
-_RECALL_SWITCH_KEY = "recall_emails_enabled"
-_INACTIVE_WINDOW_DAYS = 30
-_INACTIVE_WINDOW_END_DAYS = 60  # 只扫 30~60 天未登录，避免对长期流失用户每天重复扫描
+RECALL_TYPES = ("no_upload_3d", "inactive_30d")
 
-
-async def _is_enabled() -> bool:
-    """总开关：SystemConfig.recall_emails_enabled == true 时才发信（默认关闭）。"""
-    from app.models.admin import SystemConfig
-    try:
-        async with AlibabaSessionLocal() as db:
-            row = (
-                await db.execute(
-                    select(SystemConfig).where(SystemConfig.key == _RECALL_SWITCH_KEY)
-                )
-            ).scalar_one_or_none()
-            return bool(row and str(row.value).strip().lower() == "true")
-    except Exception as e:
-        logger.warning("召回邮件开关读取失败（视为关闭）: %s", e)
-        return False
-
-
-async def _already_sent(db, user_id: str, recall_type: str) -> bool:
-    row = (
-        await db.execute(
-            select(RecallEmailLog.id).where(
-                RecallEmailLog.user_id == user_id,
-                RecallEmailLog.recall_type == recall_type,
-            )
-        )
-    ).first()
-    return row is not None
-
-
-def _render_no_upload(email: str) -> tuple[str, str, str]:
-    subject = "你的免费文献翻译额度还在，上传第一篇文献试试"
-    html = f"""
+# 内置默认文案（后台未编辑时使用；管理员可在系统配置中直接修改）
+_DEFAULT_TEMPLATES = {
+    "no_upload_3d": {
+        "subject": "你的免费文献翻译额度还在，上传第一篇文献试试",
+        "html": """
     <div style="font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
-      <h2 style="color:#2e7d4f;"> hi，{email}</h2>
-      <p>你在研墨的账号还没有上传过文献。</p>
+      <h2 style="color:#2e7d4f;">hi，欢迎来到研墨</h2>
+      <p>你的账号还没有上传过文献。</p>
       <p>账号里赠送的 <strong>1 篇文献免费翻译额度</strong> 仍然有效——上传一篇 PDF，
       就能得到保留原排版的双语对照译文。</p>
       <p style="margin:24px 0;">
@@ -70,14 +43,11 @@ def _render_no_upload(email: str) -> tuple[str, str, str]:
       </p>
       <p style="color:#64748b;font-size:13px;">如果不想再收到此类邮件，请回复本邮件告知，我们会为你关闭。</p>
     </div>
-    """
-    text = f"你的免费文献翻译额度还在。上传第一篇文献开始使用：https://www.inklight.cn/literature"
-    return subject, html, text
-
-
-def _render_inactive(email: str) -> tuple[str, str, str]:
-    subject = "好久不见，研墨的新变化等你回来"
-    html = f"""
+    """,
+    },
+    "inactive_30d": {
+        "subject": "好久不见，研墨的新变化等你回来",
+        "html": """
     <div style="font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;">
       <h2 style="color:#2e7d4f;">好久不见</h2>
       <p>你已经有一段时间没有登录研墨了。</p>
@@ -91,9 +61,93 @@ def _render_inactive(email: str) -> tuple[str, str, str]:
       </p>
       <p style="color:#64748b;font-size:13px;">如果不想再收到此类邮件，请回复本邮件告知，我们会为你关闭。</p>
     </div>
+    """,
+    },
+}
+
+# 后台可编辑的 4 个模板配置键
+_TEMPLATE_CONFIG_KEYS = {
+    "no_upload_3d": ("recall_no_upload_subject", "recall_no_upload_body"),
+    "inactive_30d": ("recall_inactive_subject", "recall_inactive_body"),
+}
+
+_RECALL_SWITCH_KEY = "recall_emails_enabled"
+_INACTIVE_WINDOW_DAYS = 30
+_INACTIVE_WINDOW_END_DAYS = 60  # 只扫 30~60 天未登录，避免对长期流失用户每天重复扫描
+
+# 会话工厂模块级可替换（测试用内存库替身）
+_session_factory = AlibabaSessionLocal
+
+
+def _html_to_text(html: str) -> str:
+    """粗略把 HTML 转纯文本，作为邮件的 text 兜底内容。"""
+    text = re.sub(r"<br\s*/?>", "\n", html, flags=re.IGNORECASE)
+    text = re.sub(r"</(?:p|div|h[1-6]|li)>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+async def _is_enabled() -> bool:
+    """总开关：SystemConfig.recall_emails_enabled == true 时才自动发送（默认关闭）。"""
+    from app.models.admin import SystemConfig
+    try:
+        async with _session_factory() as db:
+            row = (
+                await db.execute(
+                    select(SystemConfig).where(SystemConfig.key == _RECALL_SWITCH_KEY)
+                )
+            ).scalar_one_or_none()
+            return bool(row and str(row.value).strip().lower() == "true")
+    except Exception as e:
+        logger.warning("召回邮件开关读取失败（视为关闭）: %s", e)
+        return False
+
+
+async def render_recall_email(recall_type: str) -> tuple[str, str, str]:
+    """渲染指定类型的邮件，返回 (subject, html, text)。
+
+    标题/正文优先取后台配置（recall_*_subject / recall_*_body），
+    未配置或为空时使用内置默认文案。
     """
-    text = "好久不见，回到研墨继续你的文献阅读：https://www.inklight.cn/dashboard"
-    return subject, html, text
+    if recall_type not in RECALL_TYPES:
+        raise ValueError(f"未知的召回类型: {recall_type!r}")
+
+    subject_key, body_key = _TEMPLATE_CONFIG_KEYS[recall_type]
+    defaults = _DEFAULT_TEMPLATES[recall_type]
+
+    try:
+        subject = (await _get_raw(subject_key)) or defaults["subject"]
+        html = (await _get_raw(body_key)) or defaults["html"]
+    except Exception as e:
+        logger.warning("召回模板读取失败，使用内置默认: %s", e)
+        subject, html = defaults["subject"], defaults["html"]
+
+    return subject, html, _html_to_text(html)
+
+
+async def _get_raw(key: str) -> str | None:
+    """读取系统配置原值（不存在/为空 → None）。会话工厂模块级可替换，便于测试。"""
+    from app.models.admin import SystemConfig
+    async with _session_factory() as db:
+        row = (
+            await db.execute(select(SystemConfig).where(SystemConfig.key == key))
+        ).scalar_one_or_none()
+    if row is None or row.value is None or str(row.value).strip() == "":
+        return None
+    return str(row.value).strip()
+
+
+async def _already_sent(db, user_id: str, recall_type: str) -> bool:
+    row = (
+        await db.execute(
+            select(RecallEmailLog.id).where(
+                RecallEmailLog.user_id == user_id,
+                RecallEmailLog.recall_type == recall_type,
+            )
+        )
+    ).first()
+    return row is not None
 
 
 async def run_recall_emails() -> None:
@@ -115,7 +169,7 @@ async def run_recall_emails() -> None:
         for user in users:
             try:
                 target_type = None
-                # 场景 A：注册满 3 天，没有任何文献（无文献信息在此库，改为仅按注册时间 + 未登录过粗筛）
+                # 场景 A：注册满 3 天，从未登录（引导上传文献）
                 created_3d_ago = user.created_at and (now - user.created_at) >= timedelta(days=3)
                 never_logged = not user.last_login_at
                 if created_3d_ago and never_logged and not await _already_sent(db, user.id, "no_upload_3d"):
@@ -132,11 +186,7 @@ async def run_recall_emails() -> None:
                     skipped += 1
                     continue
 
-                if target_type == "no_upload_3d":
-                    subject, html, text = _render_no_upload(user.email or "")
-                else:
-                    subject, html, text = _render_inactive(user.email or "")
-
+                subject, html, text = await render_recall_email(target_type)
                 # _send_email 是同步 Brevo 调用，放线程池避免阻塞事件循环
                 ok, msg = await asyncio.to_thread(_send_email, user.email, subject, html, text)
                 if ok:

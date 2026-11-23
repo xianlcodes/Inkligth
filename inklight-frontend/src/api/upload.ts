@@ -64,6 +64,8 @@ export async function uploadChunk(
     `/upload/chunks/${uploadId}`,
     formData,
     {
+      // 慢网络下单个分片可能远超全局 60s 超时，放宽到 5 分钟
+      timeout: 300000,
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           onProgress(Math.round((progressEvent.loaded / progressEvent.total) * 100))

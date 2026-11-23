@@ -62,6 +62,8 @@ const stepTranslateDone = computed(
 )
 const stepKeyDone = computed(() => !!authStore.user?.has_ai_engine)
 
+// 数据加载完成前不渲染，避免“闪一下就消失”
+const ready = ref(false)
 const visible = computed(
   () => !dismissed.value && authStore.user != null && !(stepUploadDone.value && stepTranslateDone.value),
 )
@@ -79,6 +81,8 @@ onMounted(async () => {
     literatureCount.value = resp.data.total
   } catch {
     literatureCount.value = null
+  } finally {
+    ready.value = true
   }
 })
 </script>

@@ -84,31 +84,33 @@
           </div>
         </template>
 
-        <el-table :data="presetRows" size="small" class="mb-3">
-          <el-table-column label="标识（英文）" min-width="110">
-            <template #default="{ row }"><el-input v-model="row.provider" size="small" placeholder="如 deepseek" /></template>
-          </el-table-column>
-          <el-table-column label="显示名称" min-width="140">
-            <template #default="{ row }"><el-input v-model="row.label" size="small" placeholder="如 DeepSeek" /></template>
-          </el-table-column>
-          <el-table-column label="API 地址" min-width="240">
-            <template #default="{ row }"><el-input v-model="row.base_url" size="small" placeholder="https://..." /></template>
-          </el-table-column>
-          <el-table-column label="默认模型" min-width="150">
-            <template #default="{ row }"><el-input v-model="row.model" size="small" placeholder="模型名" /></template>
-          </el-table-column>
-          <el-table-column label="免费" width="60" align="center">
-            <template #default="{ row }"><el-switch v-model="row.free" size="small" /></template>
-          </el-table-column>
-          <el-table-column label="说明" min-width="160">
-            <template #default="{ row }"><el-input v-model="row.note" size="small" placeholder="展示给用户的提示" /></template>
-          </el-table-column>
-          <el-table-column label="" width="60" align="center">
-            <template #default="{ $index }">
-              <el-button link type="danger" size="small" @click="presetRows.splice($index, 1)">移除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="preset-table-wrap">
+          <el-table :data="presetRows" size="small" class="mb-3">
+            <el-table-column label="标识" width="100">
+              <template #default="{ row }"><el-input v-model="row.provider" size="small" placeholder="英文标识" /></template>
+            </el-table-column>
+            <el-table-column label="显示名称" width="130">
+              <template #default="{ row }"><el-input v-model="row.label" size="small" placeholder="显示名" /></template>
+            </el-table-column>
+            <el-table-column label="API 地址" min-width="220">
+              <template #default="{ row }"><el-input v-model="row.base_url" size="small" placeholder="https://..." /></template>
+            </el-table-column>
+            <el-table-column label="默认模型" width="150">
+              <template #default="{ row }"><el-input v-model="row.model" size="small" placeholder="模型名" /></template>
+            </el-table-column>
+            <el-table-column label="免费" width="64" align="center">
+              <template #default="{ row }"><el-switch v-model="row.free" size="small" /></template>
+            </el-table-column>
+            <el-table-column label="说明" min-width="150">
+              <template #default="{ row }"><el-input v-model="row.note" size="small" placeholder="给用户的提示" /></template>
+            </el-table-column>
+            <el-table-column label="操作" width="64" align="center" fixed="right">
+              <template #default="{ $index }">
+                <el-button link type="danger" size="small" @click="presetRows.splice($index, 1)">移除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
         <div class="flex items-center gap-2">
           <el-button size="small" @click="addPresetRow">+ 添加供应商</el-button>
@@ -121,24 +123,78 @@
       <el-card shadow="never" class="config-card">
         <template #header>
           <div>
-            <h3 class="card-title">📨 自动召回邮件</h3>
-            <p class="card-desc">帮流失的用户回来看看。使用系统自带的邮件服务发送，每用户每类邮件最多一封，不会骚扰。</p>
+            <h3 class="card-title">📨 召回邮件</h3>
+            <p class="card-desc">帮流失的用户回来看看。使用系统内置邮件服务发送（与注册验证码同一通道），无需任何额外配置。邮件每天上午 10 点发送，每用户每类最多一封。</p>
           </div>
         </template>
-        <div class="flex items-center gap-4">
+
+        <!-- 自动规则开关 -->
+        <div class="recall-rule-row">
           <el-switch v-model="recallEnabled" active-text="开启" inactive-text="关闭" />
           <span class="text-sm text-slate-600">
-            {{ recallEnabled ? '已开启：每天上午 10 点自动检查并发送' : '已关闭（默认）：不会给任何用户发邮件' }}
+            {{ recallEnabled ? '自动召回已开启：每天上午 10 点按下面规则检查并发送' : '自动召回已关闭（默认）：不会自动给用户发邮件' }}
           </span>
           <el-button size="small" type="primary" :disabled="recallSaving || recallEnabled === recallEnabledOriginal" @click="saveRecall">
-            保存
+            保存开关
           </el-button>
         </div>
-        <div class="mt-3 text-xs text-slate-500 leading-6">
-          会发给两类用户（各限一封）：<br />
-          · 注册满 3 天还没有上传过任何文献的用户 → 提醒上传文献，免费额度仍在<br />
-          · 30~60 天没有登录的用户 → 介绍平台新变化，邀请回访
+        <div class="recall-rule-desc text-xs text-slate-500 leading-6">
+          自动规则会发给两类用户（各限一封）：<br />
+          · 注册满 3 天还从未登录过的用户 → 提醒上传文献，免费额度仍在<br />
+          · 最近一次登录在 30~60 天前的用户 → 介绍平台新变化，邀请回访
         </div>
+
+        <el-divider class="my-4" />
+
+        <!-- 手动发送 -->
+        <div class="recall-manual-row flex items-center gap-3">
+          <span class="text-sm font-semibold">手动发送：</span>
+          <el-radio-group v-model="sendType" size="small">
+            <el-radio-button value="no_upload_3d">给「未使用」的用户</el-radio-button>
+            <el-radio-button value="inactive_30d">给「长期未登录」的用户</el-radio-button>
+          </el-radio-group>
+          <el-button size="small" type="primary" plain @click="openSendDialog">选择用户并发送</el-button>
+          <span class="text-xs text-slate-500">不勾选自动开关也能用；使用的正文见下方「邮件内容」</span>
+        </div>
+
+        <el-divider class="my-4" />
+
+        <!-- 邮件内容编辑 -->
+        <div class="mb-2 text-sm font-semibold">邮件内容（可直接修改文字；保存后立即生效）</div>
+        <el-tabs v-model="activeTemplateTab">
+          <el-tab-pane label="未上传提醒" name="no_upload_3d">
+            <el-input v-model="recallTemplates.no_upload_3d.subject" class="mb-2" placeholder="邮件标题">
+              <template #prepend>标题</template>
+            </el-input>
+            <el-input
+              v-model="recallTemplates.no_upload_3d.body"
+              type="textarea"
+              :rows="8"
+              placeholder="邮件正文（HTML）"
+            />
+            <div class="flex gap-2 mt-2">
+              <el-button size="small" type="primary" @click="saveRecallTemplate('no_upload_3d')">保存这封邮件</el-button>
+              <el-button size="small" @click="resetRecallTemplate('no_upload_3d')">恢复默认文案</el-button>
+              <span class="text-xs text-slate-500 self-center">正文支持 HTML；会发给「注册满 3 天从未登录」的用户</span>
+            </div>
+          </el-tab-pane>
+          <el-tab-pane label="长期未登录" name="inactive_30d">
+            <el-input v-model="recallTemplates.inactive_30d.subject" class="mb-2" placeholder="邮件标题">
+              <template #prepend>标题</template>
+            </el-input>
+            <el-input
+              v-model="recallTemplates.inactive_30d.body"
+              type="textarea"
+              :rows="8"
+              placeholder="邮件正文（HTML）"
+            />
+            <div class="flex gap-2 mt-2">
+              <el-button size="small" type="primary" @click="saveRecallTemplate('inactive_30d')">保存这封邮件</el-button>
+              <el-button size="small" @click="resetRecallTemplate('inactive_30d')">恢复默认文案</el-button>
+              <span class="text-xs text-slate-500 self-center">正文支持 HTML；会发给「30~60 天未登录」的用户</span>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </el-card>
 
       <!-- ═══════════ ④ 其他配置（高级） ═══════════ -->
@@ -247,54 +303,159 @@
 
     <el-dialog v-model="createVisible" title="新增配置（高级）" width="560px">
       <el-form :model="createForm" label-position="top">
+        <el-alert
+          v-if="duplicateKeyWarning"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="mb-3"
+        >
+          <template #title>
+            已存在同标识的配置项「{{ duplicateKeyWarning.label || duplicateKeyWarning.key }}」，保存将覆盖它当前的值。
+          </template>
+        </el-alert>
+
         <el-row :gutter="16">
           <el-col :span="12">
-            <el-form-item label="配置键（英文标识）" required>
-              <el-input v-model="createForm.key" placeholder="如 app.max_upload_size" />
+            <el-form-item label="这项配置叫什么（显示名称）">
+              <el-input v-model="createForm.label" placeholder="例如：单日上传文件上限" />
+              <div class="field-tip">会显示在配置列表里，用一句中文说清它的用途</div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="显示名称">
-              <el-input v-model="createForm.label" placeholder="配置项的中文显示名" />
+            <el-form-item label="配置标识（英文，程序使用）">
+              <el-input v-model="createForm.key" placeholder="例如 app.max_upload_size" />
+              <div class="field-tip">小写英文和点，创建后不要再改——改了等于新配置</div>
             </el-form-item>
           </el-col>
         </el-row>
+
         <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="分类">
+          <el-col :span="12">
+            <el-form-item label="它属于哪个功能分组">
               <el-select v-model="createForm.category">
                 <el-option v-for="c in categories" :key="c.value" :label="c.label" :value="c.value" />
               </el-select>
+              <div class="field-tip">决定它显示在哪个折叠分组里</div>
             </el-form-item>
           </el-col>
-          <el-col :span="8">
-            <el-form-item label="类型">
+          <el-col :span="12">
+            <el-form-item label="值的样式">
               <el-select v-model="createForm.config_type">
-                <el-option label="文本" value="text" />
+                <el-option label="一行文字" value="text" />
                 <el-option label="下拉选择" value="select" />
-                <el-option label="开关" value="toggle" />
+                <el-option label="开 / 关" value="toggle" />
                 <el-option label="数字" value="number" />
-                <el-option label="日期" value="date" />
-                <el-option label="长文本" value="textarea" />
+                <el-option label="日期时间" value="date" />
+                <el-option label="多行长文本" value="textarea" />
               </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="默认值">
-              <el-input v-model="createForm.default_value" />
+              <div class="field-tip">决定编辑时出现什么样的输入框</div>
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="值">
-          <el-input v-model="createForm.value" :type="createForm.config_type === 'textarea' ? 'textarea' : 'text'" />
+
+        <el-form-item label="当前的值（保存后立即生效）">
+          <el-input
+            v-model="createForm.value"
+            :type="createForm.config_type === 'textarea' ? 'textarea' : 'text'"
+            :rows="createForm.config_type === 'textarea' ? 3 : undefined"
+          />
         </el-form-item>
-        <el-form-item label="说明">
-          <el-input v-model="createForm.description" type="textarea" :rows="2" placeholder="写给接手的人看的说明，讲清楚这项配置是干什么的" />
+
+        <el-form-item label="说明（写给以后接手的人）">
+          <el-input v-model="createForm.description" type="textarea" :rows="2" placeholder="讲清楚：这项配置控制什么？改成不同值会有什么效果？" />
         </el-form-item>
+
+        <el-collapse class="mt-1">
+          <el-collapse-item title="高级选项（一般不用动）">
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="默认值（删除配置后回到这个值）">
+                  <el-input v-model="createForm.default_value" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="显示顺序">
+                  <el-input-number v-model="createForm.sort_order" :min="0" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="可选值（下拉类型用，JSON 数组）">
+              <el-input v-model="createForm.valid_values" placeholder='["option1","option2"]' />
+            </el-form-item>
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="标记为「关键配置」">
+                  <el-switch v-model="createForm.is_critical" />
+                  <div class="field-tip">修改时会多一步确认，列表里标红边</div>
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="需要重启才生效">
+                  <el-switch v-model="createForm.requires_restart" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-collapse-item>
+        </el-collapse>
       </el-form>
       <template #footer>
         <el-button @click="createVisible = false">取消</el-button>
         <el-button type="primary" :loading="createLoading" @click="handleCreate">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 召回邮件：选择用户并发送 -->
+    <el-dialog v-model="sendDialogVisible" title="发送召回邮件" width="680px">
+      <el-alert
+        type="warning"
+        :closable="false"
+        show-icon
+        class="mb-3"
+      >
+        <template #title>
+          将把「{{ sendType === 'no_upload_3d' ? '未上传提醒' : '长期未登录' }}」邮件发送给勾选的用户（每用户此类型最多发过一次，已收过的不会重复发送）。
+        </template>
+      </el-alert>
+      <el-input v-model="userSearch" placeholder="搜索邮箱/用户名..." clearable size="small" class="mb-2" @input="loadSendUsers">
+        <template #prefix><el-icon><Search /></el-icon></template>
+      </el-input>
+      <el-table
+        ref="sendUserTableRef"
+        :data="sendUserRows"
+        v-loading="sendUsersLoading"
+        size="small"
+        max-height="320"
+        row-key="id"
+        @selection-change="onSendSelectionChange"
+      >
+        <el-table-column type="selection" width="42" reserve-selection />
+        <el-table-column prop="email" label="邮箱" min-width="180" />
+        <el-table-column prop="username" label="用户名" width="140" />
+        <el-table-column prop="last_login_at" label="最近登录" width="150">
+          <template #default="{ row }">{{ row.last_login_at ? formatDate(row.last_login_at) : '从未登录' }}</template>
+        </el-table-column>
+      </el-table>
+      <el-pagination
+        v-model:current-page="sendUserPage"
+        :page-size="20"
+        :total="sendUserTotal"
+        layout="prev, pager, next"
+        size="small"
+        class="mt-2 justify-end"
+        @current-change="loadSendUsers"
+      />
+      <div class="text-xs text-slate-500 mt-2">已勾选 {{ sendSelection.length }} 人</div>
+      <template #footer>
+        <el-button @click="sendDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="sendingRecall"
+          :disabled="sendSelection.length === 0"
+          @click="confirmSendRecall"
+        >
+          发送给选中的 {{ sendSelection.length }} 人
+        </el-button>
       </template>
     </el-dialog>
 
@@ -308,7 +469,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Download, Upload } from '@element-plus/icons-vue'
 import {
   getSystemConfigs, createSystemConfig, updateSystemConfig, deleteSystemConfig, getConfigChangeHistory,
-  getStatsOverview, type SystemConfigItem, type ConfigChangeLog, type StatsOverview,
+  getStatsOverview, getAdminUsers, sendRecallEmails,
+  type SystemConfigItem, type ConfigChangeLog, type StatsOverview, type AdminUser,
 } from '@/api/admin'
 import { formatDateCN } from '@/utils/date'
 
@@ -336,6 +498,24 @@ const platformKeyMasked = ref('')
 const presetRows = ref<{ provider: string; label: string; base_url: string; model: string; free: boolean; note: string }[]>([])
 const recallEnabled = ref(false)
 const recallEnabledOriginal = ref(false)
+// 两封召回邮件的可编辑内容（subject/body + 后台保存的默认值，用于「恢复默认文案」）
+const recallTemplates = ref({
+  no_upload_3d: { subject: '', body: '', subjectDefault: '', bodyDefault: '' },
+  inactive_30d: { subject: '', body: '', subjectDefault: '', bodyDefault: '' },
+})
+const activeTemplateTab = ref('no_upload_3d')
+
+// 手动发送
+const sendDialogVisible = ref(false)
+const sendType = ref<'no_upload_3d' | 'inactive_30d'>('no_upload_3d')
+const sendUserRows = ref<AdminUser[]>([])
+const sendUserTotal = ref(0)
+const sendUserPage = ref(1)
+const sendUserSearch = ref('')
+const sendSelection = ref<AdminUser[]>([])
+const sendUsersLoading = ref(false)
+const sendingRecall = ref(false)
+const sendUserTableRef = ref()
 
 const historyVisible = ref(false)
 const historyLoading = ref(false)
@@ -371,6 +551,12 @@ const platformEnabled = computed(() => {
   const cfg = findByKey('platform_ai_key')
   return !!(cfg && cfg.value)
 })
+
+const duplicateKeyWarning = computed(() =>
+  createForm.value.key.trim()
+    ? configs.value.find((c) => c.key === createForm.value.key.trim()) || null
+    : null,
+)
 
 const otherGroups = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -561,6 +747,106 @@ async function saveRecall() {
   }
 }
 
+// ── 召回邮件内容编辑 ──
+const TEMPLATE_CONFIG_KEYS: Record<string, { subject: string; body: string }> = {
+  no_upload_3d: { subject: 'recall_no_upload_subject', body: 'recall_no_upload_body' },
+  inactive_30d: { subject: 'recall_inactive_subject', body: 'recall_inactive_body' },
+}
+
+function syncRecallTemplates() {
+  for (const [type, keys] of Object.entries(TEMPLATE_CONFIG_KEYS)) {
+    const subjectCfg = findByKey(keys.subject)
+    const bodyCfg = findByKey(keys.body)
+    recallTemplates.value[type as 'no_upload_3d' | 'inactive_30d'].subject =
+      subjectCfg?.value || subjectCfg?.default_value || ''
+    recallTemplates.value[type as 'no_upload_3d' | 'inactive_30d'].body =
+      bodyCfg?.value || bodyCfg?.default_value || ''
+    recallTemplates.value[type as 'no_upload_3d' | 'inactive_30d'].subjectDefault =
+      subjectCfg?.default_value || ''
+    recallTemplates.value[type as 'no_upload_3d' | 'inactive_30d'].bodyDefault =
+      bodyCfg?.default_value || ''
+  }
+}
+
+async function saveRecallTemplate(type: 'no_upload_3d' | 'inactive_30d') {
+  const t = recallTemplates.value[type]
+  const keys = TEMPLATE_CONFIG_KEYS[type]
+  try {
+    await updateSystemConfig(keys.subject, { value: t.subject })
+    await updateSystemConfig(keys.body, { value: t.body })
+    ElMessage.success('邮件内容已保存，下次发送时使用新内容')
+    await loadConfigs()
+  } catch (e: any) {
+    const raw = e.response?.data?.detail
+    ElMessage.error(typeof raw === 'string' ? raw : raw?.message || '保存失败')
+  }
+}
+
+function resetRecallTemplate(type: 'no_upload_3d' | 'inactive_30d') {
+  const t = recallTemplates.value[type]
+  if (!t.subjectDefault && !t.bodyDefault) {
+    ElMessage.warning('暂无默认文案可恢复')
+    return
+  }
+  t.subject = t.subjectDefault
+  t.body = t.bodyDefault
+  ElMessage.success('已恢复为默认文案，记得点「保存这封邮件」才会生效')
+}
+
+// ── 手动发送 ──
+function openSendDialog() {
+  sendType.value = 'no_upload_3d'
+  sendSelection.value = []
+  sendUserSearch.value = ''
+  sendUserPage.value = 1
+  sendDialogVisible.value = true
+  loadSendUsers()
+}
+
+async function loadSendUsers() {
+  sendUsersLoading.value = true
+  try {
+    const resp = await getAdminUsers({
+      skip: (sendUserPage.value - 1) * 20,
+      limit: 20,
+      search: sendUserSearch.value || undefined,
+    })
+    sendUserRows.value = resp.data.items
+    sendUserTotal.value = resp.data.total
+  } catch {
+    sendUserRows.value = []
+    sendUserTotal.value = 0
+  } finally {
+    sendUsersLoading.value = false
+  }
+}
+
+function onSendSelectionChange(rows: AdminUser[]) {
+  sendSelection.value = rows
+}
+
+async function confirmSendRecall() {
+  const userIds = sendSelection.value.map((u) => u.id)
+  sendingRecall.value = true
+  try {
+    const resp = await sendRecallEmails({ recall_type: sendType.value, user_ids: userIds })
+    const { sent, failed } = resp.data
+    if (failed === 0) {
+      ElMessage.success(`已发送 ${sent} 封召回邮件`)
+    } else {
+      ElMessage.warning(`发送完成：成功 ${sent} 封，失败 ${failed} 封（详情见日志）`)
+    }
+    sendDialogVisible.value = false
+    sendUserTableRef.value?.clearSelection?.()
+    sendSelection.value = []
+  } catch (e: any) {
+    const raw = e.response?.data?.detail
+    ElMessage.error(typeof raw === 'string' ? raw : raw?.message || '发送失败')
+  } finally {
+    sendingRecall.value = false
+  }
+}
+
 // ── 通用：创建/导出/导入 ──
 function openCreateDialog() {
   createForm.value = {
@@ -634,6 +920,8 @@ async function loadConfigs() {
     const recall = findByKey(RECALL_KEY)
     recallEnabled.value = recall?.value === 'true' || recall?.value === '1'
     recallEnabledOriginal.value = recallEnabled.value
+    // 召回邮件模板（subject/body + 默认值，供「恢复默认文案」）
+    syncRecallTemplates()
     // 供应商预设行
     const presetCfg = findByKey(PRESETS_KEY)
     try {
@@ -694,6 +982,14 @@ onMounted(async () => {
 
 .config-card {
   border-radius: 12px;
+}
+
+.preset-table-wrap {
+  overflow-x: auto;
+}
+
+.preset-table-wrap :deep(.el-table) {
+  min-width: 920px;
 }
 
 .card-title {

@@ -216,3 +216,12 @@ export function clearSystemLog(name: string) {
 export function deleteSystemLog(name: string) {
   return apiClient.delete<{ message: string }>(`/admin/system-logs/${encodeURIComponent(name)}`)
 }
+
+
+/** 管理员手动向指定用户发送召回邮件（每用户每类型仍限一封） */
+export function sendRecallEmails(payload: { recall_type: string; user_ids: string[] }) {
+  return apiClient.post<{ sent: number; failed: number; total: number; errors?: string[] }>(
+    '/admin/recall-emails/send',
+    payload,
+  )
+}
