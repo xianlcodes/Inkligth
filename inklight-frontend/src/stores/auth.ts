@@ -23,6 +23,8 @@ export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(getApiToken())
   const user = ref<User | null>(null)
   const isLoggedIn = computed(() => !!token.value)
+  /** 用户详情是否已加载：登录/会话恢复后置位，守卫据此跳过重复的 /users/me */
+  const userLoaded = ref(false)
 
   function setToken(newToken: string) {
     token.value = newToken
@@ -82,6 +84,8 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return
     const res = await apiClient.get('/users/me')
     user.value = res.data
+    // 用户详情已就绪：登录后的路由守卫不必重复请求 /users/me
+    userLoaded.value = true
   }
 
   async function fetchCaptcha(): Promise<{ captcha_id: string; image_base64: string }> {
@@ -105,6 +109,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
     token.value = null
     user.value = null
+    userLoaded.value = false
     clearAuth()
   }
 
@@ -123,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     token,
     user,
+    userLoaded,
     isLoggedIn,
     avatarUrl,
     setToken,

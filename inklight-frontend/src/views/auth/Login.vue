@@ -141,7 +141,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Message, Lock, View, Hide, WarningFilled } from '@element-plus/icons-vue'
@@ -155,6 +155,11 @@ const authStore = useAuthStore()
 const loading = ref(false)
 const loginFormRef = ref()
 const isTyping = ref(false)
+onMounted(() => {
+  // 预热仪表盘路由组件：登录成功跳转时无需等待懒加载
+  import('@/views/dashboard/Dashboard.vue')
+})
+
 const showPassword = ref(false)
 const passwordValue = ref('')
 const errorMsg = ref('')
@@ -186,7 +191,8 @@ async function handleLogin() {
   errorMsg.value = ''
   try {
     await authStore.login(loginForm.email, loginForm.password)
-    ElMessage.success('登录成功')
+    ElMessage.success('登录成功，正在进入系统…')
+    // 仪表盘组件已在登录页挂载时预热，这里跳转基本瞬时
     router.push('/dashboard')
   } catch (e: any) {
     errorMsg.value = e.response?.data?.detail || '邮箱或密码错误，请重新输入'

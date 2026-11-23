@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getLiteratures } from '@/api/literature'
 
@@ -73,18 +73,24 @@ function dismiss() {
   localStorage.setItem(DISMISS_KEY, '1')
 }
 
-onMounted(async () => {
-  if (!authStore.user) return
-  try {
-    // 只取 1 条，用 total 判断是否已有文献
-    const resp = await getLiteratures({ page: 1, page_size: 1 })
-    literatureCount.value = resp.data.total
-  } catch {
-    literatureCount.value = null
-  } finally {
-    ready.value = true
-  }
-})
+// 监听用户出现：登录瞬间 user 可能尚未加载完（守卫异步拉取），
+// 这里等 user 就绪后再查文献数量并亮出卡片，杜绝「闪一下就消失」
+watch(
+  () => authStore.user?.id,
+  async (id) => {
+    if (!id) return
+    try {
+      // 只取 1 条，用 total 判断是否已有文献
+      const resp = await getLiteratures({ page: 1, page_size: 1 })
+      literatureCount.value = resp.data.total
+    } catch {
+      literatureCount.value = null
+    } finally {
+      ready.value = true
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <style scoped>

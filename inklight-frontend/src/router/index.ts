@@ -225,17 +225,20 @@ router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
   if (to.meta.requiresAuth) {
-    // 需要登录的页面，无论 user 是否已加载，都验证 token 有效性
     if (authStore.token) {
-      try {
-        await authStore.fetchUser()
-      } catch {
-        // token 无效或已过期，清除状态并跳转到登录页
-        authStore.token = null
-        authStore.user = null
-        clearAuth()
-        next('/login')
-        return
+      // 登录流程已拉取过用户详情时直接放行（省一次 /users/me 往返）；
+      // 冷启动/刷新页面时 user 未加载，仍需验证一次
+      if (!authStore.userLoaded) {
+        try {
+          await authStore.fetchUser()
+        } catch {
+          // token 无效或已过期，清除状态并跳转到登录页
+          authStore.token = null
+          authStore.user = null
+          clearAuth()
+          next('/login')
+          return
+        }
       }
     } else {
       next('/login')
