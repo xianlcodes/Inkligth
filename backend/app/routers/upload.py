@@ -20,6 +20,8 @@ from app.core.deps import get_current_user
 from app.services.literature_service import LiteratureService, UPLOAD_DIR
 from app.services.storage_service import StorageService
 
+from app.utils.background import spawn_background
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["upload"])
 
@@ -394,12 +396,13 @@ async def merge_chunks(
     # ---------------------------------------------------------------
     # 5. Background: AI refinement (longer timeout) + full-text + indexing
     # ---------------------------------------------------------------
-    background_tasks.add_task(
-        _post_process_upload,
-        literature_id=str(literature.id),
-        user_id=str(current_user.id),
-        file_path=output_path,
-        first_pages_text=first_pages_text or "",
+    spawn_background(
+        _post_process_upload(
+            literature_id=str(literature.id),
+            user_id=str(current_user.id),
+            file_path=output_path,
+            first_pages_text=first_pages_text or "",
+        )
     )
 
     # ---------------------------------------------------------------
@@ -689,12 +692,13 @@ async def import_literature_from_url(
         ),
     )
 
-    background_tasks.add_task(
-        _post_process_upload,
-        literature_id=str(literature.id),
-        user_id=str(current_user.id),
-        file_path=output_path,
-        first_pages_text=first_pages_text or "",
+    spawn_background(
+        _post_process_upload(
+            literature_id=str(literature.id),
+            user_id=str(current_user.id),
+            file_path=output_path,
+            first_pages_text=first_pages_text or "",
+        )
     )
 
     await StorageService.add_used_space(user_db, str(current_user.id), len(data))

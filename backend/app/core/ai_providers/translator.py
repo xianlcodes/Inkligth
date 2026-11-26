@@ -209,6 +209,8 @@ def beautify_translation_error(raw_error: str) -> str:
         return "请求过于频繁，请稍后重试"
     if "401" in err_lower or "invalid api key" in err_lower:
         return "API 密钥无效，请在设置中更新 API 密钥"
+    if "queuepool limit" in err_lower or "connection timed out" in err_lower:
+        return "服务器繁忙（数据库连接排队超时），请稍后重试"
     if "timeout" in err_lower:
         return "翻译请求超时，请稍后重试或缩短文本长度"
     if "free tier" in err_lower:

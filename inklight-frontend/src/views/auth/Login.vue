@@ -156,8 +156,9 @@ const loading = ref(false)
 const loginFormRef = ref()
 const isTyping = ref(false)
 onMounted(() => {
-  // 预热仪表盘路由组件：登录成功跳转时无需等待懒加载
-  import('@/views/dashboard/Dashboard.vue')
+  // 预热仪表盘路由组件：登录成功跳转时无需等待懒加载。
+  // 用 .catch 兜底，避免网络异常产生未处理的 Promise 拒绝
+  import('@/views/dashboard/Dashboard.vue').catch(() => {})
 })
 
 const showPassword = ref(false)
@@ -192,8 +193,9 @@ async function handleLogin() {
   try {
     await authStore.login(loginForm.email, loginForm.password)
     ElMessage.success('登录成功，正在进入系统…')
-    // 仪表盘组件已在登录页挂载时预热，这里跳转基本瞬时
-    router.push('/dashboard')
+    // 等导航真正完成再收尾：期间登录页保持全屏 + 按钮 loading，
+    // 不会出现「侧边栏已出现但登录页还在」的割裂画面
+    await router.push('/dashboard')
   } catch (e: any) {
     errorMsg.value = e.response?.data?.detail || '邮箱或密码错误，请重新输入'
     ElMessage.error(errorMsg.value)

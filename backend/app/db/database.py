@@ -20,6 +20,8 @@ tencent_engine = create_async_engine(
     pool_recycle=1800,   # 跨云链路缩短回收周期，防中间设备掐断空闲连接
     pool_size=10,        # 常驻连接数
     max_overflow=20,     # 峰值额外连接，合计上限 30
+    pool_use_lifo=True,  # 后进先出：优先复用热连接，减少跨云建连开销
+    pool_timeout=15,     # 排队等待上限（默认 30s 太久，失败要快）
 )
 TencentSessionLocal = async_sessionmaker(
     bind=tencent_engine,
@@ -40,6 +42,8 @@ alibaba_engine = create_async_engine(
     pool_recycle=1800,
     pool_size=10,
     max_overflow=20,
+    pool_use_lifo=True,
+    pool_timeout=15,
 )
 AlibabaSessionLocal = async_sessionmaker(
     bind=alibaba_engine,

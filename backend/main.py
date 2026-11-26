@@ -68,6 +68,20 @@ async def startup_event():
     except Exception:
         logging.getLogger(__name__).warning("TencentBase create_all failed", exc_info=True)
 
+    # 确保免费额度/召回邮件等新表存在（用户库）。
+    # 生产若忘记跑 init_db.py / 迁移 006，这里会自动补建，避免线上 500
+    try:
+        from app.db.database import alibaba_engine, AlibabaBase
+        from app.models.user_quota import UserQuota
+        from app.models.recall_email_log import RecallEmailLog
+        async with alibaba_engine.begin() as conn:
+            await conn.run_sync(
+                AlibabaBase.metadata.create_all,
+                tables=[UserQuota.__table__, RecallEmailLog.__table__],
+            )
+    except Exception:
+        logging.getLogger(__name__).warning("Alibaba new tables create_all failed", exc_info=True)
+
     # 平台 AI 配置种子（幂等：后台「系统配置」出现 platform_* 四项，管理员可视化修改）
     try:
         from app.services.platform_config_service import PlatformConfigService

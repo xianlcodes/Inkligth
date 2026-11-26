@@ -332,7 +332,7 @@ async function handleRegister() {
     try {
       await authStore.login(registerForm.email, registerForm.password)
       ElMessage.success('注册成功！新用户赠送 1 篇文献免费翻译额度')
-      router.push('/dashboard')
+      await router.push('/dashboard')
     } catch {
       ElMessage.success('注册成功，请登录')
       router.push('/login')

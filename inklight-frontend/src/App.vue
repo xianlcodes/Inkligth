@@ -2,7 +2,7 @@
   <el-container class="app-container">
     <!-- 侧边栏 -->
     <el-aside
-      v-if="authStore.isLoggedIn"
+      v-if="showAppLayout"
       :width="sidebarCollapsed ? '0' : '220px'"
       class="app-sidebar"
       :class="{ collapsed: sidebarCollapsed }"
@@ -134,7 +134,7 @@
         <el-icon :size="22"><Expand /></el-icon>
       </button>
       <!-- 顶部导航 -->
-      <el-header v-if="authStore.isLoggedIn" class="app-header flex items-center justify-between h-14 px-6 flex-shrink-0">
+      <el-header v-if="showAppLayout" class="app-header flex items-center justify-between h-14 px-6 flex-shrink-0">
         <div class="header-left flex items-center gap-4 flex-1 min-w-0">
           <div v-if="showSearchBar" class="header-search relative w-[300px]" ref="searchRef">
             <el-input
@@ -261,7 +261,7 @@
       </el-main>
     </el-container>
   </el-container>
-  <FeedbackButton v-if="authStore.isLoggedIn" />
+  <FeedbackButton v-if="showAppLayout" />
 
   <!-- QQ 群二维码弹窗 -->
   <el-dialog
@@ -341,8 +341,18 @@ import {
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
+
 const router = useRouter()
 const authStore = useAuthStore()
+// 登录/注册等认证页始终全屏显示（不挂侧边栏）。
+// 若按 isLoggedIn 判断，登录成功的瞬间侧边栏就会出现，而路由还停在
+// /login，会看到「侧边栏 + 登录页」的割裂画面。
+const AUTH_PAGE_PATHS = ['/login', '/register', '/forgot-password']
+const isAuthPage = computed(
+  () => AUTH_PAGE_PATHS.includes(route.path) || !!route.meta.guestOnly,
+)
+const showAppLayout = computed(() => authStore.isLoggedIn && !isAuthPage.value)
+
 const tutorial = useTutorial()
 const searchQuery = ref('')
 const searchResults = ref<SearchResultItem[]>([])

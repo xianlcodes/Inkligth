@@ -80,11 +80,19 @@
         <p class="progress-message">{{ currentMessage }}</p>
 
         <div v-if="downloadUrl" class="download-section">
-          <el-button type="primary" size="large" @click="handleDownload" class="download-btn">
+          <el-button
+            type="primary"
+            size="large"
+            :loading="downloading"
+            :disabled="downloading"
+            @click="handleDownload"
+            class="download-btn"
+          >
             <el-icon><Download /></el-icon>
             下载翻译后的 PDF
           </el-button>
           <el-button
+            :loading="previewing"
             v-if="previewUrl"
             type="success"
             size="large"
@@ -228,6 +236,9 @@ const outputMode = ref('mono')
 const submitting = ref(false)
 /** 本次翻译是否使用平台免费额度（未配置自有 Key 且额度 > 0 时为 true） */
 const usingPlatformQuota = ref(false)
+/** 下载进行中：防止连续点击堆积请求（曾导致同一秒 17 个下载请求把连接池打满） */
+const downloading = ref(false)
+const previewing = ref(false)
 
 const taskId = ref('')
 const progress = ref(0)
@@ -453,31 +464,32 @@ function handleBackground() {
   ElMessage.info('PDF 翻译任务转入后台运行，处理完成后将通知你')
 }
 
-function handleDownload() {
-  if (!downloadUrl.value) return
+async function handleDownload() {
+  if (!downloadUrl.value || downloading.value) return
+  downloading.value = true
   const token = localStorage.getItem('token')
   const url = '/api/v1' + downloadUrl.value
   const a = document.createElement('a')
   a.href = url
   a.download = ''
-  if (token) {
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.blob()
-      })
-      .then((blob) => {
-        const objectUrl = URL.createObjectURL(blob)
-        a.href = objectUrl
-        a.click()
-        URL.revokeObjectURL(objectUrl)
-      })
-      .catch((err) => {
-        console.error('Download failed:', err)
-        ElMessage.error('下载失败，请重试')
-      })
-  } else {
+  if (!token) {
     a.click()
+    downloading.value = false
+    return
+  }
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const blob = await res.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    a.href = objectUrl
+    a.click()
+    URL.revokeObjectURL(objectUrl)
+  } catch (err) {
+    console.error('Download failed:', err)
+    ElMessage.error('下载失败，请稍后重试')
+  } finally {
+    downloading.value = false
   }
 }
 

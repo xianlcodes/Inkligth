@@ -33,6 +33,7 @@ from app.core.ai_client import get_cached_user_ai_client_and_model
 from app.core.config import settings
 from app.core.deps import get_current_user
 from app.db.database import get_tencent_db as get_db
+from app.db.database import AsyncSessionLocal
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -106,7 +107,11 @@ async def build_ledger(
         title = getattr(literature, "title", "")
         ledger = await store.create_ledger(db, req.literature_id, user_id, title=title)
 
+    # SSE 会持续数分钟：请求级会话（db）先归还连接，流内用独立会话
+    await db.close()
+
     async def event_generator():
+        db = AsyncSessionLocal()  # type: ignore[assignment]
         try:
             if call_llm is None:
                 yield {"event": "error", "data": json.dumps({"message": "AI 引擎未配置或 API Key 无效，请在设置中配置后再使用此功能"})}
@@ -147,6 +152,8 @@ async def build_ledger(
             logger.exception("Ledger build failed")
             await store.update_ledger_status(db, ledger.id, "draft")
             yield {"event": "error", "data": json.dumps({"message": str(e)})}
+        finally:
+            await db.close()
 
     return EventSourceResponse(event_generator())
 
@@ -198,7 +205,11 @@ async def run_review_endpoint(
 
     session = await store.create_review_session(db, req.literature_id, user_id, mode=req.mode)
 
+    # 同上：先释放请求级连接，流内用独立会话
+    await db.close()
+
     async def event_generator():
+        db = AsyncSessionLocal()  # type: ignore[assignment]
         try:
             if call_llm is None:
                 yield {"event": "error", "data": json.dumps({"message": "AI 引擎未配置或 API Key 无效，请在设置中配置后再使用此功能"})}
@@ -229,6 +240,8 @@ async def run_review_endpoint(
             logger.exception("Review failed")
             await store.update_review_session(db, session.id, status="draft")
             yield {"event": "error", "data": json.dumps({"message": str(e)})}
+        finally:
+            await db.close()
 
     return EventSourceResponse(event_generator())
 

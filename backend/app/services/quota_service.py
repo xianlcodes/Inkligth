@@ -26,10 +26,44 @@ logger = logging.getLogger(__name__)
 _consume_lock = asyncio.Lock()
 
 
+_table_ready = False
+
+
+async def _ensure_quota_table() -> None:
+    """确保 user_quotas 表存在（幂等，仅首次或检测到缺失时执行）。"""
+    global _table_ready
+    if _table_ready:
+        return
+    from app.db.database import alibaba_engine, AlibabaBase
+    async with alibaba_engine.begin() as conn:
+        await conn.run_sync(
+            AlibabaBase.metadata.create_all, tables=[UserQuota.__table__]
+        )
+    _table_ready = True
+    logger.warning("user_quotas 表不存在，已自动创建（建议补跑 migrations/006_add_user_quota.py）")
+
+
 class QuotaService:
     @staticmethod
     async def _get_or_create(session, user_id: str) -> UserQuota:
-        """取额度记录；不存在则按平台配置赠送额度懒创建（幂等，防并发重复插入）。"""
+        """取额度记录；不存在则按平台配置赠送额度懒创建（幂等，防并发重复插入）。
+
+        表缺失（未跑迁移）时自动建表后重试一次，避免线上 500。
+        """
+        try:
+            return await QuotaService._get_or_create_inner(session, user_id)
+        except Exception as e:
+            msg = str(e).lower()
+            if 'does not exist' in msg or 'undefinedtable' in msg or 'no such table' in msg:
+                await _ensure_quota_table()
+                # 原会话可能已失效，换一个新会话重试
+                from app.db.database import AlibabaSessionLocal as _factory
+                async with _factory() as fresh:
+                    return await QuotaService._get_or_create_inner(fresh, user_id)
+            raise
+
+    @staticmethod
+    async def _get_or_create_inner(session, user_id: str) -> UserQuota:
         quota = await session.get(UserQuota, user_id)
         if quota:
             return quota

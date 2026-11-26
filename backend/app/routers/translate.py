@@ -54,7 +54,7 @@ async def translate_text(
     t_req_start = time.perf_counter()
     try:
         t_client_start = time.perf_counter()
-        ai_client, model = await get_cached_user_ai_client_and_model(db, str(current_user.id))
+        ai_client, model = await get_cached_user_ai_client_and_model(None, str(current_user.id))
         t_client_ms = (time.perf_counter() - t_client_start) * 1000
 
         if not await has_user_ai_engine(str(current_user.id)):
@@ -164,9 +164,12 @@ async def translate_text_protected(
 @router.post("/text/stream")
 async def translate_text_stream(
     req: TranslateRequest,
-    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # 注意：此处不要声明 Depends(get_db)。
+    # SSE 响应会持续数分钟，yield 型依赖要等到流结束才回收，
+    # 每个并发流都会白占一个数据库连接（2026-11-26 连接池事故根因之一）。
+    # 本函数不需要文献库会话（AI 凭据查询自带独立会话）。
     t_req_start = time.perf_counter()
     session_id = str(uuid.uuid4())
 

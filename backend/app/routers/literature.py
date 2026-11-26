@@ -33,6 +33,8 @@ from app.schemas.analysis import AnalysisResponse, AnalyzeResponse
 from app.utils.task_store import task_store, TaskStatus
 from app.utils.compression import compress_json
 
+from app.utils.background import spawn_background
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["literatures"])
 
@@ -247,12 +249,13 @@ async def upload_literature(
 
     # Background: AI refinement (longer timeout) + full-text + chunk indexing
     from app.routers.upload import _post_process_upload
-    background_tasks.add_task(
-        _post_process_upload,
-        literature_id=str(literature.id),
-        user_id=str(current_user.id),
-        file_path=file_path,
-        first_pages_text=first_pages_text or "",
+    spawn_background(
+        _post_process_upload(
+            literature_id=str(literature.id),
+            user_id=str(current_user.id),
+            file_path=file_path,
+            first_pages_text=first_pages_text or "",
+        )
     )
 
     await StorageService.add_used_space(user_db, current_user.id, file_size)
@@ -492,11 +495,12 @@ async def start_full_translate(
         )
         _active_translations[literature_id] = task.task_id
 
-    background_tasks.add_task(
-        _run_full_translate,
-        task_id=task.task_id,
-        literature_id=literature_id,
-        user_id=current_user.id,
+    spawn_background(
+        _run_full_translate(
+            task_id=task.task_id,
+            literature_id=literature_id,
+            user_id=current_user.id,
+        )
     )
 
     logger.info(f"Full translate task started: {task.task_id}, literature: {literature_id}")
@@ -1085,11 +1089,12 @@ async def start_analyze(
         total=1,
     )
 
-    background_tasks.add_task(
-        _run_analyze,
-        task_id=task.task_id,
-        literature_id=literature_id,
-        user_id=current_user.id,
+    spawn_background(
+        _run_analyze(
+            task_id=task.task_id,
+            literature_id=literature_id,
+            user_id=current_user.id,
+        )
     )
 
     logger.info(f"Analyze task started: {task.task_id}, literature: {literature_id}")
@@ -1182,11 +1187,12 @@ async def generate_ppt(
     task = await task_store.create_task("ppt_generation", user_id=str(current_user.id))
     await task_store.update_task(task.task_id, status=TaskStatus.RUNNING, progress=0, total=100)
 
-    background_tasks.add_task(
-        _run_ppt_generation,
-        task_id=task.task_id,
-        literature_id=literature_id,
-        user_id=str(current_user.id),
+    spawn_background(
+        _run_ppt_generation(
+            task_id=task.task_id,
+            literature_id=literature_id,
+            user_id=str(current_user.id),
+        )
     )
 
     logger.info("PPT generation task started: %s, literature: %s", task.task_id, literature_id)
@@ -1427,17 +1433,18 @@ async def start_pdf_translate(
     task = await task_store.create_task("pdf_translate", user_id=str(current_user.id))
     await task_store.update_task(task.task_id, status=TaskStatus.RUNNING, progress=0, total=100)
 
-    background_tasks.add_task(
-        _run_pdf_translate,
-        task_id=task.task_id,
-        literature_id=literature_id,
-        user_id=str(current_user.id),
-        file_path=file_path,
-        source_lang=source_lang,
-        target_lang=target_lang,
-        output_mode=output_mode,
-        original_filename=literature.title or "translated",
-        used_platform_quota=used_platform_quota,
+    spawn_background(
+        _run_pdf_translate(
+            task_id=task.task_id,
+            literature_id=literature_id,
+            user_id=str(current_user.id),
+            file_path=file_path,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            output_mode=output_mode,
+            original_filename=literature.title or "translated",
+            used_platform_quota=used_platform_quota,
+        )
     )
 
     logger.info("PDF translate task created: %s for literature %s", task.task_id, literature_id)
