@@ -32,7 +32,7 @@
       >
         <div class="flex items-center justify-between px-5 py-4 cursor-pointer select-none" @click="toggleExpand(item.id)">
           <div class="flex items-center gap-2 min-w-0">
-            <el-icon v-if="item.is_pinned" class="text-sky-600 flex-shrink-0"><Top /></el-icon>
+            <el-icon v-if="item.is_pinned" class="text-sky-600 flex-shrink-0"><ArrowUpToLine /></el-icon>
             <el-tag :type="levelTagType(item.level)" size="small" effect="plain" class="flex-shrink-0">
               {{ levelLabel(item.level) }}
             </el-tag>
@@ -56,7 +56,7 @@
           </div>
           <div v-if="authStore.user?.is_admin" class="flex gap-2 mt-3 pt-3 border-t">
             <el-button text size="small" type="primary" @click="openEditDialog(item)">
-              <el-icon><Edit /></el-icon>
+              <el-icon><Pencil /></el-icon>
               编辑
             </el-button>
             <el-popconfirm
@@ -67,7 +67,7 @@
             >
               <template #reference>
                 <el-button text size="small" type="danger">
-                  <el-icon><Delete /></el-icon>
+                  <el-icon><Trash2 /></el-icon>
                   删除
                 </el-button>
               </template>
@@ -136,7 +136,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Top, ArrowDown, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, ArrowUpToLine, ArrowDown, Pencil, Trash2 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateOnly, formatDateTime } from '@/utils/time'
 import {

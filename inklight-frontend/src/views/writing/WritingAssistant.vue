@@ -67,7 +67,7 @@
                 class="history-delete-btn"
                 @click.stop="handleDeleteConversation(conv.id)"
               >
-                <el-icon><Delete /></el-icon>
+                <el-icon><Trash2 /></el-icon>
               </el-button>
             </div>
           </div>
@@ -94,7 +94,7 @@
           <div v-if="sending" class="message ai">
             <div class="msg-label">AI</div>
             <div class="msg-bubble thinking">
-              <el-icon class="is-loading"><Loading /></el-icon>
+              <el-icon class="is-loading"><LoaderCircle /></el-icon>
               思考中...
             </div>
           </div>
@@ -122,16 +122,16 @@
           <div class="input-actions">
             <div class="input-actions-left">
               <el-button text size="small" @click="showContextInput = !showContextInput">
-                <el-icon><UploadFilled /></el-icon>
+                <el-icon><Upload /></el-icon>
                 上下文
               </el-button>
               <el-button text size="small" @click="clearConversation">
-                <el-icon><Delete /></el-icon>
+                <el-icon><Trash2 /></el-icon>
                 清除对话
               </el-button>
             </div>
             <el-button type="primary" :loading="sending" :disabled="!inputText.trim()" @click="sendMessage">
-              <el-icon><Promotion /></el-icon>
+              <el-icon><Send /></el-icon>
               发送
             </el-button>
           </div>
@@ -146,7 +146,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useAiEngineStore } from '@/stores/aiEngine'
-import { Loading, UploadFilled, Delete, Promotion, Plus } from '@element-plus/icons-vue'
+import { LoaderCircle, Upload, Trash2, Send, Plus } from 'lucide-vue-next'
 import { formatRelative } from '@/utils/time'
 import { getSkills, type Skill } from '@/api/skills'
 import {

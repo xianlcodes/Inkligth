@@ -12,7 +12,7 @@
     <div class="flex items-center justify-between gap-6 p-7 mb-6 rounded-2xl border" style="background:linear-gradient(135deg,var(--sky-50),#ecfdf5);border-color:var(--sky-200)">
       <div class="flex items-center gap-4">
         <div class="w-14 h-14 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center flex-shrink-0">
-          <el-icon :size="28"><DataAnalysis /></el-icon>
+          <el-icon :size="28"><ChartLine /></el-icon>
         </div>
         <div>
           <h3 class="text-lg font-bold text-slate-800 m-0 mb-1">准备新汇报</h3>
@@ -38,14 +38,14 @@
           </el-option>
         </el-select>
         <el-button type="primary" :loading="generating" :disabled="!selectedLiteratureId" @click="handleGeneratePPT">
-          <el-icon><MagicStick /></el-icon>
+          <el-icon><WandSparkles /></el-icon>
           生成汇报 PPT
         </el-button>
       </div>
     </div>
 
     <div v-if="generating" class="flex items-center gap-2_5 px-5 py-3_5 mb-6 bg-white border border-slate-200 rounded-lg text-sm text-slate-600">
-      <el-icon class="is-loading"><Loading /></el-icon>
+      <el-icon class="is-loading"><LoaderCircle /></el-icon>
       <span>{{ progressMessage }}</span>
     </div>
 
@@ -89,13 +89,13 @@
         >
           <div class="flex items-start gap-5">
             <div class="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <el-icon :size="22"><DataAnalysis /></el-icon>
+              <el-icon :size="22"><ChartLine /></el-icon>
             </div>
             <div class="flex-1 min-w-0">
               <h4 class="text-base font-semibold text-slate-800 m-0 mb-2 leading-snug">{{ pres.literature_title || '未命名文献' }}</h4>
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
                 <span class="flex items-center gap-1">
-                  <el-icon :size="14"><Collection /></el-icon>
+                  <el-icon :size="14"><LibraryBig /></el-icon>
                   {{ pres.slide_count || '0' }} 张幻灯片
                 </span>
                 <span class="flex items-center gap-1">
@@ -106,8 +106,8 @@
             </div>
           </div>
           <div class="flex gap-2 mt-4 pt-4 border-t border-slate-100" @click.stop>
-            <el-button text type="primary" size="small"><el-icon><View /></el-icon>预览</el-button>
-            <el-button text type="danger" size="small" @click="handleDelete(pres)"><el-icon><Delete /></el-icon>删除</el-button>
+            <el-button text type="primary" size="small"><el-icon><Eye /></el-icon>预览</el-button>
+            <el-button text type="danger" size="small" @click="handleDelete(pres)"><el-icon><Trash2 /></el-icon>删除</el-button>
           </div>
         </el-card>
 
@@ -131,7 +131,7 @@
               </li>
             </ul>
             <div v-if="slide.notes || slide.speaker_notes" class="flex items-start gap-1_5 mt-3_5 pt-3_5 border-t border-dashed border-slate-200 text-xs text-slate-400 leading-relaxed">
-              <el-icon><ChatLineSquare /></el-icon>
+              <el-icon><MessageSquareText /></el-icon>
               <span>{{ slide.notes || slide.speaker_notes }}</span>
             </div>
           </div>
@@ -157,7 +157,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
 import { useRouter } from 'vue-router'
-import { DataAnalysis, MagicStick, Loading, CircleCheck, ChatLineSquare, Download, View, Collection, Clock, Delete } from '@element-plus/icons-vue'
+import { ChartLine, WandSparkles, LoaderCircle, CircleCheck, MessageSquareText, Download, Eye, LibraryBig, Clock, Trash2 } from 'lucide-vue-next'
 import { getPresentations, deletePresentation, type PresentationItem } from '@/api/presentation'
 import { getLiteratures, type Literature } from '@/api/literature'
 import { startPPTGeneration, getPPTStatus, downloadPPT, type SlideData, type PPTTaskResponse } from '@/api/outline'

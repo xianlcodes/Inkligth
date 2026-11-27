@@ -13,7 +13,7 @@
         <div class="value-props">
           <div class="value-item">
             <div class="value-icon" style="background:rgba(56,189,248,0.15)">
-              <span class="value-dot" style="background:#38bdf8" />
+              <span class="value-dot" style="background:#6aa894" />
             </div>
             <div class="value-text">
               <span class="value-title">文献管理</span>
@@ -60,7 +60,7 @@
       <div class="form-wrapper">
         <div class="mobile-logo">
           <div class="mobile-logo-icon">
-            <el-icon color="var(--accent-primary)" :size="18"><Reading /></el-icon>
+            <el-icon color="var(--accent-primary)" :size="18"><BookOpen /></el-icon>
           </div>
           <span>InkLight 研墨</span>
         </div>
@@ -246,7 +246,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import TypewriterHeader from '@/components/business/TypewriterHeader.vue'
-import { Reading, Message } from '@element-plus/icons-vue'
+import { BookOpen, MessagesSquare } from 'lucide-vue-next'
 import quillLogo from '@/assets/quill.png'
 import { useAuthStore } from '@/stores/auth'
 
@@ -453,7 +453,7 @@ onMounted(() => {
 }
 
 .brand-name {
-  font-family: 'Cinzel', 'Georgia', serif;
+  font-family: 'Noto Serif SC', 'Georgia', serif;
   color: #ffffff;
   font-size: 22px;
   font-weight: 600;
@@ -564,7 +564,7 @@ onMounted(() => {
   left: 5%;
   width: 400px;
   height: 400px;
-  background: rgba(2, 132, 199, 0.25);
+  background: rgba(44, 107, 94, 0.25);
   border-radius: 50%;
   filter: blur(100px);
   pointer-events: none;
@@ -602,7 +602,7 @@ onMounted(() => {
   left: -8%;
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(90,117,112,0.1) 0%, rgba(2,132,199,0.04) 40%, transparent 70%);
+  background: radial-gradient(circle, rgba(90,117,112,0.1) 0%, rgba(44,107,94,0.04) 40%, transparent 70%);
   border-radius: 50%;
   filter: blur(70px);
   pointer-events: none;
@@ -678,7 +678,7 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(2,132,199,0.08);
+  background: rgba(44,107,94,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -808,7 +808,7 @@ onMounted(() => {
 
 .reg-input :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary) !important;
-  box-shadow: 0 0 0 3px rgba(2,132,199,0.08) !important;
+  box-shadow: 0 0 0 3px rgba(44,107,94,0.08) !important;
   background: rgba(255,255,255,0.9) !important;
 }
 
@@ -857,7 +857,7 @@ onMounted(() => {
 
 .code-input :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary) !important;
-  box-shadow: 0 0 0 3px rgba(2,132,199,0.08) !important;
+  box-shadow: 0 0 0 3px rgba(44,107,94,0.08) !important;
   background: rgba(255,255,255,0.9) !important;
 }
 
@@ -896,7 +896,7 @@ onMounted(() => {
 
 .captcha-image:hover {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px rgba(2,132,199,0.1);
+  box-shadow: 0 0 0 2px rgba(44,107,94,0.1);
 }
 
 /* ─── Agreement ─── */

@@ -17,6 +17,7 @@ interface User {
   has_ai_engine: boolean      // 是否已配置自己的 AI 引擎（自配 Key 无限量）
   free_translations: number   // 平台免费额度剩余（篇）
   free_translations_used: number
+  prefer_free_quota: boolean  // 翻译通道偏好：优先使用免费额度
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -52,6 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
       has_ai_engine: false,
       free_translations: 0,
       free_translations_used: 0,
+      prefer_free_quota: false,
     }
     try {
       await fetchUser()
@@ -113,6 +115,13 @@ export const useAuthStore = defineStore('auth', () => {
     clearAuth()
   }
 
+  /** 切换翻译通道偏好：优先免费额度 / 优先自有 Key（返回更新后的用户信息） */
+  async function setQuotaPreference(preferFree: boolean) {
+    const res = await apiClient.patch<User>('/users/me/quota-preference', { prefer_free: preferFree })
+    user.value = res.data
+    return res.data
+  }
+
   async function updateProfile(data: { username?: string; avatar_style?: string; theme_color?: string }) {
     const res = await apiClient.patch('/users/me', data)
     user.value = res.data
@@ -130,6 +139,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     userLoaded,
     isLoggedIn,
+    setQuotaPreference,
     avatarUrl,
     setToken,
     login,

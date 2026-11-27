@@ -14,6 +14,10 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
+class QuotaPreferenceUpdate(BaseModel):
+    prefer_free: bool
+
 PASSWORD_PATTERN = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$")
 
 
@@ -30,10 +34,38 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
         summary = await QuotaService.get_summary(user_id)
         data["free_translations"] = summary["remaining"]
         data["free_translations_used"] = summary["used"]
+        data["prefer_free_quota"] = summary["prefer_free"]
     except Exception as e:
         # 额度查询失败不阻塞登录态返回，字段保持默认值
         logger.warning("Failed to load quota info for %s: %s", user_id, e)
     return data
+
+
+@router.patch("/me/quota-preference", response_model=UserResponse)
+async def update_quota_preference(
+    data: QuotaPreferenceUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """切换翻译通道偏好：优先免费额度 / 优先自有 Key。
+
+    自有 Key 用户开启后，PDF 翻译优先消耗平台免费额度（省自己的余额），
+    额度耗尽自动回退自有 Key；关闭则恢复「自有 Key 优先」。
+    """
+    from app.services.quota_service import QuotaService
+    from app.core.ai_client import has_user_ai_engine
+
+    user_id = str(current_user.id)
+    await QuotaService.set_preference(user_id, bool(data.prefer_free))
+    out = UserResponse.model_validate(current_user).model_dump()
+    out["prefer_free_quota"] = bool(data.prefer_free)
+    try:
+        out["has_ai_engine"] = await has_user_ai_engine(user_id)
+        summary = await QuotaService.get_summary(user_id)
+        out["free_translations"] = summary["remaining"]
+        out["free_translations_used"] = summary["used"]
+    except Exception as e:
+        logger.warning("Failed to load quota info for %s: %s", user_id, e)
+    return out
 
 
 @router.patch("/me", response_model=UserResponse)

@@ -9,6 +9,16 @@
   >
     <div class="pdf-translate-dialog">
       <div v-if="!showProgress" class="config-section">
+        <!-- 翻译通道选择：自有 Key / 平台免费额度 -->
+        <div v-if="hasOwnEngine" class="channel-row mb-3">
+          <span class="channel-label">翻译通道：</span>
+          <el-radio-group v-model="channel" size="small">
+            <el-radio-button value="own">我的 Key（无限量）</el-radio-button>
+            <el-radio-button value="free" :disabled="platformRemaining <= 0">
+              免费额度（剩 {{ platformRemaining }} 篇）
+            </el-radio-button>
+          </el-radio-group>
+        </div>
         <el-alert
           v-if="usingPlatformQuota"
           type="success"
@@ -17,7 +27,18 @@
           class="mb-3"
         >
           <template #title>
-            本次翻译使用平台免费体验额度（剩余 {{ authStore.user?.free_translations ?? 0 }} 篇）。配置自己的 AI Key 后不限量。
+            本次翻译使用平台免费体验额度（剩余 {{ platformRemaining }} 篇），用完自动切回你的 Key。
+          </template>
+        </el-alert>
+        <el-alert
+          v-if="!hasOwnEngine && platformRemaining <= 0"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="mb-3"
+        >
+          <template #title>
+            免费体验额度已用完。配置自己的 AI Key 后即可无限使用。
           </template>
         </el-alert>
         <el-form label-position="top" size="default">
@@ -99,7 +120,7 @@
             @click="handlePreview"
             class="download-btn"
           >
-            <el-icon><View /></el-icon>
+            <el-icon><Eye /></el-icon>
             预览翻译 PDF
           </el-button>
         </div>
@@ -114,7 +135,7 @@
 
         <div v-if="downloadUrl" class="retranslate-section">
           <el-button size="small" @click="startNewTranslation">
-            <el-icon><Refresh /></el-icon>
+            <el-icon><RefreshCw /></el-icon>
             重新翻译
           </el-button>
         </div>
@@ -132,7 +153,7 @@
         <template v-if="!showProgress">
           <el-button @click="visible = false">取消</el-button>
           <el-button type="primary" :loading="submitting" @click="handleStartTranslate">
-            <el-icon><VideoPlay /></el-icon>
+            <el-icon><CirclePlay /></el-icon>
             开始翻译
           </el-button>
         </template>
@@ -142,7 +163,7 @@
             type="default"
             @click="handleBackground"
           >
-            <el-icon><SwitchButton /></el-icon>
+            <el-icon><LogOut /></el-icon>
             后台运行
           </el-button>
           <el-button
@@ -150,7 +171,7 @@
             type="danger"
             @click="handleCancel"
           >
-            <el-icon><Close /></el-icon>
+            <el-icon><X /></el-icon>
             停止翻译
           </el-button>
 
@@ -174,7 +195,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
-import { Download, VideoPlay, SwitchButton, Close, View, Refresh } from '@element-plus/icons-vue'
+import { Download, CirclePlay, LogOut, X, Eye, RefreshCw } from 'lucide-vue-next'
 import {
   startPdfTranslate,
   getPdfTranslateStatus,
@@ -236,6 +257,16 @@ const outputMode = ref('mono')
 const submitting = ref(false)
 /** 本次翻译是否使用平台免费额度（未配置自有 Key 且额度 > 0 时为 true） */
 const usingPlatformQuota = ref(false)
+/** 翻译通道选择：own = 自有 Key（无限量），free = 平台免费额度 */
+const channel = ref<'own' | 'free'>('own')
+const hasOwnEngine = computed(() => !!aiEngineStore.defaultEngine)
+
+// 弹窗打开时按账号偏好初始化通道
+watch(visible, (v) => {
+  if (!v) return
+  channel.value = authStore.user?.prefer_free_quota ? 'free' : 'own'
+})
+const platformRemaining = computed(() => authStore.user?.free_translations ?? 0)
 /** 下载进行中：防止连续点击堆积请求（曾导致同一秒 17 个下载请求把连接池打满） */
 const downloading = ref(false)
 const previewing = ref(false)
@@ -343,9 +374,10 @@ async function handleStartTranslate() {
   const authStore = useAuthStore()
   await aiEngineStore.loadEngines()
 
-  // 双轨计费：自有引擎（无限量）优先；否则可用平台免费额度（每用户 1 篇 PDF 文献翻译）
+  // 双轨计费：按用户选择的通道（下拉选择会持久化为账号偏好）
   const hasOwnEngine = !!aiEngineStore.defaultEngine
   const platformQuota = authStore.user?.free_translations ?? 0
+  const wantFree = channel.value === 'free'
   if (!hasOwnEngine && platformQuota <= 0) {
     try {
       await ElMessageBox.confirm(
@@ -357,7 +389,16 @@ async function handleStartTranslate() {
     } catch { /* cancelled */ }
     return
   }
-  usingPlatformQuota.value = !hasOwnEngine
+  if (hasOwnEngine) {
+    // 有自有 Key 的用户才能选择通道；选择会保存为账号偏好
+    const prefer = wantFree
+    if (prefer !== (authStore.user?.prefer_free_quota ?? false)) {
+      try {
+        await authStore.setQuotaPreference(prefer)
+      } catch { /* 偏好保存失败不阻塞翻译，本次按界面所选通道由后端判定 */ }
+    }
+  }
+  usingPlatformQuota.value = !hasOwnEngine || wantFree
 
   submitting.value = true
   errorMessage.value = ''

@@ -19,10 +19,10 @@
           <div class="item-info">
             <span class="item-icon">
               <el-icon v-if="item.status === 'success'" color="#67c23a"><CircleCheck /></el-icon>
-              <el-icon v-else-if="item.status === 'failed'" color="#f56c6c"><CircleClose /></el-icon>
-              <el-icon v-else-if="item.status === 'paused'" color="#e6a23c"><VideoPause /></el-icon>
-              <el-icon v-else-if="item.status === 'processing'" color="#409eff" class="is-loading"><Loading /></el-icon>
-              <el-icon v-else color="#409eff" class="is-loading"><UploadFilled /></el-icon>
+              <el-icon v-else-if="item.status === 'failed'" color="#f56c6c"><CircleX /></el-icon>
+              <el-icon v-else-if="item.status === 'paused'" color="#e6a23c"><CirclePause /></el-icon>
+              <el-icon v-else-if="item.status === 'processing'" color="#409eff" class="is-loading"><LoaderCircle /></el-icon>
+              <el-icon v-else color="#409eff" class="is-loading"><Upload /></el-icon>
             </span>
             <span class="item-name" :title="item.name">{{ item.name }}</span>
           </div>
@@ -96,7 +96,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { CircleCheck, CircleClose, VideoPause, Loading, UploadFilled } from '@element-plus/icons-vue'
+import { CircleCheck, CircleX, CirclePause, LoaderCircle, Upload } from 'lucide-vue-next'
 import type { UploadItem, UploadStatus } from '@/composables/useUploadQueue'
 
 const props = defineProps<{

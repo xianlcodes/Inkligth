@@ -64,7 +64,7 @@
               <div class="flex items-center gap-2">
                 <code class="text-lg font-bold tracking-wider text-sky-600 bg-sky-50 px-3 py-1 rounded-md">{{ invitations.codes[0].code }}</code>
                 <el-button size="small" type="primary" @click="copyCode">
-                  <el-icon><CopyDocument /></el-icon>
+                  <el-icon><Copy /></el-icon>
                   复制
                 </el-button>
               </div>
@@ -129,7 +129,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CopyDocument } from '@element-plus/icons-vue'
+import { Copy } from 'lucide-vue-next'
 import { getStorage, type StorageInfo } from '@/api/storage'
 import { getInvitations, generateInvitationCode, type InvitationList } from '@/api/invitation'
 import { getLiteratures } from '@/api/literature'

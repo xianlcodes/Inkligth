@@ -74,11 +74,17 @@ async def startup_event():
         from app.db.database import alibaba_engine, AlibabaBase
         from app.models.user_quota import UserQuota
         from app.models.recall_email_log import RecallEmailLog
+        from sqlalchemy import text as _sa_text
         async with alibaba_engine.begin() as conn:
             await conn.run_sync(
                 AlibabaBase.metadata.create_all,
                 tables=[UserQuota.__table__, RecallEmailLog.__table__],
             )
+            # 列自愈：create_all 不给已存在的表加新列
+            await conn.execute(_sa_text(
+                "ALTER TABLE user_quotas "
+                "ADD COLUMN IF NOT EXISTS prefer_free BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
     except Exception:
         logging.getLogger(__name__).warning("Alibaba new tables create_all failed", exc_info=True)
 

@@ -51,7 +51,7 @@
     <div class="flex gap-6 min-h-0">
       <div class="folder-sidebar">
         <div class="flex items-center gap-2 px-4 pb-3 text-sm font-semibold text-slate-800 border-b border-slate-200">
-          <el-icon class="text-sky-600"><FolderOpened /></el-icon>
+          <el-icon class="text-sky-600"><FolderOpen /></el-icon>
           <span>文件夹</span>
         </div>
         <div class="flex-1 overflow-y-auto px-2 py-1">
@@ -60,7 +60,7 @@
             :class="{ active: selectedFolderId === null }"
             @click="selectFolder(null)"
           >
-            <el-icon><Document /></el-icon>
+            <el-icon><FileText /></el-icon>
             <span class="folder-name">所有文献</span>
             <span class="folder-count">{{ allLiteratureCount }}</span>
           </div>
@@ -69,7 +69,7 @@
             :class="{ active: selectedFolderId === '__none__' }"
             @click="selectFolder('__none__')"
           >
-            <el-icon><FolderDelete /></el-icon>
+            <el-icon><FolderMinus /></el-icon>
             <span class="folder-name">未分类</span>
             <span class="folder-count">-</span>
           </div>
@@ -84,16 +84,16 @@
             <span class="folder-name">{{ f.name }}</span>
             <el-dropdown trigger="click" @click.stop>
               <span class="flex items-center justify-center w-5 h-5 rounded-xs flex-shrink-0 hover:bg-slate-100" @click.stop>
-                <el-icon><MoreFilled /></el-icon>
+                <el-icon><Ellipsis /></el-icon>
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item @click="startRenameFolder(f)">
-                    <el-icon><Edit /></el-icon>
+                    <el-icon><Pencil /></el-icon>
                     重命名
                   </el-dropdown-item>
                   <el-dropdown-item @click="handleDeleteFolder(f.id)" style="color: var(--el-color-danger)">
-                    <el-icon><Delete /></el-icon>
+                    <el-icon><Trash2 /></el-icon>
                     删除
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -153,7 +153,7 @@
           >
             <div class="flex items-start justify-between mb-2_5 flex-wrap gap-1">
               <div class="card-icon">
-                <el-icon :size="20"><Document /></el-icon>
+                <el-icon :size="20"><FileText /></el-icon>
               </div>
               <div class="flex items-center gap-2">
                 <el-tag :type="statusType(lit.status)" size="small" effect="plain">{{ statusText(lit.status) }}</el-tag>
@@ -176,7 +176,7 @@
                 effect="dark"
                 class="ml-auto"
               >
-                <el-icon class="is-loading"><Loading /></el-icon>
+                <el-icon class="is-loading"><LoaderCircle /></el-icon>
                 处理中
               </el-tag>
             </div>
@@ -190,7 +190,7 @@
               <span class="text-xs text-slate-400 whitespace-nowrap">{{ formatDateOnly(lit.created_at) }}</span>
               <div class="flex items-center gap-2">
                 <el-button size="small" type="primary" text @click.stop="openDetail(lit.id)">
-                  <el-icon><Reading /></el-icon>
+                  <el-icon><BookOpen /></el-icon>
                   详情
                 </el-button>
                 <el-button size="small" text @click.stop="handleCopyCitation(lit.id)" title="复制 BibTeX 引用">
@@ -222,7 +222,7 @@
                 >
                   <template #reference>
                     <el-button size="small" type="danger" text @click.stop>
-                      <el-icon><Delete /></el-icon>
+                      <el-icon><Trash2 /></el-icon>
                     </el-button>
                   </template>
                 </el-popconfirm>
@@ -301,11 +301,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  Upload, Document, Reading, Search, Collection,
-  Delete, Folder, FolderOpened, FolderDelete,
-  Plus, Edit, MoreFilled, ArrowDown, Loading, Link,
-} from '@element-plus/icons-vue'
+import { Upload, FileText, BookOpen, Search, LibraryBig, Trash2, Folder, FolderOpen, FolderMinus, Plus, Pencil, Ellipsis, ArrowDown, LoaderCircle, Link } from 'lucide-vue-next'
 import { useLiteratureStore } from '@/stores/literature'
 import { useRouter } from 'vue-router'
 import type { Literature } from '@/api/literature'
@@ -445,16 +441,16 @@ async function onFilesSelected(event: Event) {
       const shortfallMB = ((totalUploadSize - storage.remaining_space) / 1024 / 1024).toFixed(2)
       await ElMessageBox.alert(
         `<div style="line-height:1.8">
-          <p style="margin:0 0 12px;font-size:14px;color:#1e293b">
+          <p style="margin:0 0 12px;font-size:14px;color:#1f2a24">
             您的存储空间不足，无法完成上传。
           </p>
-          <div style="background:#f8fafc;border-radius:8px;padding:12px 16px;margin-bottom:12px">
-            <p style="margin:0 0 6px;font-size:13px;color:#64748b">待上传文件大小：<b style="color:#0f172a">${neededMB} MB</b></p>
-            <p style="margin:0 0 6px;font-size:13px;color:#64748b">当前剩余空间：<b style="color:#0f172a">${remainingMB} MB</b></p>
-            <p style="margin:0;font-size:13px;color:#64748b">空间缺口：<b style="color:#dc2626">${shortfallMB} MB</b></p>
+          <div style="background:#faf7f2;border-radius:8px;padding:12px 16px;margin-bottom:12px">
+            <p style="margin:0 0 6px;font-size:13px;color:#63756c">待上传文件大小：<b style="color:#0f172a">${neededMB} MB</b></p>
+            <p style="margin:0 0 6px;font-size:13px;color:#63756c">当前剩余空间：<b style="color:#0f172a">${remainingMB} MB</b></p>
+            <p style="margin:0;font-size:13px;color:#63756c">空间缺口：<b style="color:#dc2626">${shortfallMB} MB</b></p>
           </div>
-          <p style="margin:0 0 8px;font-size:13px;color:#475569;font-weight:600">您可以尝试以下方式解决：</p>
-          <ul style="margin:0;padding:0 0 0 18px;font-size:13px;color:#475569;line-height:2">
+          <p style="margin:0 0 8px;font-size:13px;color:#46544c;font-weight:600">您可以尝试以下方式解决：</p>
+          <ul style="margin:0;padding:0 0 0 18px;font-size:13px;color:#46544c;line-height:2">
             <li>删除以前上传的文献以释放空间</li>
             <li>通过完成每日打卡等任务获取额外存储空间</li>
             <li>通过充值购买更多存储空间（即将上线）</li>
@@ -820,7 +816,7 @@ async function handleCopyCitation(id: string) {
   background: linear-gradient(135deg, var(--accent-light), var(--bg-overlay-heavy));
   color: var(--accent-primary);
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(2,132,199,0.06);
+  box-shadow: 0 1px 3px rgba(44,107,94,0.06);
 }
 .folder-item .el-icon { font-size: 15px; flex-shrink: 0; }
 
@@ -851,7 +847,7 @@ async function handleCopyCitation(id: string) {
   background: linear-gradient(135deg, var(--accent-light), var(--bg-overlay-heavy));
   border-radius: var(--radius-md);
   color: var(--accent-primary);
-  box-shadow: 0 1px 2px rgba(2,132,199,0.06);
+  box-shadow: 0 1px 2px rgba(44,107,94,0.06);
 }
 
 /* ── Card title with line-clamp ── */
@@ -922,7 +918,7 @@ async function handleCopyCitation(id: string) {
 }
 .search-input :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1) !important;
+  box-shadow: 0 0 0 3px rgba(44, 107, 94, 0.1) !important;
   background: var(--bg-overlay-heavy);
 }
 .filter-select { width: 140px; }

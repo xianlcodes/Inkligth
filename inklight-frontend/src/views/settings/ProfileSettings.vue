@@ -103,7 +103,7 @@
               <div
                 v-if="currentThemeColor === preset.variables['--bg-color']"
                 class="swatch-check"
-                :style="{ color: preset.isDark ? '#67c23a' : '#0284c7' }"
+                :style="{ color: '#2c6b5e' }"
               >
                 <el-icon :size="14"><Check /></el-icon>
               </div>
@@ -122,7 +122,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Check } from '@element-plus/icons-vue'
+import { Check } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
 import AvatarPicker from '@/components/business/AvatarPicker.vue'

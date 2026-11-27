@@ -29,6 +29,7 @@ class UserResponse(UserBase):
     has_ai_engine: bool = False           # 是否已配置自己的 AI 引擎
     free_translations: int = 0            # 平台免费额度剩余（篇）
     free_translations_used: int = 0       # 已消耗次数
+    prefer_free_quota: bool = False       # 翻译通道偏好：优先使用免费额度
 
     class Config:
         from_attributes = True

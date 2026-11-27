@@ -82,15 +82,15 @@
               >
                 <template #suffix>
                   <span class="eye-toggle" @click="showPassword = !showPassword">
-                    <el-icon v-if="showPassword"><View /></el-icon>
-                    <el-icon v-else><Hide /></el-icon>
+                    <el-icon v-if="showPassword"><Eye /></el-icon>
+                    <el-icon v-else><EyeOff /></el-icon>
                   </span>
                 </template>
               </el-input>
             </el-form-item>
 
             <div v-if="errorMsg" class="error-box">
-              <el-icon><WarningFilled /></el-icon>
+              <el-icon><TriangleAlert /></el-icon>
               <span>{{ errorMsg }}</span>
             </div>
 
@@ -144,7 +144,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Message, Lock, View, Hide, WarningFilled } from '@element-plus/icons-vue'
+import { MessagesSquare, Lock, Eye, EyeOff, TriangleAlert } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import AnimatedCharacters from '@/components/business/AnimatedCharacters.vue'
 import TypewriterHeader from '@/components/business/TypewriterHeader.vue'
@@ -274,7 +274,7 @@ async function handleLogin() {
 }
 
 .brand-name {
-  font-family: 'Cinzel', 'Georgia', serif;
+  font-family: 'Noto Serif SC', 'Georgia', serif;
   color: #ffffff;
   font-size: 22px;
   font-weight: 600;
@@ -339,7 +339,7 @@ async function handleLogin() {
   left: 5%;
   width: 400px;
   height: 400px;
-  background: rgba(2, 132, 199, 0.25);
+  background: rgba(44, 107, 94, 0.25);
   border-radius: 50%;
   filter: blur(100px);
   pointer-events: none;
@@ -377,7 +377,7 @@ async function handleLogin() {
   left: -8%;
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(90,117,112,0.1) 0%, rgba(2,132,199,0.04) 40%, transparent 70%);
+  background: radial-gradient(circle, rgba(90,117,112,0.1) 0%, rgba(44,107,94,0.04) 40%, transparent 70%);
   border-radius: 50%;
   filter: blur(70px);
   pointer-events: none;
@@ -453,7 +453,7 @@ async function handleLogin() {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(2,132,199,0.08);
+  background: rgba(44,107,94,0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -540,7 +540,7 @@ async function handleLogin() {
 
 .login-form :deep(.el-input__wrapper.is-focus) {
   border-color: var(--accent-primary) !important;
-  box-shadow: 0 0 0 3px rgba(2,132,199,0.08) !important;
+  box-shadow: 0 0 0 3px rgba(44,107,94,0.08) !important;
   background: rgba(255,255,255,0.9) !important;
 }
 

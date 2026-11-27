@@ -61,22 +61,36 @@ async def has_user_ai_engine(user_id: str) -> bool:
         return False
 
 
-async def has_pdf_translate_access(user_id: str) -> bool:
-    """PDF 文献翻译的准入判断：自有引擎，或平台免费额度 > 0。
+async def has_pdf_translate_access(user_id: str) -> tuple[bool, str]:
+    """PDF 文献翻译的准入判断 + 通道选择。
 
-    返回 (allowed, source)：source = "own_engine" | "platform_quota"。
-    平台兜底凭据由管理员在后台「系统配置」的 platform_* 配置项管理。
+    通道优先级（2026-11 新增用户偏好）：
+    1. 用户偏好「优先免费额度」（prefer_free）且额度 > 0 且平台已配置 → platform_quota
+    2. 用户自有引擎 → own_engine（无限量）
+    3. 偏好免费但额度耗尽 → 自动回退自有引擎（own_engine）
+    4. 无自有引擎且平台未配置/额度耗尽 → none（引导配置）
+
+    返回 (allowed, source)：source = "own_engine" | "platform_quota" | "none"。
     """
-    if await has_user_ai_engine(user_id):
-        return True, "own_engine"
     from app.services.platform_config_service import PlatformConfigService
     from app.services.quota_service import QuotaService
+
+    summary = await QuotaService.get_summary(user_id)
     cfg = await PlatformConfigService.resolve()
-    if not cfg["configured"]:
-        return False, "none"
-    remaining = await QuotaService.remaining(user_id)
-    if remaining > 0:
+    platform_usable = cfg["configured"] and summary["remaining"] > 0
+
+    own_engine = await has_user_ai_engine(user_id)
+
+    # 偏好免费额度（无论是否自有引擎），额度足够就走平台
+    if summary["prefer_free"] and platform_usable:
         return True, "platform_quota"
+
+    if own_engine:
+        return True, "own_engine"
+
+    if platform_usable:
+        return True, "platform_quota"
+
     return False, "none"
 
 
@@ -166,20 +180,39 @@ async def get_user_default_model(_db: AsyncSession, user_id: str) -> str:
 # ============================================================
 # 新增：返回原始凭据，供 pdf2zh 每次重建客户端使用
 # ============================================================
-async def get_user_ai_credentials(user_id: str) -> tuple[str, str, str]:
+async def get_user_ai_credentials(
+    user_id: str, source: str | None = None
+) -> tuple[str, str, str]:
     """返回 (api_key, base_url, model)。
 
     pdf2zh 会在子线程中通过新的事件循环调用翻译，无法复用主循环创建的
     AsyncOpenAI 客户端（httpx 连接池绑定到创建时的事件循环，跨循环复用会挂起）。
     因此这里返回原始凭据，由 Pdf2ZhTranslatorAdapter 每次翻译时新建客户端。
 
-    优先级：用户自有引擎（模型不限）→ 平台免费额度（模型/Key/地址由管理员在
-    后台「系统配置」的 platform_* 配置项管理，运行时生效；模型锁定免费档，
-    不会消耗平台账户余额）。额度扣减发生在任务创建路由（start_pdf_translate），
-    此处只做准入校验，避免 preview/并发等旁路重复扣费或绕过额度。
+    通道选择（source 参数，由任务创建路由锁定后传入）：
+    - "platform_quota"：直接走平台免费额度（扣减已在路由完成，此处不再校验
+      remaining——否则额度刚好用尽的最后一个任务会被错误地回退到自有 Key）；
+    - "own_engine" 或 None：用户自有引擎（模型不限），无引擎时回退平台额度
+      （模型/Key/地址由管理员在后台「系统配置」的 platform_* 配置项管理，
+      运行时生效；模型锁定免费档，不会消耗平台账户余额）。
     """
     from app.core.ai_providers.provider_registry import AIProviderRegistry
     from app.services.platform_config_service import PlatformConfigService
+
+    # 任务创建时已锁定的通道：platform_quota → 直接走平台凭据
+    # （不能重新判定——扣减后 remaining 可能已为 0，重判会错误回退到自有 Key）
+    if source == "platform_quota":
+        cfg = await PlatformConfigService.resolve()
+        if not cfg["configured"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="平台免费额度未配置，请联系管理员或在「AI 设置」中配置自己的 Key",
+            )
+        logger.info(
+            "get_user_ai_credentials: user=%s source=platform_quota(locked) model=%s",
+            user_id, cfg["model"],
+        )
+        return cfg["key"], cfg["base_url"], cfg["model"]
 
     async with AlibabaSessionLocal() as user_db:
         engine = await AIEngineService.get_default_engine(user_db, user_id)

@@ -23,6 +23,7 @@
     "driver.js": "^1.6.0",
     "echarts": "^6.0.0",
     "element-plus": "^2.13.7",
+    "lucide-vue-next": "^0.577.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.32",
     "vue-pdf-embed": "^2.1.4",

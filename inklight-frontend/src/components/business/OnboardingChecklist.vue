@@ -107,11 +107,11 @@ watch(
 .ob-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary, #1f2a24);
 }
 
 .ob-dismiss {
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #8fa096);
 }
 
 .ob-steps {
@@ -127,7 +127,7 @@ watch(
   gap: 12px;
   padding: 10px 14px;
   border-radius: 10px;
-  background: var(--bg-secondary, #f8fafc);
+  background: var(--bg-secondary, #faf7f2);
 }
 
 .ob-step.done {
@@ -155,12 +155,12 @@ watch(
 .ob-step-title {
   font-weight: 600;
   font-size: 14px;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary, #1f2a24);
 }
 
 .ob-step-desc {
   font-size: 12.5px;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary, #63756c);
   margin-top: 2px;
 }
 

@@ -19,7 +19,7 @@
           <div class="hero-stat">
             <span class="hero-stat-value">{{ stats.total_literatures }}</span>
             <span class="hero-stat-label">
-              <el-icon :size="12"><Collection /></el-icon>
+              <el-icon :size="12"><LibraryBig /></el-icon>
               全部文献
             </span>
           </div>
@@ -27,7 +27,7 @@
           <div class="hero-stat">
             <span class="hero-stat-value">{{ stats.read_count }}</span>
             <span class="hero-stat-label">
-              <el-icon :size="12"><Checked /></el-icon>
+              <el-icon :size="12"><CheckCheck /></el-icon>
               已读
             </span>
           </div>
@@ -43,7 +43,7 @@
           <div class="hero-stat">
             <span class="hero-stat-value">{{ quotaDisplay }}</span>
             <span class="hero-stat-label">
-              <el-icon :size="12"><MagicStick /></el-icon>
+              <el-icon :size="12"><WandSparkles /></el-icon>
               免费翻译
             </span>
           </div>
@@ -114,8 +114,8 @@
           <!-- Stats strip: 4 full-width stat cards -->
           <div class="cal-stats-strip" v-if="stats">
             <div class="cs-card">
-              <div class="cs-icon" style="background:linear-gradient(135deg,rgba(2,132,199,0.12),rgba(2,132,199,0.03));color:var(--accent-primary)">
-                <el-progress type="circle" :percentage="stats?.read_progress || 0" :width="40" :stroke-width="4" color="var(--accent-primary)" trail-color="rgba(2,132,199,0.06)" :stroke-linecap="'round'" class="progress-circle">
+              <div class="cs-icon" style="background:linear-gradient(135deg,rgba(44,107,94,0.12),rgba(44,107,94,0.03));color:var(--accent-primary)">
+                <el-progress type="circle" :percentage="stats?.read_progress || 0" :width="40" :stroke-width="4" color="var(--accent-primary)" trail-color="rgba(44,107,94,0.06)" :stroke-linecap="'round'" class="progress-circle">
                   <span class="cs-pct">{{ stats?.read_progress || 0 }}%</span>
                 </el-progress>
               </div>
@@ -125,7 +125,7 @@
             </div>
             <div class="cs-card">
               <div class="cs-icon" style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.03));color:var(--mint-600)">
-                <el-icon :size="18"><Reading /></el-icon>
+                <el-icon :size="18"><BookOpen /></el-icon>
               </div>
               <span class="cs-value">{{ stats?.week_count || 0 }}</span>
               <span class="cs-label">本周阅读</span>
@@ -133,7 +133,7 @@
             </div>
             <div class="cs-card">
               <div class="cs-icon" style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(245,158,11,0.03));color:var(--amber-600)">
-                <el-icon :size="18"><Collection /></el-icon>
+                <el-icon :size="18"><LibraryBig /></el-icon>
               </div>
               <span class="cs-value">{{ stats?.month_count || 0 }}</span>
               <span class="cs-label">本月阅读</span>
@@ -153,12 +153,12 @@
           <div class="cal-activity-bar" v-if="calendarMeta">
             <div class="cab-group">
               <div class="cab-item cab-item-accent">
-                <span class="cab-icon"><Reading /></span>
+                <span class="cab-icon"><BookOpen /></span>
                 <span>连续 <strong>{{ calendarMeta.streak }}</strong> 天</span>
               </div>
               <div class="cab-dot"></div>
               <div class="cab-item">
-                <span class="cab-icon"><Collection /></span>
+                <span class="cab-icon"><LibraryBig /></span>
                 <span>昨日 <strong>{{ calendarMeta.yesterday_pages }}</strong> 页</span>
               </div>
               <div class="cab-dot"></div>
@@ -233,7 +233,7 @@ import { getReadingStats, getCalendar, type ReadingStats, type CalendarDay } fro
 import { fetchFeaturedPapers } from '@/api/featured'
 import type { FeaturedPaper } from '@/api/featured'
 import { importLiteratureFromUrl } from '@/api/literature'
-import { Collection, Checked, Clock, Calendar, Reading, MagicStick } from '@element-plus/icons-vue'
+import { LibraryBig, CheckCheck, Clock, Calendar, BookOpen, WandSparkles } from 'lucide-vue-next'
 import { formatDateOnly, getBeijingNow } from '@/utils/time'
 
 const authStore = useAuthStore()
@@ -267,10 +267,10 @@ const rawCalendarDays = ref<CalendarDay[]>([])
 
 const heatColors = [
   { threshold: 0, color: 'var(--bg-tertiary)', label: '0 页' },
-  { threshold: 1, color: '#e0f2fe', label: '1-5 页' },
-  { threshold: 6, color: '#bae6fd', label: '6-10 页' },
-  { threshold: 11, color: '#7dd3fc', label: '11-20 页' },
-  { threshold: 21, color: '#38bdf8', label: '21+ 页' },
+  { threshold: 1, color: '#e3f0ea', label: '1-5 页' },
+  { threshold: 6, color: '#c8e0d6', label: '6-10 页' },
+  { threshold: 11, color: '#9cc7b9', label: '11-20 页' },
+  { threshold: 21, color: '#6aa894', label: '21+ 页' },
 ]
 
 const weekdays = ['一', '二', '三', '四', '五', '六', '日']
@@ -346,7 +346,7 @@ const calendarMeta = computed(() => {
   }
 })
 
-const monthAccentColors = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
+const monthAccentColors = ['#2c6b5e', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
 
 const monthBlocks = computed(() => {
   const days = calendarDays.value
@@ -521,7 +521,7 @@ onActivated(() => {
 /* Activity section — cool blue-tinted panel */
 .section-activity {
   background:
-    radial-gradient(ellipse at 90% 20%, rgba(2, 132, 199, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 20%, rgba(44, 107, 94, 0.04) 0%, transparent 50%),
     var(--bg-overlay);
   backdrop-filter: blur(2px);
 }
@@ -621,7 +621,7 @@ onActivated(() => {
   pointer-events: none;
   user-select: none;
   z-index: 0;
-  background: linear-gradient(180deg, rgba(2, 132, 199, 0.05) 0%, rgba(16, 185, 129, 0.03) 60%, transparent 100%);
+  background: linear-gradient(180deg, rgba(44, 107, 94, 0.05) 0%, rgba(16, 185, 129, 0.03) 60%, transparent 100%);
   -webkit-background-clip: text;
   background-clip: text;
   letter-spacing: -0.06em;
@@ -631,7 +631,7 @@ onActivated(() => {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at 80% 0%, rgba(2, 132, 199, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 0%, rgba(44, 107, 94, 0.08) 0%, transparent 55%),
     radial-gradient(ellipse at 20% 100%, rgba(16, 185, 129, 0.06) 0%, transparent 45%),
     linear-gradient(165deg, #eef5ff 0%, #f8f5f0 35%, #f5efe8 60%, #edf7f0 100%);
   border-radius: var(--radius-2xl);
@@ -647,7 +647,7 @@ onActivated(() => {
   width: 300px;
   height: 300px;
   border-radius: 50%;
-  background: radial-gradient(circle at 40% 40%, rgba(2, 132, 199, 0.10) 0%, rgba(2, 132, 199, 0.03) 35%, transparent 65%);
+  background: radial-gradient(circle at 40% 40%, rgba(44, 107, 94, 0.10) 0%, rgba(44, 107, 94, 0.03) 35%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
@@ -790,7 +790,7 @@ onActivated(() => {
 .cs-card:hover {
   background: var(--bg-overlay-hover);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px -6px rgba(2, 132, 199, 0.08);
+  box-shadow: 0 6px 20px -6px rgba(44, 107, 94, 0.08);
 }
 
 .cs-icon {
@@ -920,7 +920,7 @@ onActivated(() => {
 }
 
 .calendar-card:hover {
-  box-shadow: 0 8px 28px -8px rgba(2, 132, 199, 0.08), 0 2px 6px -2px rgba(0,0,0,0.02);
+  box-shadow: 0 8px 28px -8px rgba(44, 107, 94, 0.08), 0 2px 6px -2px rgba(0,0,0,0.02);
   border-color: var(--accent-light);
 }
 
@@ -1114,7 +1114,7 @@ onActivated(() => {
 }
 
 .paper-card {
-  --card-accent: rgba(2, 132, 199, 0.35);
+  --card-accent: rgba(44, 107, 94, 0.35);
   background:
     linear-gradient(to bottom,
       var(--card-accent) 0px,
@@ -1139,8 +1139,8 @@ onActivated(() => {
 
 .paper-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 28px -6px rgba(2, 132, 199, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
-  border-color: rgba(2, 132, 199, 0.45);
+  box-shadow: 0 8px 28px -6px rgba(44, 107, 94, 0.15), 0 2px 6px rgba(0, 0, 0, 0.08);
+  border-color: rgba(44, 107, 94, 0.45);
   background:
     linear-gradient(to bottom,
       var(--card-accent) 0px,

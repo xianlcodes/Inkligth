@@ -98,13 +98,13 @@
             <el-table-column label="默认模型" width="150">
               <template #default="{ row }"><el-input v-model="row.model" size="small" placeholder="模型名" /></template>
             </el-table-column>
-            <el-table-column label="免费" width="64" align="center">
+            <el-table-column label="免费" width="72" align="center">
               <template #default="{ row }"><el-switch v-model="row.free" size="small" /></template>
             </el-table-column>
             <el-table-column label="说明" min-width="150">
               <template #default="{ row }"><el-input v-model="row.note" size="small" placeholder="给用户的提示" /></template>
             </el-table-column>
-            <el-table-column label="操作" width="64" align="center" fixed="right">
+            <el-table-column label="操作" width="72" align="center" fixed="right">
               <template #default="{ $index }">
                 <el-button link type="danger" size="small" @click="presetRows.splice($index, 1)">移除</el-button>
               </template>
@@ -466,7 +466,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Download, Upload } from '@element-plus/icons-vue'
+import { Search, Plus, Download, Upload } from 'lucide-vue-next'
 import {
   getSystemConfigs, createSystemConfig, updateSystemConfig, deleteSystemConfig, getConfigChangeHistory,
   getStatsOverview, getAdminUsers, sendRecallEmails,
@@ -986,28 +986,39 @@ onMounted(async () => {
 
 .preset-table-wrap {
   overflow-x: auto;
+  padding-bottom: 4px;
 }
 
+/* 强制表格保持最小宽度：容器不够宽时出现横向滚动条，而不是挤压列 */
 .preset-table-wrap :deep(.el-table) {
-  min-width: 920px;
+  min-width: 1020px;
+}
+
+.preset-table-wrap :deep(.el-table__inner-wrapper) {
+  min-width: 1020px;
+}
+
+/* 列头不换行（之前「免费」「操作」被挤成竖排文字） */
+.preset-table-wrap :deep(.el-table th.el-table__cell .cell) {
+  white-space: nowrap;
 }
 
 .card-title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary, #1f2a24);
   margin: 0;
 }
 
 .card-desc {
   font-size: 13px;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary, #63756c);
   margin: 4px 0 0;
 }
 
 .field-tip {
   font-size: 12px;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #8fa096);
   line-height: 1.5;
   margin-top: 2px;
   width: 100%;
@@ -1032,28 +1043,28 @@ onMounted(async () => {
 }
 
 .config-title-text {
-  color: var(--text-primary, #1e293b);
+  color: var(--text-primary, #1f2a24);
 }
 
 .config-meta-text {
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary, #8fa096);
 }
 
 .config-desc-text {
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary, #63756c);
 }
 
 .config-label-text {
-  color: var(--text-primary, #475569);
+  color: var(--text-primary, #46544c);
 }
 
 .config-editing-row {
-  background: var(--bg-secondary, #f8fafc);
+  background: var(--bg-secondary, #faf7f2);
 }
 
 .edit-meta {
   font-size: 12.5px;
-  color: var(--text-secondary, #64748b);
+  color: var(--text-secondary, #63756c);
 }
 
 .meta-row.warning {

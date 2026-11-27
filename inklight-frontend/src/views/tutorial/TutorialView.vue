@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft } from 'lucide-vue-next'
 import { getPublishedTutorial, type TutorialDetail } from '@/api/tutorial'
 import { formatDateTime } from '@/utils/time'
 

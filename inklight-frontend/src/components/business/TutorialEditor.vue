@@ -51,7 +51,7 @@
           <el-icon><List /></el-icon>
         </el-button>
         <el-button size="small" @click="editor.chain().focus().toggleOrderedList().run()" :type="editor.isActive('orderedList') ? 'primary' : 'default'">
-          <el-icon><Tickets /></el-icon>
+          <el-icon><Ticket /></el-icon>
         </el-button>
       </button-group>
 
@@ -62,7 +62,7 @@
           <el-icon><Link /></el-icon>
         </el-button>
         <el-button size="small" @click="triggerImageUpload">
-          <el-icon><Picture /></el-icon>
+          <el-icon><Image /></el-icon>
         </el-button>
       </button-group>
 
@@ -82,7 +82,7 @@ import { Link as LinkExtension } from '@tiptap/extension-link'
 import { Image as ImageExtension } from '@tiptap/extension-image'
 import { Placeholder } from '@tiptap/extension-placeholder'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { List, Tickets, Link, Picture } from '@element-plus/icons-vue'
+import { List, Ticket, Link, Image } from 'lucide-vue-next'
 import { uploadTutorialImage } from '@/api/tutorial'
 
 const props = defineProps<{

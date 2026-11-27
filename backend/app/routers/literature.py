@@ -1444,6 +1444,7 @@ async def start_pdf_translate(
             output_mode=output_mode,
             original_filename=literature.title or "translated",
             used_platform_quota=used_platform_quota,
+            credential_source="platform_quota" if used_platform_quota else "own_engine",
         )
     )
 
@@ -1690,6 +1691,7 @@ async def _run_pdf_translate(
     output_mode: str,
     original_filename: str,
     used_platform_quota: bool = False,
+    credential_source: str = "own_engine",
 ):
     from app.db.database import async_session_factory
     from app.services.pdf_render_service import normalize_output_mode, pdf_render_service
@@ -1717,7 +1719,8 @@ async def _run_pdf_translate(
         await report_progress(10, "正在初始化 AI 客户端...")
 
         # ✅ 修改点 1：获取原始凭据
-        api_key, base_url, model = await get_user_ai_credentials(user_id)
+        # 按创建任务时锁定的通道获取凭据（额度扣减后 remaining 可能归零，重判会误回退）
+        api_key, base_url, model = await get_user_ai_credentials(user_id, source=credential_source)
 
         raise_if_cancelled()
 

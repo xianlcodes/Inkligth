@@ -5,7 +5,7 @@
     @mousedown.prevent="onDragStart"
   >
     <el-button type="primary" class="feedback-btn" @click="handleClick">
-      <el-icon :size="18"><ChatDotRound /></el-icon>
+      <el-icon :size="18"><MessageCircleMore /></el-icon>
     </el-button>
 
     <el-dialog v-model="dialogVisible" title="反馈建议" width="480px" top="25vh" :close-on-click-modal="false">
@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { ChatDotRound } from '@element-plus/icons-vue'
+import { MessageCircleMore } from 'lucide-vue-next'
 import { submitFeedback } from '@/api/feedback'
 import { ElMessage } from 'element-plus'
 

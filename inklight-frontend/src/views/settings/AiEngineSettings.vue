@@ -123,7 +123,7 @@
         </el-form-item>
 
         <div class="flex items-center gap-1 px-3 py-2 mt-2 bg-sky-50 border border-sky-100 rounded-md text-sm text-sky-700 tutorial-hint">
-          <el-icon :size="14"><QuestionFilled /></el-icon>
+          <el-icon :size="14"><CircleHelp /></el-icon>
           <span>添加有问题？</span>
           <el-button link type="primary" @click="$router.push('/tutorials')">可以看教程</el-button>
         </div>
@@ -148,7 +148,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { QuestionFilled } from '@element-plus/icons-vue'
+import { CircleHelp } from 'lucide-vue-next'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
 import { useAuthStore } from '@/stores/auth'

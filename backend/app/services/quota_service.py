@@ -11,7 +11,7 @@ import asyncio
 import logging
 from datetime import datetime
 
-from sqlalchemy import update
+from sqlalchemy import text, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
@@ -30,7 +30,7 @@ _table_ready = False
 
 
 async def _ensure_quota_table() -> None:
-    """确保 user_quotas 表存在（幂等，仅首次或检测到缺失时执行）。"""
+    """确保 user_quotas 表与 prefer_free 列存在（幂等，仅首次或检测到缺失时执行）。"""
     global _table_ready
     if _table_ready:
         return
@@ -39,8 +39,18 @@ async def _ensure_quota_table() -> None:
         await conn.run_sync(
             AlibabaBase.metadata.create_all, tables=[UserQuota.__table__]
         )
+        # 列自愈：create_all 不会给已存在的表加新列，这里补 ALTER。
+        # 「列已存在」的错误（重复执行/旧库已手工加过列）直接忽略。
+        try:
+            await conn.execute(text(
+                "ALTER TABLE user_quotas "
+                "ADD COLUMN prefer_free BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+        except Exception as e:
+            if 'duplicate column' not in str(e).lower() and 'already exists' not in str(e).lower():
+                raise
     _table_ready = True
-    logger.warning("user_quotas 表不存在，已自动创建（建议补跑 migrations/006_add_user_quota.py）")
+    logger.warning("user_quotas 表/列已自动补建（建议补跑 migrations/006、007）")
 
 
 class QuotaService:
@@ -88,14 +98,31 @@ class QuotaService:
 
     @staticmethod
     async def get_summary(user_id: str) -> dict:
-        """返回 {remaining, used, total_granted}。"""
+        """返回 {remaining, used, total_granted, prefer_free}。"""
         async with AlibabaSessionLocal() as session:
             quota = await QuotaService._get_or_create(session, user_id)
             return {
                 "remaining": max(quota.free_translations, 0),
                 "used": quota.used_count,
                 "total_granted": max(quota.free_translations, 0) + quota.used_count,
+                "prefer_free": bool(quota.prefer_free),
             }
+
+    @staticmethod
+    async def set_preference(user_id: str, prefer_free: bool) -> None:
+        """设置翻译通道偏好：True = 优先使用平台免费额度。"""
+        async with AlibabaSessionLocal() as session:
+            await QuotaService._get_or_create(session, user_id)
+            await session.execute(
+                update(UserQuota)
+                .where(UserQuota.user_id == user_id)
+                .values(
+                    prefer_free=bool(prefer_free),
+                    updated_at=datetime.utcnow(),
+                )
+            )
+            await session.commit()
+        logger.info("翻译通道偏好更新: user=%s prefer_free=%s", user_id, prefer_free)
 
     @staticmethod
     async def remaining(user_id: str) -> int:

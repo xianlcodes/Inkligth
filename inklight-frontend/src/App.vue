@@ -9,7 +9,7 @@
     >
       <div class="sidebar-header flex items-center gap-3 px-6 py-5">
         <div class="sidebar-logo flex items-center justify-center rounded-md flex-shrink-0"
-             style="background: linear-gradient(135deg, #0284c7, #0ea5e9); box-shadow: 0 4px 8px -2px rgba(2,132,199,0.35)">
+             style="background: linear-gradient(135deg, #2c6b5e, #42856f); box-shadow: 0 4px 8px -2px rgba(44,107,94,0.35)">
           <img :src="quillLogo" alt="InkLight" class="sidebar-logo-img" />
         </div>
         <span class="sidebar-logo-text font-bold whitespace-nowrap">InkLight</span>
@@ -24,31 +24,31 @@
         class="sidebar-menu"
       >
         <el-menu-item index="/dashboard">
-          <el-icon><HomeFilled /></el-icon>
+          <el-icon><House /></el-icon>
           <span>首页</span>
         </el-menu-item>
         <el-menu-item index="/literature">
-          <el-icon><Collection /></el-icon>
+          <el-icon><LibraryBig /></el-icon>
           <span>文献库</span>
         </el-menu-item>
         <el-menu-item index="/notes">
-          <el-icon><Notebook /></el-icon>
+          <el-icon><NotebookPen /></el-icon>
           <span>文献笔记</span>
         </el-menu-item>
         <el-menu-item index="/writing">
-          <el-icon><EditPen /></el-icon>
+          <el-icon><PenLine /></el-icon>
           <span>学术写作</span>
         </el-menu-item>
         <el-menu-item index="/presentation">
-          <el-icon><DataAnalysis /></el-icon>
+          <el-icon><ChartLine /></el-icon>
           <span>组会</span>
         </el-menu-item>
         <el-menu-item index="/settings/ai" data-tour="sidebar-ai">
-          <el-icon><Setting /></el-icon>
+          <el-icon><Settings /></el-icon>
           <span>AI 设置</span>
         </el-menu-item>
         <el-menu-item index="/settings/skills">
-          <el-icon><Tools /></el-icon>
+          <el-icon><Wrench /></el-icon>
           <span>技能管理</span>
         </el-menu-item>
         <el-menu-item index="/announcements">
@@ -56,18 +56,18 @@
           <span>系统公告</span>
         </el-menu-item>
         <el-menu-item v-if="authStore.user?.is_admin" index="/admin/statistics">
-          <el-icon><Management /></el-icon>
+          <el-icon><LayoutGrid /></el-icon>
           <span>后台管理</span>
         </el-menu-item>
         <el-menu-item index="/tutorials">
-          <el-icon><Help /></el-icon>
+          <el-icon><CircleHelp /></el-icon>
           <span>使用教程</span>
         </el-menu-item>
       </el-menu>
 
       <div class="sidebar-qq-group">
         <div class="qq-group-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide">
-          <el-icon :size="14"><ChatDotSquare /></el-icon>
+          <el-icon :size="14"><MessageSquareMore /></el-icon>
           <span>用户交流群</span>
         </div>
         <el-button size="small" text class="qq-join-btn mt-1" @click="qqDialogVisible = true">
@@ -79,12 +79,28 @@
       <!-- 免费翻译额度：让用户随时看到自己的额度状态 -->
       <div class="sidebar-quota" v-if="authStore.isLoggedIn && authStore.user">
         <div class="sidebar-quota-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide mb-2">
-          <el-icon :size="14"><MagicStick /></el-icon>
+          <el-icon :size="14"><WandSparkles /></el-icon>
           <span>免费翻译额度</span>
         </div>
         <div v-if="authStore.user.has_ai_engine" class="sidebar-quota-text flex items-center gap-1_5">
-          <el-icon :size="14" color="#16a34a"><Checked /></el-icon>
+          <el-icon :size="14" color="#16a34a"><CheckCheck /></el-icon>
           <span class="text-sm font-medium">自有 Key · 无限量</span>
+        </div>
+        <div v-if="authStore.user.has_ai_engine" class="sidebar-quota-remaining text-xs mt-1">
+          免费额度剩余
+          <span class="font-semibold">{{ authStore.user.free_translations ?? 0 }}</span> 篇
+        </div>
+        <div
+          v-if="authStore.user.has_ai_engine"
+          class="flex items-center gap-2 mt-1_5 mb-1"
+        >
+          <el-switch
+            size="small"
+            v-model="preferFreeQuota"
+            :disabled="quotaSwitchSaving || (authStore.user.free_translations ?? 0) <= 0"
+            @change="togglePreferFree"
+          />
+          <span class="text-xs">优先用免费额度</span>
         </div>
         <template v-else>
           <div class="sidebar-quota-text flex items-baseline gap-0_5">
@@ -106,7 +122,7 @@
 
       <div class="sidebar-storage" v-if="storageInfo">
         <div class="sidebar-storage-header flex items-center gap-2 text-xs font-medium uppercase tracking-wide mb-2">
-          <el-icon :size="14"><FolderOpened /></el-icon>
+          <el-icon :size="14"><FolderOpen /></el-icon>
           <span>存储空间</span>
         </div>
         <div class="sidebar-storage-bar h-[5px] rounded-full overflow-hidden">
@@ -131,7 +147,7 @@
     <el-container class="main-container flex flex-col">
       <!-- 侧边栏折叠展开按钮 — 固定在左上角 -->
       <button v-if="authStore.isLoggedIn && sidebarCollapsed" class="sidebar-expand-fab" @click="toggleSidebar" title="展开菜单">
-        <el-icon :size="22"><Expand /></el-icon>
+        <el-icon :size="22"><PanelLeftOpen /></el-icon>
       </button>
       <!-- 顶部导航 -->
       <el-header v-if="showAppLayout" class="app-header flex items-center justify-between h-14 px-6 flex-shrink-0">
@@ -152,11 +168,11 @@
               <div class="search-dropdown-header flex items-center justify-between px-4 py-2_5 border-b sticky top-0 z-10">
                 <span class="text-xs font-semibold uppercase tracking-wider">搜索结果</span>
                 <el-button text size="small" @click="clearSearch">
-                  <el-icon><Close /></el-icon>
+                  <el-icon><X /></el-icon>
                 </el-button>
               </div>
               <div v-if="searching" class="search-loading flex items-center justify-center gap-2 py-6">
-                <el-icon class="is-loading"><Loading /></el-icon>
+                <el-icon class="is-loading"><LoaderCircle /></el-icon>
                 <span class="text-sm">搜索中...</span>
               </div>
               <template v-else>
@@ -168,7 +184,7 @@
                   @click="goToResult(item)"
                 >
                   <div class="result-header flex items-center gap-1_5 mb-1_5">
-                    <el-icon><Document /></el-icon>
+                    <el-icon><FileText /></el-icon>
                     <span class="result-title flex-1 text-sm font-semibold truncate">{{ item.literature_title }}</span>
                     <span class="result-page text-xs px-1_5 py-0_5 rounded-sm flex-shrink-0" v-if="item.page_number">第{{ item.page_number }}页</span>
                     <span class="result-sim text-xs font-semibold flex-shrink-0">{{ (item.similarity * 100).toFixed(0) }}%</span>
@@ -196,15 +212,15 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">
-                  <el-icon><UserFilled /></el-icon>
+                  <el-icon><CircleUserRound /></el-icon>
                   个人设置
                 </el-dropdown-item>
                 <el-dropdown-item command="storage">
-                  <el-icon><FolderOpened /></el-icon>
+                  <el-icon><FolderOpen /></el-icon>
                   个人空间
                 </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>
-                  <el-icon><SwitchButton /></el-icon>
+                  <el-icon><LogOut /></el-icon>
                   退出登录
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -279,7 +295,7 @@
       <div class="qq-dialog-number">
         <span>群号：375217209</span>
         <el-button size="small" text type="primary" @click="copyQQGroupNumber">
-          <el-icon :size="14"><CopyDocument /></el-icon>
+          <el-icon :size="14"><Copy /></el-icon>
           复制群号
         </el-button>
       </div>
@@ -302,6 +318,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { useTutorial } from '@/composables/useTutorial'
@@ -312,33 +329,7 @@ import { applyTheme, findThemeByColor } from '@/utils/themes'
 import quillLogo from '@/assets/quill.png'
 import CheckInPopover from '@/components/CheckInPopover.vue'
 import FeedbackButton from '@/components/business/FeedbackButton.vue'
-import {
-  HomeFilled,
-  Reading,
-  Collection,
-  Notebook,
-  EditPen,
-  DataAnalysis,
-  Setting,
-  SwitchButton,
-  UserFilled,
-  Search,
-  Document,
-  Loading,
-  Close,
-  Bell,
-  Fold,
-  Expand,
-  FolderOpened,
-  Management,
-  Help,
-  Tools,
-  ChatDotSquare,
-  CopyDocument,
-  ArrowRight,
-  MagicStick,
-  Checked,
-} from '@element-plus/icons-vue'
+import { House, BookOpen, LibraryBig, NotebookPen, PenLine, ChartLine, Settings, LogOut, CircleUserRound, Search, FileText, LoaderCircle, X, Bell, PanelLeftClose, PanelLeftOpen, FolderOpen, LayoutGrid, CircleHelp, Wrench, MessageSquareMore, Copy, ArrowRight, WandSparkles, CheckCheck } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -439,6 +430,27 @@ async function loadHeaderAnnouncements() {
 
 function goQuotaTarget() {
   router.push((authStore.user?.free_translations ?? 0) > 0 ? '/literature' : '/settings/ai')
+}
+
+// 翻译通道偏好（自有 Key 用户可切换：优先消耗免费额度，省自己的余额）
+const preferFreeQuota = computed({
+  get: () => !!authStore.user?.prefer_free_quota,
+  set: (v: boolean) => { void togglePreferFree(v) },
+})
+const quotaSwitchSaving = ref(false)
+
+async function togglePreferFree(v: boolean | string | number) {
+  const prefer = v === true
+  quotaSwitchSaving.value = true
+  try {
+    await authStore.setQuotaPreference(prefer)
+    ElMessage.success(prefer ? '翻译时将优先使用免费额度，用完自动切回你的 Key' : '已恢复为优先使用你的 Key')
+  } catch (e: any) {
+    const raw = e.response?.data?.detail
+    ElMessage.error(typeof raw === 'string' ? raw : raw?.message || '切换失败')
+  } finally {
+    quotaSwitchSaving.value = false
+  }
 }
 
 function dismissAlert(id: string) {
@@ -580,8 +592,8 @@ watchEffect(() => {
 
 /* ── Sidebar — dark warm charcoal, reading-app feel ── */
 .app-sidebar {
-  background: #2a231e !important;
-  border-right: 1px solid #3d332c;
+  background: #f8f5ef !important;
+  border-right: 1px solid #e7e1d4;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -605,28 +617,28 @@ watchEffect(() => {
   width: 42px;
   height: 42px;
   border-radius: 10px;
-  background: #1e1b18;
-  border: 1px solid #4d4038;
+  background: #ffffff;
+  border: 1px solid #d8d0c0;
   box-shadow: 0 4px 16px rgba(0,0,0,0.35);
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #8a7a6c;
+  color: #8f8778;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s, color 0.15s;
 }
 
 .sidebar-expand-fab:hover {
-  color: #38bdf8;
+  color: #2c6b5e;
   border-color: rgba(56,189,248,0.4);
-  box-shadow: 0 4px 20px rgba(2,132,199,0.35);
+  box-shadow: 0 4px 20px rgba(44,107,94,0.35);
   transform: scale(1.08);
 }
 
 .sidebar-header {
-  border-bottom: 1px solid #3d332c;
-  background: #322b25;
+  border-bottom: 1px solid #e7e1d4;
+  background: #f1ece2;
 }
 
 .sidebar-header::after {
@@ -636,7 +648,7 @@ watchEffect(() => {
   left: 20px;
   right: 20px;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(2,132,199,0.2) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(44,107,94,0.2) 50%, transparent 100%);
 }
 
 .sidebar-logo {
@@ -652,23 +664,23 @@ watchEffect(() => {
 }
 
 .sidebar-logo-text {
-  color: #e0d6cc;
+  color: #3d3a33;
   letter-spacing: -0.3px;
   font-size: 20px;
   font-weight: 700;
 }
 
 .sidebar-toggle-btn {
-  border-color: #4d4038;
+  border-color: #d8d0c0;
   background: rgba(255,255,255,0.06);
-  color: #8a7a6c;
+  color: #8f8778;
   transition: all var(--transition-fast);
 }
 
 .sidebar-toggle-btn:hover {
-  color: #38bdf8;
+  color: #2c6b5e;
   border-color: rgba(56,189,248,0.3);
-  background: rgba(2,132,199,0.12);
+  background: rgba(44,107,94,0.10);
 }
 
 /* ── Sidebar menu — Element Plus overrides ── */
@@ -688,7 +700,7 @@ watchEffect(() => {
   margin-bottom: 2px;
   height: 42px;
   line-height: 42px;
-  color: #b8ab9e !important;
+  color: #5c564c !important;
   font-size: 14px;
   font-weight: 500;
   position: relative;
@@ -698,12 +710,12 @@ watchEffect(() => {
 
 .sidebar-menu :deep(.el-menu-item:hover) {
   background: rgba(255,255,255,0.05) !important;
-  color: #e8e0d8 !important;
+  color: #2c6b5e !important;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: rgba(2,132,199,0.12) !important;
-  color: #7dd3fc !important;
+  background: rgba(44,107,94,0.10) !important;
+  color: #2c6b5e !important;
   font-weight: 600;
 }
 
@@ -715,7 +727,7 @@ watchEffect(() => {
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background: linear-gradient(180deg, #0284c7, #38bdf8);
+  background: linear-gradient(180deg, #2c6b5e, #42856f);
   border-radius: 0 3px 3px 0;
 }
 
@@ -733,16 +745,16 @@ watchEffect(() => {
 /* ── Sidebar storage ── */
 .sidebar-storage {
   padding: 12px 16px;
-  border-top: 1px solid #3d332c;
-  background: #1e1916;
+  border-top: 1px solid #e7e1d4;
+  background: #f8f5ef;
   flex-shrink: 0;
 }
 
 .sidebar-storage-header {
-  color: #8a7a6c;
+  color: #8f8778;
 }
 
-.sidebar-storage-header .el-icon { color: #6b5d53; }
+.sidebar-storage-header .el-icon { color: #a29a8a; }
 
 .sidebar-storage-bar {
   background: rgba(255,255,255,0.06);
@@ -751,7 +763,7 @@ watchEffect(() => {
 }
 
 .sidebar-storage-fill {
-  background: linear-gradient(90deg, #0284c7, #38bdf8);
+  background: linear-gradient(90deg, #2c6b5e, #42856f);
   transition: width 0.6s ease, background 0.3s;
 }
 
@@ -760,58 +772,58 @@ watchEffect(() => {
 }
 
 .sidebar-storage-text {
-  color: #c4b8a8;
+  color: #55504a;
 }
 
-.sidebar-storage-remaining { color: #8a7a6c; }
-.sidebar-storage-remaining.warning { color: #f87171; font-weight: 500; }
+.sidebar-storage-remaining { color: #8f8778; }
+.sidebar-storage-remaining.warning { color: #c26a52; font-weight: 500; }
 
 /* ── Sidebar 免费翻译额度 ── */
 .sidebar-quota {
   padding: 12px 16px;
-  border-top: 1px solid #3d332c;
-  background: #1e1916;
+  border-top: 1px solid #e7e1d4;
+  background: #f8f5ef;
   flex-shrink: 0;
 }
 
 .sidebar-quota-header {
-  color: #8a7a6c;
+  color: #8f8778;
 }
 
-.sidebar-quota-header .el-icon { color: #6b5d53; }
+.sidebar-quota-header .el-icon { color: #a29a8a; }
 
 .sidebar-quota-text {
-  color: #c4b8a8;
+  color: #55504a;
 }
 
-.sidebar-quota-text .text-lg { color: #e8dfD3; }
+.sidebar-quota-text .text-lg { color: #2c6b5e; }
 
-.sidebar-quota-remaining { color: #8a7a6c; }
-.sidebar-quota-remaining.warning { color: #f87171; font-weight: 500; }
+.sidebar-quota-remaining { color: #8f8778; }
+.sidebar-quota-remaining.warning { color: #c26a52; font-weight: 500; }
 
 .quota-go-btn {
   padding-left: 0 !important;
-  color: #38bdf8 !important;
+  color: #2c6b5e !important;
 }
 
 /* ── Sidebar QQ group ── */
 .sidebar-qq-group {
   padding: 10px 16px;
-  border-top: 1px solid #3d332c;
-  background: #1e1916;
+  border-top: 1px solid #e7e1d4;
+  background: #f8f5ef;
   flex-shrink: 0;
 }
 
 .sidebar-qq-group .qq-group-header {
-  color: #8a7a6c;
+  color: #8f8778;
 }
 
 .sidebar-qq-group .qq-group-header .el-icon {
-  color: #0284c7;
+  color: #2c6b5e;
 }
 
 .sidebar-qq-group .qq-join-btn {
-  color: #38bdf8;
+  color: #2c6b5e;
   padding: 1px 0;
   font-size: 12px;
   height: auto;
@@ -819,7 +831,7 @@ watchEffect(() => {
 }
 
 .sidebar-qq-group .qq-join-btn:hover {
-  color: #7dd3fc;
+  color: #2c6b5e;
 }
 
 .sidebar-qq-group .qq-join-btn .el-icon {
@@ -884,7 +896,7 @@ watchEffect(() => {
 
 .page-brand {
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  background: linear-gradient(135deg, #2c6b5e, #42856f);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -946,7 +958,7 @@ watchEffect(() => {
 .user-avatar-img {
   width: 34px;
   height: 34px;
-  border: 2px solid rgba(2,132,199,0.15);
+  border: 2px solid rgba(44,107,94,0.15);
   transition: border-color 0.2s ease;
 }
 

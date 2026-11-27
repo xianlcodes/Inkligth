@@ -10,15 +10,15 @@
       <el-form-item label="导出格式">
         <el-radio-group v-model="format" class="format-group">
           <el-radio-button value="word">
-            <el-icon><Document /></el-icon>
+            <el-icon><FileText /></el-icon>
             <span>Word (.docx)</span>
           </el-radio-button>
           <el-radio-button value="latex">
-            <el-icon><Tickets /></el-icon>
+            <el-icon><Ticket /></el-icon>
             <span>LaTeX (.tex)</span>
           </el-radio-button>
           <el-radio-button value="pdf">
-            <el-icon><Reading /></el-icon>
+            <el-icon><BookOpen /></el-icon>
             <span>PDF</span>
           </el-radio-button>
         </el-radio-group>
@@ -103,7 +103,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Document, Tickets, Reading, Download } from '@element-plus/icons-vue'
+import { FileText, Ticket, BookOpen, Download } from 'lucide-vue-next'
 import {
   exportWord,
   exportLatex,

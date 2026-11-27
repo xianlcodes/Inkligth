@@ -59,7 +59,7 @@
       </el-table-column>
       <el-table-column label="置顶" width="70" align="center">
         <template #default="{ row }">
-          <el-icon v-if="row.is_pinned" color="var(--accent-primary)"><Top /></el-icon>
+          <el-icon v-if="row.is_pinned" color="var(--accent-primary)"><ArrowUpToLine /></el-icon>
           <span v-else>-</span>
         </template>
       </el-table-column>
@@ -139,7 +139,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Top } from '@element-plus/icons-vue'
+import { Plus, ArrowUpToLine } from 'lucide-vue-next'
 import { formatDateCN } from '@/utils/date'
 import {
   getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement,

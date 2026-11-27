@@ -37,7 +37,7 @@
           content="排查模式：记录每个请求的详细过程，方便定位问题；平时请保持关闭，避免日志过多。重启服务后会自动回到正常模式。"
           placement="top"
         >
-          <el-icon class="text-slate-400 cursor-help"><QuestionFilled /></el-icon>
+          <el-icon class="text-slate-400 cursor-help"><CircleHelp /></el-icon>
         </el-tooltip>
       </div>
     </div>
@@ -89,7 +89,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { QuestionFilled } from '@element-plus/icons-vue'
+import { CircleHelp } from 'lucide-vue-next'
 import {
   getSystemLogStats,
   getSystemLogContent,

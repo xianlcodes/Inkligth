@@ -17,21 +17,21 @@
 
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon" style="background:#ecfeff;color:#0e7490"><el-icon :size="24"><UserFilled /></el-icon></div>
+        <div class="stat-icon" style="background:#ecfeff;color:#0e7490"><el-icon :size="24"><CircleUserRound /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.total_users ?? '-' }}</p>
           <p class="stat-label">用户总数</p>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:var(--bg-secondary);color:var(--text-secondary)"><el-icon :size="24"><Document /></el-icon></div>
+        <div class="stat-icon" style="background:var(--bg-secondary);color:var(--text-secondary)"><el-icon :size="24"><FileText /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.total_literatures ?? '-' }}</p>
           <p class="stat-label">文献总数</p>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#f0fdf4;color:#16a34a"><el-icon :size="24"><Checked /></el-icon></div>
+        <div class="stat-icon" style="background:#f0fdf4;color:#16a34a"><el-icon :size="24"><CheckCheck /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.total_read_literatures ?? '-' }}</p>
           <p class="stat-label">已读文献</p>
@@ -45,14 +45,14 @@
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><el-icon :size="24"><Notebook /></el-icon></div>
+        <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><el-icon :size="24"><NotebookPen /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.total_notes ?? '-' }}</p>
           <p class="stat-label">笔记总数</p>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:var(--bg-secondary);color:var(--text-secondary)"><el-icon :size="24"><DataAnalysis /></el-icon></div>
+        <div class="stat-icon" style="background:var(--bg-secondary);color:var(--text-secondary)"><el-icon :size="24"><ChartLine /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.total_presentations ?? '-' }}</p>
           <p class="stat-label">组会总数</p>
@@ -60,28 +60,28 @@
             </div>
 
       <div class="stat-card">
-        <div class="stat-icon" style="background:#f0fdf4;color:#16a34a"><el-icon :size="24"><UserFilled /></el-icon></div>
+        <div class="stat-icon" style="background:#f0fdf4;color:#16a34a"><el-icon :size="24"><CircleUserRound /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.active_users_7d ?? '-' }}</p>
           <p class="stat-label">7日内活跃用户</p>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><el-icon :size="24"><UserFilled /></el-icon></div>
+        <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><el-icon :size="24"><CircleUserRound /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.active_users_30d ?? '-' }}</p>
           <p class="stat-label">30日内活跃用户</p>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fefce8;color:#ca8a04"><el-icon :size="24"><Checked /></el-icon></div>
+        <div class="stat-icon" style="background:#fefce8;color:#ca8a04"><el-icon :size="24"><CheckCheck /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.activated_users ?? '-' }}</p>
           <p class="stat-label">完成新手引导</p>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fdf2f8;color:#db2777"><el-icon :size="24"><Collection /></el-icon></div>
+        <div class="stat-icon" style="background:#fdf2f8;color:#db2777"><el-icon :size="24"><LibraryBig /></el-icon></div>
         <div class="stat-card-body">
           <p class="stat-value">{{ overview?.users_with_own_engine ?? '-' }}</p>
           <p class="stat-label">自配 Key 用户</p>
@@ -100,7 +100,7 @@
       <div class="px-6 pt-6 pb-4">
         <div class="flex items-center gap-3 mb-5">
           <div class="rounded-md flex items-center justify-center flex-shrink-0" style="width:36px;height:36px;background:linear-gradient(135deg,#ecfeff,#ccfbf1);color:#0d9488">
-            <el-icon :size="18"><UserFilled /></el-icon>
+            <el-icon :size="18"><CircleUserRound /></el-icon>
           </div>
           <div class="flex flex-col gap-0_5">
             <h3 class="text-base font-semibold text-slate-800 m-0">新增用户趋势</h3>
@@ -116,7 +116,7 @@
       <div class="px-6 pt-6 pb-4">
         <div class="flex items-center gap-3 mb-5">
           <div class="rounded-md flex items-center justify-center flex-shrink-0" style="width:36px;height:36px;background:linear-gradient(135deg,#eef2ff,#e0e7ff);color:#4f46e5">
-            <el-icon :size="18"><Document /></el-icon>
+            <el-icon :size="18"><FileText /></el-icon>
           </div>
           <div class="flex flex-col gap-0_5">
             <h3 class="text-base font-semibold text-slate-800 m-0">新增文献趋势</h3>
@@ -132,9 +132,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import {
-  UserFilled, Document, Checked, Clock, Notebook, DataAnalysis, Collection,
-} from '@element-plus/icons-vue'
+import { CircleUserRound, FileText, CheckCheck, Clock, NotebookPen, ChartLine, LibraryBig } from 'lucide-vue-next'
 import * as echarts from 'echarts'
 import { getStatsOverview, getStatsTimeseries, type StatsOverview, type TimeSeriesStats } from '@/api/admin'
 
@@ -163,24 +161,24 @@ function makeLineOption(data: { date: string; value: number }[], color: string, 
       textStyle: { color: '#fff', fontSize: 13 },
       formatter: (params: { name: string; value: number }[]) => {
         const p = params[0]
-        return `<div style="font-size:12px;color:#94a3b8;margin-bottom:4px">${p.name}</div>
+        return `<div style="font-size:12px;color:#8fa096;margin-bottom:4px">${p.name}</div>
           <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px"></span>${p.value}</div>`
       },
     },
     xAxis: {
       type: 'category',
       data: data.map(d => formatDate(d.date)),
-      axisLine: { lineStyle: { color: '#e2e8f0' } },
+      axisLine: { lineStyle: { color: '#e5e1d8' } },
       axisTick: { show: false },
-      axisLabel: { color: '#94a3b8', fontSize: 11 },
+      axisLabel: { color: '#8fa096', fontSize: 11 },
     },
     yAxis: {
       type: 'value',
       minInterval: 1,
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
-      axisLabel: { color: '#94a3b8', fontSize: 11 },
+      splitLine: { lineStyle: { color: '#f3efe7', type: 'dashed' } },
+      axisLabel: { color: '#8fa096', fontSize: 11 },
     },
     series: [{
       type: 'line',

@@ -3,7 +3,7 @@
     <div class="forgot-card">
       <div class="forgot-header">
         <div class="forgot-logo">
-          <el-icon :size="28"><Reading /></el-icon>
+          <el-icon :size="28"><BookOpen /></el-icon>
         </div>
         <h1 class="forgot-title">InkLight</h1>
         <p class="forgot-subtitle">重置密码</p>
@@ -29,7 +29,7 @@
 
       <template v-if="step === 2">
         <div class="success-banner">
-          <el-icon class="success-icon"><SuccessFilled /></el-icon>
+          <el-icon class="success-icon"><CircleCheck /></el-icon>
           <div class="success-text">
             <strong>验证码已发送</strong>
             <span>一封包含6位验证码的邮件已发送至 {{ emailForm.email }}，有效期15分钟</span>
@@ -61,7 +61,7 @@
 
       <template v-if="step === 3">
         <div class="success-banner">
-          <el-icon class="success-icon"><SuccessFilled /></el-icon>
+          <el-icon class="success-icon"><CircleCheck /></el-icon>
           <div class="success-text">
             <strong>验证通过</strong>
             <span>请设置您的新密码</span>
@@ -110,7 +110,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Reading, ArrowLeft, SuccessFilled } from '@element-plus/icons-vue'
+import { BookOpen, ArrowLeft, CircleCheck } from 'lucide-vue-next'
 import apiClient from '@/api/client'
 import bgImage from '@/assets/bg_image.jpg'
 

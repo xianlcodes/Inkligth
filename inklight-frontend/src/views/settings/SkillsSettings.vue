@@ -21,7 +21,7 @@
         <div class="px-4 py-3 mb-4 rounded-lg text-sm leading-relaxed" style="background:var(--bg-tertiary);border:1px solid var(--border-light);color:var(--text-secondary)">
           <p class="m-0"><strong>技能</strong> 是一段提示词模板，保存在数据库中。AI 对话时，启用的技能会被注入到 system prompt 里，用来定制 AI 的行为方式——比如让 AI 按学术写作风格回答，或按特定标准评审论文。</p>
           <div class="flex items-center gap-1 mt-2 pt-2" style="border-top:1px solid var(--border-light);color:var(--accent-primary)">
-            <el-icon :size="14"><QuestionFilled /></el-icon>
+            <el-icon :size="14"><CircleHelp /></el-icon>
             <span>不知道怎么用？</span>
             <el-button link type="primary" @click="$router.push('/tutorials')">查看使用教程</el-button>
           </div>
@@ -53,7 +53,7 @@
               @input="debouncedLoadSkills"
             />
             <el-button size="small" text @click="loadSkillPresets">
-              <el-icon><Collection /></el-icon>
+              <el-icon><LibraryBig /></el-icon>
               预设模板
             </el-button>
           </div>
@@ -76,10 +76,10 @@
                     @change="handleToggleSkill(skill)"
                   />
                   <el-button text size="small" @click="openEditSkillDialog(skill)">
-                    <el-icon><Edit /></el-icon>
+                    <el-icon><Pencil /></el-icon>
                   </el-button>
                   <el-button text size="small" type="danger" @click="handleDeleteSkill(skill)">
-                    <el-icon><Delete /></el-icon>
+                    <el-icon><Trash2 /></el-icon>
                   </el-button>
                 </div>
               </div>
@@ -114,10 +114,10 @@
                     @change="handleToggleHook(hook)"
                   />
                   <el-button text size="small" @click="openEditHookDialog(hook)">
-                    <el-icon><Edit /></el-icon>
+                    <el-icon><Pencil /></el-icon>
                   </el-button>
                   <el-button text size="small" type="danger" @click="handleDeleteHook(hook)">
-                    <el-icon><Delete /></el-icon>
+                    <el-icon><Trash2 /></el-icon>
                   </el-button>
                 </div>
               </div>
@@ -271,7 +271,7 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Collection, QuestionFilled } from '@element-plus/icons-vue'
+import { Pencil, Trash2, LibraryBig, CircleHelp } from 'lucide-vue-next'
 import { formatDateShort } from '@/utils/time'
 import {
   getSkills,

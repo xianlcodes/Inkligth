@@ -26,7 +26,7 @@
           :disabled="ledgerBuilding"
           @click="handleRunReview"
         >
-          <el-icon><ChatDotSquare /></el-icon>
+          <el-icon><MessageSquareMore /></el-icon>
           运行评审
         </el-button>
       </div>
@@ -34,9 +34,9 @@
 
     <!-- SSE Progress -->
     <div v-if="sseProgress.visible" class="sse-progress-bar" :class="sseProgress.status">
-      <el-icon v-if="sseProgress.status === 'running'" class="is-loading"><Loading /></el-icon>
+      <el-icon v-if="sseProgress.status === 'running'" class="is-loading"><LoaderCircle /></el-icon>
       <el-icon v-else-if="sseProgress.status === 'success'"><CircleCheck /></el-icon>
-      <el-icon v-else-if="sseProgress.status === 'error'"><CircleClose /></el-icon>
+      <el-icon v-else-if="sseProgress.status === 'error'"><CircleX /></el-icon>
       <span class="sse-progress-text">{{ sseProgress.message }}</span>
       <el-button v-if="sseProgress.status === 'running'" text size="small" @click="cancelSSE">
         取消
@@ -151,7 +151,7 @@
               <!-- Overall Assessment -->
               <div v-if="reviewSession.overall_assessment" class="assessment-card">
                 <div class="assessment-header">
-                  <el-icon><ChatDotSquare /></el-icon>
+                  <el-icon><MessageSquareMore /></el-icon>
                   <span>总体评价: {{ reviewSession.overall_assessment }}</span>
                 </div>
                 <p v-if="reviewSession.strengths" class="assessment-text">
@@ -312,15 +312,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAiEngineStore } from '@/stores/aiEngine'
-import {
-  ArrowLeft,
-  List,
-  ChatDotSquare,
-  Loading,
-  CircleCheck,
-  CircleClose,
-  ArrowDown,
-} from '@element-plus/icons-vue'
+import { ArrowLeft, List, MessageSquareMore, LoaderCircle, CircleCheck, CircleX, ArrowDown } from 'lucide-vue-next'
 import {
   buildLedgerSSE,
   getLedgerByLiterature,

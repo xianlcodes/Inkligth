@@ -54,33 +54,33 @@
       <div class="toolbar-actions">
         <el-dropdown trigger="click">
           <el-button :loading="fullTranslating">
-            <el-icon><Document /></el-icon>
+            <el-icon><FileText /></el-icon>
             全文翻译
             <el-icon class="el-icon--right"><ArrowDown /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item @click="handleFullTranslate">
-                <el-icon><Document /></el-icon>
+                <el-icon><FileText /></el-icon>
                 右侧显示译文
               </el-dropdown-item>
               <el-dropdown-item @click="showPdfTranslateDialog = true">
-                <el-icon><Notebook /></el-icon>
+                <el-icon><NotebookPen /></el-icon>
                 原位翻译 PDF
               </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
         <span v-if="backgroundTranslatingId && !translateProgressStatus" class="toolbar-translating-hint">
-          <el-icon class="is-loading"><Loading /></el-icon>
+          <el-icon class="is-loading"><LoaderCircle /></el-icon>
           翻译中 {{ translateProgress }}%
         </span>
         <el-button :loading="parsing" @click="handleAIParse">
-          <el-icon><MagicStick /></el-icon>
+          <el-icon><WandSparkles /></el-icon>
           AI 解析
         </el-button>
         <el-button @click="goToReview">
-          <el-icon><ChatDotSquare /></el-icon>
+          <el-icon><MessageSquareMore /></el-icon>
           论文评审
         </el-button>
         <el-button @click="handleDownloadOriginal">
@@ -192,7 +192,7 @@
           <!-- 结构化摘要 -->
           <div v-if="analysisData.summary" class="analysis-section">
             <h4 class="analysis-section-title">
-              <el-icon><Document /></el-icon>
+              <el-icon><FileText /></el-icon>
               结构化摘要
             </h4>
             <div class="summary-grid">
@@ -245,7 +245,7 @@
           <!-- 方法步骤 -->
           <div v-if="analysisData.methods" class="analysis-section">
             <h4 class="analysis-section-title">
-              <el-icon><Setting /></el-icon>
+              <el-icon><Settings /></el-icon>
               可复现方法步骤
             </h4>
             <div class="methods-content">{{ analysisData.methods }}</div>
@@ -334,19 +334,19 @@
                 已选中 {{ continuousSelections.length }} 段文字
               </span>
               <button v-if="continuousSelections.length === 0" class="floating-menu-btn highlight-btn" @click="createHighlight">
-                <el-icon><EditPen /></el-icon>
+                <el-icon><PenLine /></el-icon>
                 高亮
               </button>
               <button v-if="continuousSelections.length === 0" class="floating-menu-btn note-btn" @click="openNoteEditor">
-                <el-icon><Notebook /></el-icon>
+                <el-icon><NotebookPen /></el-icon>
                 记笔记
               </button>
               <button class="floating-menu-btn translate-btn" @click="translateSelection">
-                <el-icon><Document /></el-icon>
+                <el-icon><FileText /></el-icon>
                 翻译{{ continuousSelections.length > 0 ? '(' + continuousSelections.length + '段)' : '' }}
               </button>
               <button v-if="continuousSelections.length > 0" class="floating-menu-btn clear-btn" @click="clearContinuousHighlights(); continuousSelections.length = 0">
-                <el-icon><Close /></el-icon>
+                <el-icon><X /></el-icon>
                 清除
               </button>
             </div>
@@ -361,11 +361,11 @@
               @click.stop
             >
               <button class="floating-menu-btn note-btn" @click="handleEditHighlightNote">
-                <el-icon><Notebook /></el-icon>
+                <el-icon><NotebookPen /></el-icon>
                 编辑笔记
               </button>
               <button class="floating-menu-btn highlight-btn" @click="handleDeleteHighlight">
-                <el-icon><Delete /></el-icon>
+                <el-icon><Trash2 /></el-icon>
                 删除高亮
               </button>
             </div>
@@ -382,7 +382,7 @@
       <div class="side-panel" :style="{ width: sidePanelWidth + 'px' }">
         <div class="side-panel-header">
           <div class="side-panel-title">
-            <el-icon :size="18"><Document /></el-icon>
+            <el-icon :size="18"><FileText /></el-icon>
             <span>{{
               activeTab === 'translate' ? '智能翻译' :
               activeTab === 'chat' ? '边看边问' : '我的笔记'
@@ -419,11 +419,11 @@
                   <span class="full-trans-title">全文译文</span>
                   <div class="full-trans-actions">
                     <el-button text size="small" type="primary" @click="handleRetryFullTranslate">
-                      <el-icon><Refresh /></el-icon>
+                      <el-icon><RefreshCw /></el-icon>
                       重新翻译
                     </el-button>
                     <el-button text size="small" type="danger" @click="handleDeleteFullTranslation">
-                      <el-icon><Delete /></el-icon>
+                      <el-icon><Trash2 /></el-icon>
                       删除翻译结果
                     </el-button>
                     <el-button text size="small" type="primary" @click="clearFullTranslation">
@@ -459,11 +459,11 @@
                     <div class="block-label-row">
                       <p class="block-label trans-label">译文</p>
                       <el-button v-if="translationHistory.length > 0" text size="small" @click="copyTranslation">
-                        <el-icon><CopyDocument /></el-icon>
+                        <el-icon><Copy /></el-icon>
                       </el-button>
                     </div>
                     <div v-if="translating" class="block-text translating">
-                      <el-icon class="is-loading"><Loading /></el-icon>
+                      <el-icon class="is-loading"><LoaderCircle /></el-icon>
                       翻译中...
                     </div>
                     <div v-if="translating && streamingTarget" class="block-text streaming-preview">
@@ -526,7 +526,7 @@
                       </el-tag>
                       <span class="note-card-page">第 {{ note.page_number }} 页</span>
                       <el-button text size="small" type="danger" @click.stop="deleteNoteById(note.id)">
-                        <el-icon><Delete /></el-icon>
+                        <el-icon><Trash2 /></el-icon>
                       </el-button>
                     </div>
                     <p v-if="note.quoted_text" class="note-card-quote">"{{ note.quoted_text }}"</p>
@@ -542,7 +542,7 @@
           <el-tab-pane label="边看边问" name="chat">
             <div class="tab-content chat-panel">
               <div class="chat-context-bar" :title="chatContextText">
-                <el-icon><Document /></el-icon>
+                <el-icon><FileText /></el-icon>
                 <span class="chat-context-text">{{ chatContextLabel }}</span>
               </div>
               <div ref="chatMessageListRef" class="chat-message-list">
@@ -564,7 +564,7 @@
                 </div>
                 <div v-if="chatSending" class="chat-msg chat-msg-ai">
                   <div class="chat-msg-bubble chat-msg-thinking">
-                    <el-icon class="is-loading"><Loading /></el-icon>
+                    <el-icon class="is-loading"><LoaderCircle /></el-icon>
                     <span>思考中...</span>
                   </div>
                 </div>
@@ -588,7 +588,7 @@
                     :disabled="!chatInput.trim() || !chatContextText"
                     @click="handleSendChat"
                   >
-                    <el-icon v-if="!chatSending"><Promotion /></el-icon>
+                    <el-icon v-if="!chatSending"><Send /></el-icon>
                   </el-button>
                 </div>
                 <div v-if="chatConversationId" class="chat-input-actions">
@@ -598,7 +598,7 @@
                     type="warning"
                     @click="handleClearChat"
                   >
-                    <el-icon><Refresh /></el-icon>
+                    <el-icon><RefreshCw /></el-icon>
                     清除对话
                   </el-button>
                 </div>
@@ -615,7 +615,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, ZoomIn, ZoomOut, Document, MagicStick, CopyDocument, Loading, EditPen, Notebook, Delete, Star, Setting, Plus, Download, ArrowDown, Refresh, ChatDotSquare, Promotion, Close } from '@element-plus/icons-vue'
+import { ArrowLeft, ZoomIn, ZoomOut, FileText, WandSparkles, Copy, LoaderCircle, PenLine, NotebookPen, Trash2, Star, Settings, Plus, Download, ArrowDown, RefreshCw, MessageSquareMore, Send, X } from 'lucide-vue-next'
 import VuePdfEmbed from 'vue-pdf-embed'
 import 'vue-pdf-embed/dist/styles/textLayer.css'
 import { getLiterature, getLiteratureFileBlob, updateLiterature, type Literature } from '@/api/literature'
@@ -1476,7 +1476,7 @@ function addContinuousHighlight(pageEl: HTMLElement, coords: RectCoords, pageNum
   highlightDiv.style.top = `${coords.y * 100}%`
   highlightDiv.style.width = `${coords.width * 100}%`
   highlightDiv.style.height = `${coords.height * 100}%`
-  highlightDiv.style.backgroundColor = 'rgba(2, 132, 199, 0.3)'
+  highlightDiv.style.backgroundColor = 'rgba(44, 107, 94, 0.3)'
   highlightDiv.style.borderRadius = '2px'
   highlightDiv.style.pointerEvents = 'none'
   highlightDiv.style.zIndex = '5'
@@ -2088,7 +2088,7 @@ function stopResize() {
   height: 100%;
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 80% 0%, rgba(2, 132, 199, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 0%, rgba(44, 107, 94, 0.03) 0%, transparent 50%),
     radial-gradient(ellipse at 20% 100%, rgba(16, 185, 129, 0.02) 0%, transparent 45%),
     linear-gradient(175deg, #f8f5f0 0%, #f5f1eb 50%, #f2ece2 100%);
 }
@@ -2869,7 +2869,7 @@ function stopResize() {
 .note-card--active {
   border-color: var(--accent-primary);
   background: linear-gradient(135deg, rgba(240, 249, 255, 0.7), rgba(255, 255, 255, 0.5));
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.12);
+  box-shadow: 0 0 0 2px rgba(44, 107, 94, 0.12);
 }
 
 .note-card-header {

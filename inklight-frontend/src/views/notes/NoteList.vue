@@ -58,7 +58,7 @@
           <p v-else class="text-xs text-slate-400 italic m-0 mb-2">空笔记</p>
           <div class="flex items-center gap-3 flex-wrap">
             <span v-if="note.literature_title" class="inline-flex items-center gap-1 text-xs text-sky-600">
-              <el-icon><Document /></el-icon>
+              <el-icon><FileText /></el-icon>
               {{ note.literature_title }}
             </span>
             <span class="text-xs text-slate-400">{{ formatDate(note.created_at) }}</span>
@@ -66,10 +66,10 @@
         </div>
         <div class="note-card-actions" @click.stop>
           <el-button text size="small" @click="openEditDialog(note)">
-            <el-icon><Edit /></el-icon>
+            <el-icon><Pencil /></el-icon>
           </el-button>
           <el-button text size="small" type="danger" @click="handleDelete(note)">
-            <el-icon><Delete /></el-icon>
+            <el-icon><Trash2 /></el-icon>
           </el-button>
         </div>
       </div>
@@ -80,7 +80,7 @@
       <div class="max-h-[60vh] overflow-y-auto">
         <div class="flex items-center gap-2_5 mb-3">
           <span v-if="editingNote?.literature_title" class="inline-flex items-center gap-1 text-sm text-sky-600 font-medium">
-            <el-icon><Document /></el-icon>
+            <el-icon><FileText /></el-icon>
             {{ editingNote.literature_title }}
           </span>
           <el-tag v-if="editingNote" :type="noteTypeColor(editingNote.note_type)" size="small" effect="dark">
@@ -117,7 +117,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Delete, Search, Edit, Operation, Menu, Tickets } from '@element-plus/icons-vue'
+import { FileText, Trash2, Search, Pencil, Wrench, Menu, Ticket } from 'lucide-vue-next'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'

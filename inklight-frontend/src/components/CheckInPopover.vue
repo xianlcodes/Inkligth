@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Calendar } from '@element-plus/icons-vue'
+import { Calendar } from 'lucide-vue-next'
 import { doCheckIn, getCheckInStatus, type CheckInStatus } from '@/api/checkIn'
 import { getBeijingNow } from '@/utils/time'
 

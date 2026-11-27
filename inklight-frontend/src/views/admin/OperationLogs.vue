@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search } from 'lucide-vue-next'
 import { getOperationLogs, type OperationLog } from '@/api/admin'
 import { formatDateCN } from '@/utils/date'
 
