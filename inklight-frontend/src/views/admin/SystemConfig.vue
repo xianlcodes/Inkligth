@@ -479,7 +479,7 @@ import {
 import { formatDateCN } from '@/utils/date'
 
 // ── 已知配置键 → 专属卡片；其余进「其他配置」 ──
-const PLATFORM_KEYS = ['platform_ai_key', 'platform_ai_base_url', 'platform_ai_model', 'platform_free_translations']
+const PLATFORM_KEYS = ['platform_ai_key', 'platform_ai_base_url', 'platform_ai_model', 'platform_quota_unlimited', 'platform_free_translations']
 const PRESETS_KEY = 'provider_presets'
 const RECALL_KEY = 'recall_emails_enabled'
 const PLATFORM_LABEL = 'platform'

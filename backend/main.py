@@ -40,6 +40,21 @@ async def startup_event():
     from app.core.ai_providers.provider_registry import AIProviderRegistry
     AIProviderRegistry.bootstrap()
 
+    # 平台免费额度配置：幂等种子（新增键/语义变更的文案刷新）+ 启动时打印解析结果，
+    # 便于排查「后台改了额度但用户端没生效」这类问题
+    try:
+        from app.services.platform_config_service import PlatformConfigService
+        await PlatformConfigService.ensure_seeded()
+        daily_limit, unlimited = await PlatformConfigService.get_free_translations()
+        logging.getLogger(__name__).info(
+            "[Startup] 平台免费额度配置: 模式=%s 每日次数=%d",
+            "不限量" if unlimited else "按日限额", daily_limit,
+        )
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "平台免费额度配置种子/解析失败（不影响启动）", exc_info=True
+        )
+
     try:
         from app.services.layout_analysis_service import layout_analysis_service
         _logger = logging.getLogger(__name__)
