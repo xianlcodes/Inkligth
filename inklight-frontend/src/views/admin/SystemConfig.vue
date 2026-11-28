@@ -477,12 +477,35 @@ import {
   type SystemConfigItem, type ConfigChangeLog, type StatsOverview, type AdminUser,
 } from '@/api/admin'
 import { formatDateCN } from '@/utils/date'
+import { useAuthStore } from '@/stores/auth'
 
 // ── 已知配置键 → 专属卡片；其余进「其他配置」 ──
 const PLATFORM_KEYS = ['platform_ai_key', 'platform_ai_base_url', 'platform_ai_model', 'platform_quota_unlimited', 'platform_free_translations']
 const PRESETS_KEY = 'provider_presets'
 const RECALL_KEY = 'recall_emails_enabled'
 const PLATFORM_LABEL = 'platform'
+
+// 平台额度配置变更后：刷新当前登录用户的额度（侧边栏卡片即时生效），
+// 并校验后端返回的字段——拿不到新字段说明后端还是旧版本，明确提示而不是静默显示 0
+const authStore = useAuthStore()
+
+async function refreshQuotaAfterConfigChange() {
+  try {
+    await authStore.fetchUser()
+  } catch {
+    return // 刷新失败不打扰（下次页面刷新会拿到新配置）
+  }
+  const u = authStore.user
+  const backendMatches = platformForm.value.unlimited
+    ? !!u?.free_quota_unlimited
+    : u?.free_quota_daily_limit === platformForm.value.free
+  if (!backendMatches) {
+    ElMessage.warning({
+      message: '已保存，但后端返回的额度与配置不一致——后端可能仍是旧版本，请重新部署/重启后端后再验证。',
+      duration: 8000,
+    })
+  }
+}
 
 const loading = ref(false)
 const configs = ref<SystemConfigItem[]>([])
@@ -689,6 +712,7 @@ async function savePlatform() {
     await updateSystemConfig('platform_free_translations', { value: String(platformForm.value.free) })
     ElMessage.success('平台免费额度设置已保存，立即生效')
     await loadConfigs()
+    await refreshQuotaAfterConfigChange()
   } catch (e: any) {
     const raw = e.response?.data?.detail
     ElMessage.error(typeof raw === 'string' ? raw : raw?.message || '保存失败')
@@ -708,6 +732,7 @@ async function disablePlatform() {
     await deleteSystemConfig('platform_ai_key')
     ElMessage.success('已停用（如 .env 中也配置过 DEFAULT_AI_KEY，需同步清除才会完全停用）')
     await loadConfigs()
+    await refreshQuotaAfterConfigChange()
   } catch (e: any) {
     const raw = e.response?.data?.detail
     ElMessage.error(typeof raw === 'string' ? raw : raw?.message || '操作失败')
