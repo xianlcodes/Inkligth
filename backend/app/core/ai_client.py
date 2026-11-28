@@ -65,11 +65,12 @@ async def has_pdf_translate_access(user_id: str) -> tuple[bool, str]:
     """PDF 文献翻译的准入判断 + 通道选择。
 
     通道优先级（2026-11 新增用户偏好）：
-    1. 用户偏好「优先免费额度」（prefer_free）且额度 > 0 且平台已配置 → platform_quota
+    1. 用户偏好「优先免费额度」（prefer_free）且平台可用 → platform_quota
     2. 用户自有引擎 → own_engine（无限量）
     3. 偏好免费但额度耗尽 → 自动回退自有引擎（own_engine）
     4. 无自有引擎且平台未配置/额度耗尽 → none（引导配置）
 
+    平台可用 = 已配置兜底 Key 且（不限量模式 或 余额 > 0）。
     返回 (allowed, source)：source = "own_engine" | "platform_quota" | "none"。
     """
     from app.services.platform_config_service import PlatformConfigService
@@ -77,7 +78,9 @@ async def has_pdf_translate_access(user_id: str) -> tuple[bool, str]:
 
     summary = await QuotaService.get_summary(user_id)
     cfg = await PlatformConfigService.resolve()
-    platform_usable = cfg["configured"] and summary["remaining"] > 0
+    platform_usable = cfg["configured"] and (
+        summary["unlimited"] or summary["remaining"] > 0
+    )
 
     own_engine = await has_user_ai_engine(user_id)
 
@@ -248,7 +251,7 @@ async def get_user_ai_credentials(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "免费体验额度已用完（每用户 1 篇文献）。"
+                "今日免费额度已用完，请明天再试。"
                 "在「AI 设置」中配置自己的 API Key 即可无限使用"
             ),
         )

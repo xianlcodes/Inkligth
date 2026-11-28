@@ -15,9 +15,11 @@ interface User {
   updated_at: string
   // 平台免费额度（/users/me 实时返回）
   has_ai_engine: boolean      // 是否已配置自己的 AI 引擎（自配 Key 无限量）
-  free_translations: number   // 平台免费额度剩余（篇）
+  free_translations: number   // 平台免费额度今日剩余（次，含赠送余额）
   free_translations_used: number
   prefer_free_quota: boolean  // 翻译通道偏好：优先使用免费额度
+  free_quota_unlimited: boolean // 平台不限量模式：免费额度永不耗尽
+  free_quota_daily_limit: number // 每日免费次数上限（正数 = 每日限额模式）
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -54,6 +56,8 @@ export const useAuthStore = defineStore('auth', () => {
       free_translations: 0,
       free_translations_used: 0,
       prefer_free_quota: false,
+      free_quota_unlimited: false,
+      free_quota_daily_limit: 0,
     }
     try {
       await fetchUser()

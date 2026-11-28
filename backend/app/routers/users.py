@@ -35,6 +35,8 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
         data["free_translations"] = summary["remaining"]
         data["free_translations_used"] = summary["used"]
         data["prefer_free_quota"] = summary["prefer_free"]
+        data["free_quota_unlimited"] = summary["unlimited"]
+        data["free_quota_daily_limit"] = summary["daily_limit"]
     except Exception as e:
         # 额度查询失败不阻塞登录态返回，字段保持默认值
         logger.warning("Failed to load quota info for %s: %s", user_id, e)
@@ -63,6 +65,8 @@ async def update_quota_preference(
         summary = await QuotaService.get_summary(user_id)
         out["free_translations"] = summary["remaining"]
         out["free_translations_used"] = summary["used"]
+        out["free_quota_unlimited"] = summary["unlimited"]
+        out["free_quota_daily_limit"] = summary["daily_limit"]
     except Exception as e:
         logger.warning("Failed to load quota info for %s: %s", user_id, e)
     return out

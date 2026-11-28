@@ -27,9 +27,11 @@ class UserResponse(UserBase):
     updated_at: datetime
     # 平台免费额度信息（/users/me 实时返回；其余路径用默认值）
     has_ai_engine: bool = False           # 是否已配置自己的 AI 引擎
-    free_translations: int = 0            # 平台免费额度剩余（篇）
-    free_translations_used: int = 0       # 已消耗次数
+    free_translations: int = 0            # 平台免费额度今日剩余（次，含赠送余额）
+    free_translations_used: int = 0       # 累计消耗次数
     prefer_free_quota: bool = False       # 翻译通道偏好：优先使用免费额度
+    free_quota_unlimited: bool = False    # 平台不限量模式（-1）：免费额度永不耗尽
+    free_quota_daily_limit: int = 0       # 每日免费次数上限（正数 = 每日限额模式）
 
     class Config:
         from_attributes = True

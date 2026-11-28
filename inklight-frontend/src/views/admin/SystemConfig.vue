@@ -56,9 +56,13 @@
             <el-input v-model="platformForm.model" placeholder="glm-4.7-flash" />
             <div class="field-tip warning">⚠ 一定要填免费档模型；填了付费模型会持续消耗你的账户余额。</div>
           </el-form-item>
-          <el-form-item label="每用户赠送">
-            <el-input-number v-model="platformForm.free" :min="0" :max="99" />
-            <span class="field-tip ml-2">篇（新用户注册即送，设为 0 表示不再向新用户赠送）</span>
+          <el-form-item label="开启不限量">
+            <el-switch v-model="platformForm.unlimited" active-text="不限量" inactive-text="按日限额" />
+            <div class="field-tip">开启后所有用户的免费翻译不限次数（下方每日次数设置不再生效）。关闭时按每日次数限额。</div>
+          </el-form-item>
+          <el-form-item label="每日次数">
+            <el-input-number v-model="platformForm.free" :min="0" :max="99" :disabled="platformForm.unlimited" />
+            <span class="field-tip ml-2">次/人/天（不限量未开启时生效；每天自动重置，设为 0 停用免费额度）</span>
           </el-form-item>
 
           <div class="quota-stats text-xs text-slate-500 mb-3">
@@ -493,7 +497,7 @@ const savingPlatform = ref(false)
 const savingPresets = ref(false)
 const recallSaving = ref(false)
 
-const platformForm = ref({ keyInput: '', baseUrl: '', model: '', free: 1 })
+const platformForm = ref({ keyInput: '', baseUrl: '', model: '', unlimited: false, free: 1 })
 const platformKeyMasked = ref('')
 const presetRows = ref<{ provider: string; label: string; base_url: string; model: string; free: boolean; note: string }[]>([])
 const recallEnabled = ref(false)
@@ -655,6 +659,8 @@ function syncPlatformForm() {
   platformForm.value.keyInput = '' // 掩码不回填输入框，留空=保持现状
   platformForm.value.baseUrl = findByKey('platform_ai_base_url')?.value || ''
   platformForm.value.model = findByKey('platform_ai_model')?.value || ''
+  const unlimitedRaw = (findByKey('platform_quota_unlimited')?.value || '').trim().toLowerCase()
+  platformForm.value.unlimited = unlimitedRaw === 'true' || unlimitedRaw === '1'
   platformForm.value.free = Number(findByKey('platform_free_translations')?.value ?? 1) || 0
 }
 
@@ -679,6 +685,7 @@ async function savePlatform() {
     }
     await updateSystemConfig('platform_ai_base_url', { value: platformForm.value.baseUrl.trim() })
     await updateSystemConfig('platform_ai_model', { value: platformForm.value.model.trim() })
+    await updateSystemConfig('platform_quota_unlimited', { value: platformForm.value.unlimited ? 'true' : 'false' })
     await updateSystemConfig('platform_free_translations', { value: String(platformForm.value.free) })
     ElMessage.success('平台免费额度设置已保存，立即生效')
     await loadConfigs()

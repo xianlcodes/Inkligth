@@ -1,10 +1,11 @@
 """平台 AI 配置：管理员在后台「系统配置」页可视化管理的免费额度凭据。
 
-四个 SystemConfig 键（category=platform，运行时生效，无需重启）：
+五个 SystemConfig 键（category=platform，运行时生效，无需重启）：
 - platform_ai_key:             平台兜底 API Key（**Fernet 加密存储**，接口只回掩码）
 - platform_ai_base_url:        兜底服务地址（默认智谱）
 - platform_ai_model:           免费档模型（默认 glm-4.7-flash；勿填付费模型以免消耗余额）
-- platform_free_translations:  每用户赠送翻译篇数（默认 1）
+- platform_quota_unlimited:    不限量开关（开启后免费额度不限次数，每日次数设置失效）
+- platform_free_translations:  每用户每日免费翻译次数（不限量未开启时生效；默认 1）
 
 解析优先级：SystemConfig 后台值（非空时）→ .env 环境变量 → 内置默认。
 后台保存行为（platform_ai_key 特殊处理）：
@@ -15,7 +16,7 @@
 import json
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.config import settings
 from app.db.database import AlibabaSessionLocal
@@ -25,6 +26,9 @@ from app.services.ai_engine_service import decrypt_api_key, encrypt_api_key, mas
 logger = logging.getLogger(__name__)
 
 SECRET_KEY_NAME = "platform_ai_key"
+
+# 不限量开关：开启后免费额度不限次数（每日次数设置失效）
+UNLIMITED_KEY = "platform_quota_unlimited"
 
 # 配置项在管理页的分组归属：其余键归入「平台免费额度」卡片
 RECALL_SWITCH_KEY = "recall_emails_enabled"
@@ -59,7 +63,8 @@ _CONFIG_LABELS = {
     "platform_ai_key": "平台兜底 API Key",
     "platform_ai_base_url": "平台兜底服务地址",
     "platform_ai_model": "平台兜底模型（免费档）",
-    "platform_free_translations": "每用户赠送翻译篇数",
+    UNLIMITED_KEY: "开启不限量额度",
+    "platform_free_translations": "每用户每日免费翻译次数",
 }
 
 _CONFIG_DESCRIPTIONS = {
@@ -79,7 +84,8 @@ _CONFIG_DESCRIPTIONS = {
     "platform_ai_key": "新用户免费翻译使用的服务 Key。保存后立即生效；列表中只显示掩码，提交含****的值表示不修改。",
     "platform_ai_base_url": "平台免费额度调用的服务地址（OpenAI 兼容）。",
     "platform_ai_model": "平台免费额度调用的模型。务必使用免费档模型（如 glm-4.7-flash），填付费模型会消耗账户余额！",
-    "platform_free_translations": "每个新用户注册赠送的 PDF 文献翻译次数（篇）。设为 0 停止向新用户赠送。",
+    UNLIMITED_KEY: "开启后所有用户的平台免费翻译不再限次数（下方每日次数设置不再生效）。关闭时按「每用户每日免费翻译次数」限额。",
+    "platform_free_translations": "不限量未开启时，每个用户每天可用的平台免费 PDF 翻译次数，每天自动重置。设为 0 停用免费额度。签到里程碑奖励的赠送额度在每日次数用完后自动启用。（填 -1 等效于开启不限量，兼容旧写法）",
 }
 
 _BUILTIN_DEFAULTS = {
@@ -92,6 +98,7 @@ _BUILTIN_DEFAULTS = {
     "platform_ai_key": "",  # 默认无：未配置时平台免费额度停用
     "platform_ai_base_url": "https://open.bigmodel.cn/api/paas/v4",
     "platform_ai_model": "glm-4.7-flash",
+    UNLIMITED_KEY: "false",
     "platform_free_translations": "1",
 }
 
@@ -129,11 +136,13 @@ class PlatformConfigService:
                     SECRET_KEY_NAME: "platform",
                     "platform_ai_base_url": "platform",
                     "platform_ai_model": "platform",
+                    UNLIMITED_KEY: "platform",
                     "platform_free_translations": "platform",
                     "recall_emails_enabled": "notification",
                 }
                 type_of = {
                     PROVIDER_PRESETS_KEY: "textarea",
+                    UNLIMITED_KEY: "toggle",
                     "platform_free_translations": "number",
                     "recall_emails_enabled": "toggle",
                     "recall_no_upload_subject": "text",
@@ -157,6 +166,17 @@ class PlatformConfigService:
                 if missing:
                     await db.commit()
                     logger.info("平台 AI 配置项已写入系统配置: %s", sorted(missing))
+                # 语义变更时同步刷新说明/名称（仅 label/description，不覆盖管理员配置的 value）：
+                # platform_free_translations 语义为「每人每天 N 次」，老库的旧文案看不到新语义提示
+                await db.execute(
+                    update(SystemConfig)
+                    .where(SystemConfig.key == "platform_free_translations")
+                    .values(
+                        label=_CONFIG_LABELS["platform_free_translations"],
+                        description=_CONFIG_DESCRIPTIONS["platform_free_translations"],
+                    )
+                )
+                await db.commit()
         except Exception as e:
             logger.warning("平台 AI 配置种子写入失败（不影响启动）: %s", e)
 
@@ -172,10 +192,39 @@ class PlatformConfigService:
         return str(row.value).strip()
 
     @staticmethod
+    async def get_free_translations() -> tuple[int, bool]:
+        """解析免费额度配置（不解密兜底 Key，供额度服务高频调用）。
+
+        返回 (daily_limit, unlimited)：
+        - platform_quota_unlimited 开关开启 → unlimited=True，daily_limit 归 0，
+          额度逻辑全部走不限量分支；
+        - 关闭时 daily_limit = platform_free_translations 值（每人每天次数，
+          0 = 停用；-1 为兼容旧写法，等效于开启不限量）。
+        优先级：后台配置 → 环境变量 PLATFORM_FREE_TRANSLATIONS → 内置默认。
+        """
+        raw_toggle = await PlatformConfigService._get_raw(UNLIMITED_KEY)
+        unlimited = bool(raw_toggle) and raw_toggle.strip().lower() in ("true", "1")
+        if unlimited:
+            # 不限量：daily_limit 归 0，所有额度判断走 unlimited 分支
+            return 0, True
+
+        raw = await PlatformConfigService._get_raw("platform_free_translations")
+        raw = raw or str(settings.PLATFORM_FREE_TRANSLATIONS)
+        try:
+            val = int(raw)
+        except ValueError:
+            logger.warning("platform_free_translations 配置非法（%r），回退默认 1", raw)
+            return 1, False
+        if val == -1:
+            # 兼容旧写法：-1 等效于开启不限量
+            return 0, True
+        return max(0, val), False
+
+    @staticmethod
     async def resolve() -> dict:
         """解析平台兜底凭据：DB 优先 → 环境变量 → 内置默认。
 
-        返回 {key, base_url, model, free_translations, configured}；
+        返回 {key, base_url, model, free_translations, unlimited, configured}；
         key 为解密后的明文，仅供服务端调用使用。
         """
         # key：后台密文 → 解密；失败视为未配置（防止改坏后全站报错）
@@ -189,7 +238,7 @@ class PlatformConfigService:
         if not key:
             key = settings.DEFAULT_AI_KEY or None
 
-        # base_url / model / 篇数：后台值 → 环境变量 → 内置默认
+        # base_url / model：后台值 → 环境变量 → 内置默认
         base_url = await PlatformConfigService._get_raw("platform_ai_base_url") \
             or settings.DEFAULT_AI_BASE_URL \
             or _BUILTIN_DEFAULTS["platform_ai_base_url"]
@@ -198,19 +247,15 @@ class PlatformConfigService:
             or settings.PLATFORM_FALLBACK_MODEL \
             or _BUILTIN_DEFAULTS["platform_ai_model"]
 
-        raw_free = await PlatformConfigService._get_raw("platform_free_translations")
-        raw_free = raw_free or str(settings.PLATFORM_FREE_TRANSLATIONS)
-        try:
-            free_translations = max(0, int(raw_free))
-        except ValueError:
-            logger.warning("platform_free_translations 配置非法（%r），回退默认 1", raw_free)
-            free_translations = 1
+        # 篇数：-1 = 不限量（复用轻量解析，避免重复读取）
+        free_translations, unlimited = await PlatformConfigService.get_free_translations()
 
         return {
             "key": key,
             "base_url": base_url,
             "model": model,
             "free_translations": free_translations,
+            "unlimited": unlimited,
             "configured": bool(key),
         }
 

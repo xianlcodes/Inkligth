@@ -22,9 +22,12 @@
           <div class="flex-1">
             <div class="ob-step-title">完成一次文献翻译</div>
             <div class="ob-step-desc">
-              你的免费额度还剩
-              <strong>{{ authStore.user?.free_translations ?? 0 }}</strong>
-              篇（保留原排版的双语对照）
+              <template v-if="authStore.user?.free_quota_unlimited">平台免费额度不限量（保留原排版的双语对照）</template>
+              <template v-else>
+                今日免费额度还剩
+                <strong>{{ authStore.user?.free_translations ?? 0 }}</strong>
+                次（保留原排版的双语对照）
+              </template>
             </div>
           </div>
           <el-button v-if="!stepTranslateDone" size="small" @click="$router.push('/literature')">去翻译</el-button>

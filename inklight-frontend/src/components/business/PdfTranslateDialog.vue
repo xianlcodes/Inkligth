@@ -14,8 +14,8 @@
           <span class="channel-label">翻译通道：</span>
           <el-radio-group v-model="channel" size="small">
             <el-radio-button value="own">我的 Key（无限量）</el-radio-button>
-            <el-radio-button value="free" :disabled="platformRemaining <= 0">
-              免费额度（剩 {{ platformRemaining }} 篇）
+            <el-radio-button value="free" :disabled="!platformUnlimited && platformRemaining <= 0">
+              {{ platformUnlimited ? '免费额度（不限量）' : `免费额度（今日剩 ${platformRemaining} 次）` }}
             </el-radio-button>
           </el-radio-group>
         </div>
@@ -27,18 +27,20 @@
           class="mb-3"
         >
           <template #title>
-            本次翻译使用平台免费体验额度（剩余 {{ platformRemaining }} 篇），用完自动切回你的 Key。
+            {{ platformUnlimited
+              ? '本次翻译使用平台免费额度（不限量），可随时改用自己的 Key。'
+              : `本次翻译使用平台免费额度（今日剩余 ${platformRemaining} 次），次日自动恢复。` }}
           </template>
         </el-alert>
         <el-alert
-          v-if="!hasOwnEngine && platformRemaining <= 0"
+          v-if="!hasOwnEngine && !platformUnlimited && platformRemaining <= 0"
           type="warning"
           :closable="false"
           show-icon
           class="mb-3"
         >
           <template #title>
-            免费体验额度已用完。配置自己的 AI Key 后即可无限使用。
+            今日免费额度已用完，明天自动恢复。配置自己的 AI Key 后即可无限使用。
           </template>
         </el-alert>
         <el-form label-position="top" size="default">
@@ -259,14 +261,21 @@ const submitting = ref(false)
 const usingPlatformQuota = ref(false)
 /** 翻译通道选择：own = 自有 Key（无限量），free = 平台免费额度 */
 const channel = ref<'own' | 'free'>('own')
+
+// store 实例：必须在 setup 顶层声明（computed 和 watch 引用它们）
+const aiEngineStore = useAiEngineStore()
+const authStore = useAuthStore()
+
 const hasOwnEngine = computed(() => !!aiEngineStore.defaultEngine)
+const platformRemaining = computed(() => authStore.user?.free_translations ?? 0)
+/** 平台不限量模式（后台配置 -1）：免费额度永不耗尽 */
+const platformUnlimited = computed(() => !!authStore.user?.free_quota_unlimited)
 
 // 弹窗打开时按账号偏好初始化通道
 watch(visible, (v) => {
   if (!v) return
   channel.value = authStore.user?.prefer_free_quota ? 'free' : 'own'
 })
-const platformRemaining = computed(() => authStore.user?.free_translations ?? 0)
 /** 下载进行中：防止连续点击堆积请求（曾导致同一秒 17 个下载请求把连接池打满） */
 const downloading = ref(false)
 const previewing = ref(false)
@@ -377,11 +386,12 @@ async function handleStartTranslate() {
   // 双轨计费：按用户选择的通道（下拉选择会持久化为账号偏好）
   const hasOwnEngine = !!aiEngineStore.defaultEngine
   const platformQuota = authStore.user?.free_translations ?? 0
+  const platformUnlimited = !!authStore.user?.free_quota_unlimited
   const wantFree = channel.value === 'free'
-  if (!hasOwnEngine && platformQuota <= 0) {
+  if (!hasOwnEngine && !platformUnlimited && platformQuota <= 0) {
     try {
       await ElMessageBox.confirm(
-        '免费体验额度已用完（每用户 1 篇文献）。配置自己的 AI Key 后即可无限使用翻译、AI 问答、PPT 等全部功能。是否前往 AI 设置？',
+        '今日免费额度已用完，明天自动恢复；配置自己的 AI Key 后即可无限使用翻译、AI 问答、PPT 等全部功能。是否前往 AI 设置？',
         '提示',
         { confirmButtonText: '去配置', cancelButtonText: '取消', type: 'warning' },
       )

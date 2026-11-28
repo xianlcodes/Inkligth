@@ -37,6 +37,10 @@ _MONO_MODE_ALIASES = {"mono", "translated", "translation_only", "chinese_only"}
 # 译文大面积失败（多半是模型/密钥配置问题）时中止任务，避免继续烧额度并输出未翻译的 PDF
 _DEGRADED_MIN_CALLS = 6
 _DEGRADED_FAILURE_RATIO = 0.5
+# 平台免费额度翻译的阈值放宽：GLM 免费档限流是临时性的，串行重试后可恢复，
+# 不应因此中止任务（用户反馈：限流导致 32/63 段失败被中止，用户体验差）
+_DEGRADED_MIN_CALLS_PLATFORM = 20
+_DEGRADED_FAILURE_RATIO_PLATFORM = 0.8
 
 _executor = ThreadPoolExecutor(max_workers=1)
 
@@ -72,7 +76,7 @@ class Pdf2ZhTranslatorAdapter:
 
     def __init__(self, api_key, base_url, model,
                  source_lang="en", target_lang="zh", cancel_check=None,
-                 timeout=300.0):
+                 timeout=300.0, concurrency: int = 4):
         self._api_key = api_key
         self._base_url = base_url
         self._model = model
@@ -81,9 +85,26 @@ class Pdf2ZhTranslatorAdapter:
         self.lang_out = target_lang  # TranslateConverter 需要此属性
         self._cancel_check = cancel_check
         self._timeout = timeout
+        self._concurrency = concurrency
         self.total_calls = 0   # 请求翻译的段落数
         self.failed_calls = 0  # 未能返回可用译文的段落数
         self._last_error_hint = ""  # 最近一次失败的用户可读原因，用于中止提示
+
+    def is_degraded(self) -> bool:
+        """失败率过高时返回 True，由调用方中止任务。
+
+        平台免费额度使用更宽松的阈值：GLM 免费档限流是临时性的，
+        串行重试后可恢复，不应因此中止用户的翻译任务。
+        """
+        if self._concurrency <= 1:
+            # 平台额度串行模式：限流是预期行为，用更宽松的阈值
+            if self.total_calls < _DEGRADED_MIN_CALLS_PLATFORM:
+                return False
+            return self.failed_calls / max(self.total_calls, 1) >= _DEGRADED_FAILURE_RATIO_PLATFORM
+        # 自有 Key 并发模式：正常阈值
+        if self.total_calls < _DEGRADED_MIN_CALLS:
+            return False
+        return self.failed_calls / max(self.total_calls, 1) >= _DEGRADED_FAILURE_RATIO
 
     @staticmethod
     def _classify_failure(e: Exception) -> tuple[str, str]:
@@ -138,12 +159,6 @@ class Pdf2ZhTranslatorAdapter:
             except Exception:
                 pass
             loop.close()
-
-    def is_degraded(self) -> bool:
-        """失败率过高时返回 True，由调用方中止任务。"""
-        if self.total_calls < _DEGRADED_MIN_CALLS:
-            return False
-        return self.failed_calls / max(self.total_calls, 1) >= _DEGRADED_FAILURE_RATIO
 
     def degraded_reason(self) -> str:
         base = (
@@ -210,6 +225,7 @@ class PdfRenderService:
         output_mode: str = "mono",
         progress_callback: Optional[Callable[[int, str], None]] = None,
         cancel_check: Optional[Callable[[], bool]] = None,
+        concurrency: int = 4,
     ) -> bytes:
         async def report(pct: int, msg: str):
             if progress_callback:
@@ -317,7 +333,7 @@ class PdfRenderService:
         device = InkLightTranslateConverter(
             rsrcmgr,
             translator=translator_adapter,
-            thread=4,
+            thread=concurrency,
             layout=layout,
             noto_name=_NOTI_NAME,
             noto=noto_font,

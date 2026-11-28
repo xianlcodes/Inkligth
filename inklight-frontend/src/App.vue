@@ -15,7 +15,8 @@
         <span class="sidebar-logo-text font-bold whitespace-nowrap">InkLight</span>
         <button class="sidebar-toggle-btn flex items-center justify-center w-[36px] h-[36px] border rounded-lg ml-auto flex-shrink-0 cursor-pointer"
                 @click="toggleSidebar" :title="sidebarCollapsed ? '展开菜单' : '折叠菜单'">
-          <el-icon><component :is="sidebarCollapsed ? Expand : Fold" /></el-icon>
+          <!-- 折叠/展开图标：PanelLeftClose / PanelLeftOpen（lucide 无 Fold/Expand，旧写法解析不到图标导致按钮渲染成空壳） -->
+          <el-icon :size="18"><component :is="sidebarCollapsed ? PanelLeftOpen : PanelLeftClose" /></el-icon>
         </button>
       </div>
       <el-menu
@@ -87,8 +88,10 @@
           <span class="text-sm font-medium">自有 Key · 无限量</span>
         </div>
         <div v-if="authStore.user.has_ai_engine" class="sidebar-quota-remaining text-xs mt-1">
-          免费额度剩余
-          <span class="font-semibold">{{ authStore.user.free_translations ?? 0 }}</span> 篇
+          <template v-if="quotaUnlimited">平台额度 · 不限量</template>
+          <template v-else>今日免费额度剩余
+            <span class="font-semibold">{{ authStore.user.free_translations ?? 0 }}</span> 次
+          </template>
         </div>
         <div
           v-if="authStore.user.has_ai_engine"
@@ -97,24 +100,24 @@
           <el-switch
             size="small"
             v-model="preferFreeQuota"
-            :disabled="quotaSwitchSaving || (authStore.user.free_translations ?? 0) <= 0"
+            :disabled="quotaSwitchSaving || (!quotaUnlimited && (authStore.user.free_translations ?? 0) <= 0)"
             @change="togglePreferFree"
           />
           <span class="text-xs">优先用免费额度</span>
         </div>
         <template v-else>
           <div class="sidebar-quota-text flex items-baseline gap-0_5">
-            <span class="text-lg font-bold">{{ authStore.user.free_translations ?? 0 }}</span>
-            <span class="text-xs">篇可翻译</span>
+            <span class="text-lg font-bold">{{ quotaUnlimited ? '不限量' : (authStore.user.free_translations ?? 0) }}</span>
+            <span class="text-xs">{{ quotaUnlimited ? '免费翻译' : '次 · 今日可用' }}</span>
           </div>
           <div
             class="sidebar-quota-remaining text-xs mt-0_5"
-            :class="{ warning: (authStore.user.free_translations ?? 0) <= 0 }"
+            :class="{ warning: !quotaUnlimited && (authStore.user.free_translations ?? 0) <= 0 }"
           >
-            {{ (authStore.user?.free_translations ?? 0) > 0 ? '上传文献即可使用' : '额度已用完' }}
+            {{ quotaUnlimited || (authStore.user?.free_translations ?? 0) > 0 ? '上传文献即可使用，明天自动恢复' : '今日额度已用完，明天自动恢复' }}
           </div>
           <el-button size="small" text type="primary" class="mt-1 quota-go-btn" @click="goQuotaTarget">
-            {{ (authStore.user?.free_translations ?? 0) > 0 ? '去翻译文献' : '去配置 AI Key' }}
+            {{ quotaUnlimited || (authStore.user?.free_translations ?? 0) > 0 ? '去翻译文献' : '去配置 AI Key' }}
             <el-icon :size="12"><ArrowRight /></el-icon>
           </el-button>
         </template>
@@ -428,8 +431,15 @@ async function loadHeaderAnnouncements() {
   }
 }
 
+// 平台不限量模式（后台配置 -1）：额度显示与门槛全部放行
+const quotaUnlimited = computed(() => !!authStore.user?.free_quota_unlimited)
+
 function goQuotaTarget() {
-  router.push((authStore.user?.free_translations ?? 0) > 0 ? '/literature' : '/settings/ai')
+  if (quotaUnlimited.value || (authStore.user?.free_translations ?? 0) > 0) {
+    router.push('/literature')
+  } else {
+    router.push('/settings/ai')
+  }
 }
 
 // 翻译通道偏好（自有 Key 用户可切换：优先消耗免费额度，省自己的余额）

@@ -465,7 +465,7 @@ async def start_full_translate(
     if not await has_user_ai_engine(str(current_user.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"},
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每日限额）。请在「AI 设置」中配置后使用"},
         )
 
     async with _active_translations_lock:
@@ -1071,7 +1071,7 @@ async def start_analyze(
     if not await has_user_ai_engine(str(current_user.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"},
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每日限额）。请在「AI 设置」中配置后使用"},
         )
 
     existing = await AnalysisService.get_analysis_by_literature(db, current_user.id, literature_id)
@@ -1181,7 +1181,7 @@ async def generate_ppt(
     if not await has_user_ai_engine(str(current_user.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每用户 1 篇）。请在「AI 设置」中配置后使用"},
+            detail={"code": "AI_ENGINE_NOT_CONFIGURED", "message": "此功能需要配置自己的 AI Key：平台免费额度仅限 PDF 文献翻译（每日限额）。请在「AI 设置」中配置后使用"},
         )
 
     task = await task_store.create_task("ppt_generation", user_id=str(current_user.id))
@@ -1413,7 +1413,7 @@ async def start_pdf_translate(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "code": "FREE_QUOTA_EXHAUSTED",
-                "message": "免费体验额度已用完（每用户 1 篇文献）。在「AI 设置」中配置自己的 API Key 即可无限使用",
+                "message": "今日免费额度已用完，请明天再试；在「AI 设置」中配置自己的 API Key 即可无限使用",
             },
         )
     if source == "platform_quota":
@@ -1424,7 +1424,7 @@ async def start_pdf_translate(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "code": "FREE_QUOTA_EXHAUSTED",
-                    "message": "免费体验额度已用完（每用户 1 篇文献）。在「AI 设置」中配置自己的 API Key 即可无限使用",
+                    "message": "今日免费额度已用完，请明天再试；在「AI 设置」中配置自己的 API Key 即可无限使用",
                 },
             )
         used_platform_quota = True
@@ -1727,6 +1727,11 @@ async def _run_pdf_translate(
         await report_progress(20, "准备翻译...")
 
         # ✅ 修改点 2：改传 api_key + base_url
+        api_key, base_url, model = await get_user_ai_credentials(user_id, source=credential_source)
+
+        # 平台免费额度用串行翻译（GLM 免费档并发限制低，串行避免限流导致大面积失败）
+        concurrency = 1 if credential_source == "platform_quota" else 4
+
         output_bytes = await pdf_render_service.build_translated_pdf(
             source_pdf_path=file_path,
             api_key=api_key,
@@ -1737,6 +1742,7 @@ async def _run_pdf_translate(
             output_mode=output_mode,
             progress_callback=report_progress,
             cancel_check=cancel_check,
+            concurrency=concurrency,
         )
 
         raise_if_cancelled()
